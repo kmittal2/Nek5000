@@ -367,6 +367,8 @@ C        the initial condition menu
       ITEM(NCHOIC)='OBJECT'
       NCHOIC=NCHOIC+1
       ITEM(NCHOIC)='ZOOM'
+      NCHOIC=NCHOIC+1
+      ITEM(NCHOIC)='SMOOTH'
 
 c     NCHOIC=NCHOIC+1
 c     ITEM(NCHOIC)='RSB'

@@ -24,7 +24,9 @@ c     intype = -1  (implicit)
       common /cgmres1/ y(lgmres)
 
       real alpha, l, temp
-      integer j,m
+      integer j,m,i,k
+      real condv,maxev,minev,maxeig,mineig,maxcond
+      real hc(lgmres,lgmres)
 c
       logical iflag
       save    iflag
@@ -34,6 +36,9 @@ c
 c
       real*8 etime1,dnekclock
 c
+      condv = -1.e7
+      maxev = -1.e7
+      minev = 1.e7
       if(.not.iflag) then
          iflag=.true.
          call uzawa_gmres_split0(ml,mu,bm2,bm2inv,nx2*ny2*nz2*nelv)
@@ -59,6 +64,7 @@ c
       call rzero(x,ntot2)
 
       do while(iconv.eq.0.and.iter.lt.100)
+         call rzero(hc,lgmres**2)
 
          if(iter.eq.0) then
                                                   !      -1
@@ -107,39 +113,21 @@ c              call copy(z(1,j),w,ntot2)          ! z  = M   w
                                                   !      -1
             call col2(w,ml,ntot2)                 ! w = L   w
 
-c           !modified Gram-Schmidt
-c           do i=1,j
-c              h(i,j)=glsc2(w,v(1,i),ntot2)       ! h    = (w,v )
-c                                                 !  i,j       i
-c              call add2s2(w,v(1,i),-h(i,j),ntot2)! w = w - h    v
-c           enddo                                 !          i,j  i
-
-
 c           2-PASS GS, 1st pass:
 
             do i=1,j
                h(i,j)=vlsc2(w,v(1,i),ntot2)       ! h    = (w,v )
+               hc(i,j) = h(i,j)
             enddo                                 !  i,j       i
 
             call gop(h(1,j),wk1,'+  ',j)          ! sum over P procs
+            call gop(hc(1,j),wk1,'+  ',j)
 
             do i=1,j
                call add2s2(w,v(1,i),-h(i,j),ntot2)! w = w - h    v
             enddo                                 !          i,j  i
 
-
-c           2-PASS GS, 2nd pass:
-c
-c           do i=1,j
-c              wk1(i)=vlsc2(w,v(1,i),ntot2)       ! h    = (w,v )
-c           enddo                                 !  i,j       i
-c                                                 !
-c           call gop(wk1,wk2,'+  ',j)             ! sum over P procs
-c
-c           do i=1,j
-c              call add2s2(w,v(1,i),-wk1(i),ntot2)! w = w - h    v
-c              h(i,j) = h(i,j) + wk1(i)           !          i,j  i
-c           enddo
+            hc(j+1,j) = sqrt(glsc2(w,w,ntot2))
 
 
             !apply Givens rotations to new column
@@ -180,7 +168,16 @@ c            call outmat(h,m,j,' h    ',j)
                                                  !  j+1            
          enddo
   900    iconv = 1
- 1000    continue
+ 1000    call getcondmax(hc,lgmres,j,'i',maxcond,maxeig,mineig) 
+         if (maxeig.gt.maxev) maxev = maxeig
+         if (mineig.lt.minev) minev = mineig
+         if (maxcond.gt.condv) condv = maxcond
+c         do i=1,j
+c         do k=1,i+1
+c            write(6,*) i,k,hc(k,i),h(k,i),'i,k,hc,h'
+c         enddo
+c         enddo
+         continue
          !back substitution
          !     -1
          !c = H   gamma
@@ -199,7 +196,18 @@ c            call outmat(h,m,j,' h    ',j)
 c        if(iconv.eq.1) call dbg_write(x,nx2,ny2,nz2,nelv,'esol',3)
       enddo
  9000 continue
-c
+
+      maxeig = glmax(maxev,1)
+      mineig = glmin(minev,1)
+      maxcond = glmax(condv,1)
+      if (nid.eq.0) then
+      write(6,9998) istep,iter,maxeig,mineig,maxcond
+ 9998 format(I10,' ',I4,' ',1p3e12.4,' k10cond')
+      endif
+         
+
+
+
       divex = rnorm
 c     iter = iter - 1
 c

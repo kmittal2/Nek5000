@@ -4346,10 +4346,9 @@ c-----------------------------------------------------------------------
       call gen_neigh
       n1 = nel 
       n=0
-      write(6,*) 'Trying to fix internal boundary conditions'
       do j=1,1 
       do e=1,nel
-      do f=1,6
+      do f=1,2*ndim
        if(cbc (f,e,j).ne.'E  ') then
          call get_neigh(e,f,e2,f2)
          if (e2.ne.0) cbc(f,e,j) = 'E  '
@@ -4357,6 +4356,70 @@ c-----------------------------------------------------------------------
       enddo
       enddo
       enddo
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine set_bc_at_loc(str,xyz,val)
+      include 'basics.inc'
+c   This sets the bc = str for all the faces/edges whose xyz (input 1,2 or 3) 
+c   coordinate value is val
+      integer nnod,n,e,i,f,j,n1
+      integer efc(4,6),xyz
+      real val
+      data    efc  / 1,2,5,6
+     $             , 2,3,6,7
+     $             , 3,4,7,8
+     $             , 4,1,8,5
+     $             , 1,2,3,4
+     $             , 5,6,7,8 /
+      character*3 str
+
+      if (xyz.eq.1) then
+      nnod = 2+(ndim-2)*2 !
+      tol = 1.e-6
+      do e=1,nel
+      do f=1,2*ndim
+         n=0
+         do j=1,nnod
+           n1 = efc(j,f)
+           if (abs(x(n1,e)-val).lt.tol) n=n+1
+         enddo
+           if (n.eq.nnod) cbc(f,e,1) = str
+      enddo
+      enddo
+      elseif (xyz.eq.2) then
+
+      nnod = 2+(ndim-2)*2 !
+      tol = 1.e-6
+      do e=1,nel
+      do f=1,2*ndim
+         n=0
+         do j=1,nnod
+           n1 = efc(j,f)
+           if (abs(y(n1,e)-val).lt.tol) n=n+1
+         enddo
+           if (n.eq.nnod) cbc(f,e,1) = str
+      enddo
+      enddo
+
+      elseif (xyz.eq.3) then
+
+      nnod = 2+(ndim-2)*2 !
+      tol = 1.e-6
+      do e=1,nel
+      do f=1,2*ndim
+         n=0
+         do j=1,nnod
+           n1 = efc(j,f)
+           if (abs(z(n1,e)-val).lt.tol) n=n+1
+         enddo
+           if (n.eq.nnod) cbc(f,e,1) = str
+      enddo
+      enddo
+
+      endif
+
+
       return
       end
 c-----------------------------------------------------------------------

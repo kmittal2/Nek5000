@@ -414,6 +414,12 @@ c        call saddle_fcc     (dlat,sphrad,xlat0)
          call rzero(xlat0,3)
          call rhombic_dodec  (dlat,xlat0,if_sph_ctr)
          return
+
+      elseif (hemi.eq.'k'.or.hemi.eq.'K') then
+         write(6,*) 'dimitrios option selected'
+c         call k10dimroutine
+         call k10dimroutine2
+         return
 c
       endif
 C
@@ -4345,6 +4351,210 @@ c     call midside_convert_all ! Convert all elements to midside?
 
       call mark (1,2,0.5,isplit)  ! Zipper pipe element 1, side 2
       call split(0.5,isplit)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine k10dimroutine
+      include 'basics.inc'
+      integer nx,ny,e1,e2,i,f,j,k,e,m,n,n1,n2
+      integer tst
+      integer efc(4,6)
+      data    efc  / 1,2,5,6
+     $             , 2,3,6,7
+     $             , 3,4,7,8
+     $             , 4,1,8,5
+     $             , 1,2,3,4
+     $             , 5,6,7,8 /
+
+      call prs ('Input the x and y limit:$')
+      call prs ('the second number should be odd for periodicity:$')
+      call reii(nx,ny)
+
+      ny = ny+1
+
+      e1 = nel !these are the number of elements in the mesh already
+      etemplate1 = nelm-3
+      etemplate0 = etemplate1  - (e1-1)
+      call copy_sub_mesh(1,nel,etemplate0)
+      !now the template mesh has been copied to the end of the grid
+
+!     now let's start copying
+      e2 = 1 
+
+      do i=1,nx
+       dx = 0.5+(i-1)
+       tst = 1-mod(i,2)
+       do j=1,ny+tst
+        dy = 0.5+(j-1)-tst*0.5
+        call copy_sub_mesh(etemplate0,etemplate1,e2)
+        call translate_sub_mesh(e2,e2+e1-1,dx,dy,0.)
+        e2 = e2+e1
+       enddo
+      enddo
+
+      nel = e2-1
+
+      call fix_internal_bcs
+
+      e1 = nel !these are the number of elements in the mesh already
+      etemplate1 = nelm-3
+      etemplate0 = etemplate1  - (e1-1)
+      call copy_sub_mesh(1,nel,etemplate0)
+      !now remove elements out of the desired range
+      tol = 1.e-5
+      ylim1 = 0.5-tol
+      ylim2 = ny-0.5+tol
+
+
+      e2 = 0
+      do e=etemplate0,etemplate1
+       tst = 0
+      do k=1,8
+        if (y(k,e).gt.ylim2.or.y(k,e).lt.ylim1) tst = 1
+      enddo
+      if (tst.eq.0) then
+        e2=e2+1
+        call copy_sub_mesh(e,e,e2)
+      endif
+      enddo
+
+      nel = e2
+
+      call redraw_mesh
+
+      ylim1 = 0.5
+      ylim2 = ny+0.5
+      xlim1 = 0.
+      xlim2 = nx
+      n2 = 0
+      do e=1,e2
+      do f=1,6
+      tst=0
+      do j=1,4
+         n1 = efc(j,f)
+       if (abs(y(n1,e)-ylim1).lt.tol.or.abs(y(n1,e)-ylim2).lt.tol.or.
+     $  abs(x(n1,e)-xlim1).lt.tol.or.abs(x(n1,e)-xlim2).lt.tol) then
+              tst = tst+1
+       endif
+       if (tst.eq.4) cbc(f,e,1) = 'P  '
+       if (tst.eq.4) n2=n2+1
+       if (tst.eq.4) write(6,*) n2,f,e
+      enddo
+      enddo
+      enddo
+      write(6,*) 'Number of periodic surfaces is ',n2
+      call fix_internal_bcs
+      call set_bc_at_loc('W  ',3,0.)
+c     
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine k10dimroutine2
+      include 'basics.inc'
+      integer nx,ny,e1,e2,i,f,j,k,e,m,n,n1,n2
+      integer tst
+      integer efc(4,6)
+      real xr,yr
+      data    efc  / 1,2,5,6
+     $             , 2,3,6,7
+     $             , 3,4,7,8
+     $             , 4,1,8,5
+     $             , 1,2,3,4
+     $             , 5,6,7,8 /
+
+      call prs ('Input the x and y limit:$')
+      call prs ('the x number must be even:$')
+      call reii(nx,ny)
+
+      nx = nx+1
+      ny = ny+1
+      xmax=glmax(x27,nel*27)
+      ymax=glmax(y27,nel*27)
+      xmin=glmin(x27,nel*27)
+      ymin=glmin(y27,nel*27)
+c      write(6,*) xmax,ymax,xmin,ymin,'k10xymaxmin'
+
+      e1 = nel !these are the number of elements in the mesh already
+      etemplate1 = nelm-3
+      etemplate0 = etemplate1  - (e1-1)
+      call copy_sub_mesh(1,nel,etemplate0)
+      !now the template mesh has been copied to the end of the grid
+
+!     now let's start copying
+      e2 = 1 
+
+      do i=1,nx
+       dx = 1.5*xmax*(i-1)
+       tst = 1-mod(i,2)
+       do j=1,ny+tst
+        dy = 2*ymax*(j-1)-tst*ymax
+        call copy_sub_mesh(etemplate0,etemplate1,e2)
+        call translate_sub_mesh(e2,e2+e1-1,dx,dy,0.)
+        e2 = e2+e1
+c        write(6,*) i,j,dx,dy,e1,e2,'k10ijdxdye1e2'
+       enddo
+      enddo
+
+      nel = e2-1
+
+c      call fix_internal_bcs
+
+      e1 = nel !these are the number of elements in the mesh already
+      etemplate1 = nelm-3
+      etemplate0 = etemplate1  - (e1-1)
+      call copy_sub_mesh(1,nel,etemplate0)
+      !now remove elements out of the desired range
+      tol = 1.e-6
+      ylim1 = 0.5-tol
+      ylim2 = ny-0.5+tol
+      xlim1 = 0-tol
+      xlim2 = (nx-1)*1.5*xmax+tol
+
+      write(6,*) 'remove xy',xlim1,xlim2,ylim1,ylim2
+
+
+      e2 = 0
+      do e=etemplate0,etemplate1
+       tst = 0
+      do k=1,8
+        if (y(k,e).gt.ylim2.or.y(k,e).lt.ylim1
+     $  .or.x(k,e).gt.xlim2.or.x(k,e).lt.xlim1) tst = 1
+      enddo
+      if (tst.eq.0) then
+        e2=e2+1
+        call copy_sub_mesh(e,e,e2)
+      endif
+      enddo
+
+      nel = e2
+      call gencen
+      xlim2=glmax(x27,nel*27)
+      ylim2=glmax(y27,nel*27)
+      xlim1=glmin(x27,nel*27)
+      ylim1=glmin(y27,nel*27)
+      write(6,*) xlim1,xlim2,ylim1,ylim2,'k10xyminmax'
+
+      call redraw_mesh
+
+      n2 = 0
+      do e=1,e2
+      do f=1,6
+      tst=0
+      do j=1,4
+         n1 = efc(j,f)
+       if (abs(y(n1,e)-ylim1).lt.tol.or.abs(y(n1,e)-ylim2).lt.tol.or.
+     $  abs(x(n1,e)-xlim1).lt.tol.or.abs(x(n1,e)-xlim2).lt.tol) then
+              tst = tst+1
+       endif
+       if (tst.eq.4) write(6,*) f,e,cbc(f,e,1),'k10bc'
+       if (tst.eq.4) cbc(f,e,1) = 'P  '
+       if (tst.eq.4) n2=n2+1
+      enddo
+      enddo
+      enddo
+      write(6,*) 'Number of periodic surfaces is ',n2
+      call fix_internal_bcs
 
       return
       end

@@ -1,3 +1,6 @@
+      include 'ketan.f'
+      include 'k10eigh.f'
+      include 'kcon.f'
 c-----------------------------------------------------------------------
       subroutine q_filter(wght)
 c
@@ -3296,6 +3299,9 @@ c-----------------------------------------------------------------------
          if (cb.eq.'P  ') call facev (tmsk,e,f,0.0,nx1,ny1,nz1)
       enddo
       enddo
+      call dsop(tmsk,'*  ',nx1,ny1,nz1)
+      call dsop(tmsk,'*  ',nx1,ny1,nz1)
+      call dsop(tmsk,'*  ',nx1,ny1,nz1)
 
       do kpass = 1,ndim+1   ! This doesn't work for 2D, yet.
                             ! Extra pass is just to test convergence
@@ -4657,6 +4663,14 @@ c     enddo
       enddo
 
 
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine k10outexit
+      include 'SIZE'
+      include 'TOTAL'
+      call outpost(vx,vy,vz,pr,t,'   ')
+      call exitt
       return
       end
 c-----------------------------------------------------------------------

@@ -642,10 +642,15 @@ C
          CALL ASCOL5  (TYM1,XSM1,ZRM1,XRM1,ZSM1,NTOT1)
          CALL ASCOL5  (TZM1,XRM1,YSM1,XSM1,YRM1,NTOT1)
       ENDIF
+c           write(6,*) (RXM1(i,1,1,2896),i=1,9)
+c           write(6,*) (RYM1(i,1,1,2896),i=1,9)
+c           write(6,*) (SXM1(i,1,1,2896),i=1,9)
+c           write(6,*) (SYM1(i,1,1,2896),i=1,9)
 C
       kerr = 0
       DO 500 ie=1,NELT
-         CALL CHKJAC(JACM1(1,1,1,ie),NXYZ1,ie,xm1,ym1,zm1,ndim,ierr)
+         CALL CHKJAC(JACM1(1,1,1,ie),NXYZ1,ie,xm1(1,1,1,ie),
+     $ ym1(1,1,1,ie),zm1(1,1,1,ie),ndim,ierr)
          if (ierr.ne.0) kerr = kerr+1
   500 CONTINUE
       kerr = iglsum(kerr,1)
@@ -983,7 +988,12 @@ c
                write(6,7) nid,x(i),y(i)
             endif
     7       format(i5,' xyz:',1p3e14.5)
-c           if (np.eq.1) call out_xyz_el(x,y,z,iel)
+c k10
+            do j=1,lx1*ly1*lz1
+             write(6,*) iel,j,x(j),y(j),z(j),jac(j),'xyinv'
+            enddo
+          
+c            if (np.eq.1) call out_xyz_el(x,y,z,iel)
 c           ierr=0
             return
          ENDIF
@@ -1026,7 +1036,7 @@ C
          endif
       enddo
 
-c      if (nio.eq.0) write(6,*) 'vol_t,vol_v:',voltm1,volvm1
+      if (nio.eq.0) write(6,*) 'vol_t,vol_v:',voltm1,volvm1
 
 
       nxyz = nx1*ny1*nz1

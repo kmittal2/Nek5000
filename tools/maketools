@@ -9,7 +9,7 @@ F77="gfortran"
 CC="gcc"
 
 # enable BIG MEMORY suuport
-BIGMEM="true"
+# BIGMEM="true"
 
 
 
