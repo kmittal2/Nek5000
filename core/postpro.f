@@ -533,7 +533,7 @@ c
       include 'SIZE'
       include 'INPUT'
 
-      parameter (lw=8*lx1*lx1*lz1)
+      parameter (lw=16*lx1*lx1*lz1)
       common /ctensor/ w1(lw),w2(lw)
 
       real v(nv,nv,nv),u(nu,nu,nu)

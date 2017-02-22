@@ -145,7 +145,6 @@ c     (send_points)
 C    Root processor receives all the boundary points from remote session
 C    and redistributes it among its processors for efficient 
 C    localization of points (recv_points)
-      write(6,*) 'started the thing 3 k10'
       call exchange_points(pts,iList_all,npoints_all)
       
 C     Find which boundary points of remote session are
@@ -154,9 +153,7 @@ C     Communicate the point info(iList) to the remote processors
 C     Points which are inside the mesh are masked and
 C     their identities are stored in array 
 
-      write(6,*) 'started the thing 4 k10'
       call intpts_locate (pts,iList_all,npoints_all)
-      write(6,*) 'started the thing 5 k10'
 
       return
       end
@@ -361,6 +358,7 @@ C-------------------------------------------------------------------------
       character*3 CB
       integer status(mpi_status_size)
       logical ifcomm
+      integer zzid,zzmat1(2)
  
       integer requ
 
@@ -368,6 +366,10 @@ C-------------------------------------------------------------------------
       save    icalld
       data    icalld /0/
 
+c k10
+      zzmat1(1) = 0
+      zzmat1(2) = 1
+c k10
       if (icalld.le.1) then
          icalld=icalld+1
       else
@@ -513,6 +515,9 @@ c     or if we already notified all the relevant processors)
          icount=1
       endif   
 
+      call neknekgsync()
+      do zzid=1,2
+      if (idsess.eq.zzmat1(zzid)) then
       il=0
       do id=0,np_neighbor-1
 
@@ -534,8 +539,10 @@ c     or if we already notified all the relevant processors)
          if (ifcomm.and.(icount.gt.npsend)) ifcomm=.false.
 
       len=isize   
+      write(6,*) 'k10 1'
+      write(6,*) len,id,nid,'k10 1 about to mpi_send'
       call mpi_send (nsend,len,mpi_byte, id, nid, intercomm, ierr)
-
+      write(6,*) 'k10 2'
       if (nsend.ne.0) then
 c     Send the points identity to communicating processors
          len=(ldim+1)*nsend*isize
@@ -545,15 +552,15 @@ c     Send the points identity to communicating processors
                jsend((ldim+1)*(i-1)+j)=iList(j,il)
             enddo
          end do   
-      write(6,*) 'k10 check 1'
+               write(6,*) nsend,isize,len,nid,'k10 3 about to mpi_send'
       call mpi_send(jsend,len,mpi_byte,id,100+nid, intercomm,ierr)
-      write(6,*) 'k10 check 2'
+               write(6,*) i,j,'k10 4'
 
       end if
 
       enddo   
 
-
+      else
 c     Receive information about sending processors
  6    irecvcnt=0
       il=0
@@ -595,6 +602,8 @@ c     with imask=1 (imask=0 for all other points).
       enddo  !  all remote processors
 
       nprecv=irecvcnt
+      endif
+      enddo
  1    format (a7,3i7,a7)
 
       return
@@ -657,7 +666,6 @@ C     Send interpolation values to the corresponding processors
 C     of remote session
 
       call neknekgsync()
-      
       if (idsess.eq.0) then
 
       il=0
