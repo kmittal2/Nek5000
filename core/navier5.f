@@ -1,6 +1,6 @@
-      include 'ketan.f'
-      include 'k10eigh.f'
       include 'kcon.f'
+      include 'k10eigh.f'
+      include 'ketan.f'
 c-----------------------------------------------------------------------
       subroutine q_filter(wght)
 c

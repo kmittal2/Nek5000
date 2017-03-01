@@ -390,6 +390,8 @@ c     computes tke
       real vza(lx1*ly1*lz1*lelt)
       real pma(lx1*ly1*lz1*lelt)
       real tza(lx1*ly1*lz1*lelt)
+      character*127 fname1127
+      character*127 fname2127
       call auto_averager(fname1127)
       call copy(uk,vx) 
       call copy(vk,vy) 
@@ -410,74 +412,6 @@ c     computes tke
       if (nid.eq.0) write(6,*) 'Space averaged results written'
       call outfld2d_k10(vxa,vya,vza,pma,tza,nelxy,'tke',1)
       if (nid.eq.0) write(6,*) 'Time-space 2D results written'
-
-      return
-      end
-c-----------------------------------------------------------------------
-      subroutine x_avg(ua,u,gs_avg_hndl,nelyz,ifld)
-      include 'SIZE'
-      include 'TOTAL'
-
-      real u (lx1,ly1,lz1,lelt)
-      real ua(lx1,ly1,lz1,lelt)
-
-      integer gs_avg_hndl,e,ex,ey,ez,eg
-
-      if (gs_avg_hndl.eq.0) then
-          call set_gs_xavg_hndl(gs_avg_hndl,nelyz,ifld)
-      endif
-
-      nel = nelfld(ifld)
-      n   = nx1*ny1*nz1*nel
-
-      call copy(ua,bm1,n)              ! Set the averaging weights
-      call gs_op(gs_avg_hndl,ua,1,1,0) ! Sum weights over columns
-
-
-      do i=1,n                          ! ua = (w_j*u_j)/( sum_i w_i)
-         ua(i,1,1,1) = bm1(i,1,1,1)*u(i,1,1,1)/ua(i,1,1,1)
-      enddo
-
-      call gs_op(gs_avg_hndl,ua,1,1,0) ! Sum weighted values
-
-
-      return
-      end
-c-----------------------------------------------------------------------
-      subroutine set_gs_xavg_hndl(gs_avg_hndl,nelxy,ifld)
-
-c     Set the z-average handle
-
-      include 'SIZE'
-      include 'TOTAL'
-
-      integer gs_avg_hndl,e,ex,ey,ez,eg
-
-      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
-
-      common /c_is1/ glo_num(lx1,ly1,lz1,lelv)
-      integer*8 glo_num,ex_g
-
-
-      nel = nelfld(ifld)
-      do e=1,nel
-         eg = lglel(e)
-         call get_exyz(ex,ey,ez,eg,nelxy,1,1)
-
-         ex_g = ey       ! Ensure int*8 promotion
-         do k=1,nz1      ! Enumerate points in the x-y plane
-            do j=1,ny1
-            do i=1,nx1
-               glo_num(i,j,k,e) = j+ny1*(k-1) + ny1*nz1*(ex_g-1)
-            enddo
-            enddo
-         enddo
-
-      enddo
-
-      n = nel*nx1*ny1*nz1
-
-      call gs_setup(gs_avg_hndl,glo_num,n,nekcomm,mp)
 
       return
       end
@@ -534,7 +468,8 @@ c-----------------------------------------------------------------------
       subroutine getcondmax(Ac,n,m,normt,cond,maxeig,mineig)
       include 'SIZE'
       include 'TOTAL'
-      real cond,eigr(m),eigi(m),i,j,k,n1,n2,n3,eigmag(m)
+      real cond,eigr(m),eigi(m),j,k,n1,n2,n3,eigmag(m)
+      integer i,m,n
       real invcond,maxeig,mineig
       character*1 normt
         
@@ -762,3 +697,80 @@ c     Set the z-average handle
       return
       end
 c-----------------------------------------------------------------------
+c NEKNEK
+      subroutine get_valuesnbk10(ranvar,ranrec)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      include 'mpif.h'
+
+      integer nsize,i,j,k,n,id
+      real ranvar
+      real ranrec
+      integer status(mpi_status_size)
+C     Send interpolation values to the corresponding processors 
+C     of remote session
+
+      call neknekgsync()
+
+      do id=0,npsend-1
+         len=wdsize
+         call mpi_irecv(ranrec,len,mpi_byte,id,id,intercomm,msg,ierr)
+         call mpi_send(ranvar,len,mpi_byte,id,nid,intercomm,ierr)
+         call mpi_wait (msg,status,ierr)
+      enddo
+
+      call neknekgsync()
+
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine get_valuesk10(ranvar,ranrec)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      include 'mpif.h'
+
+      integer nsize,i,j,k,n
+      real ranvar
+      real ranrec
+      integer zzid,zzmat1(2)
+      integer status(mpi_status_size)
+      integer requ
+c k10
+      zzmat1(1) = 0
+      zzmat1(2) = 1
+c k10
+
+      nsize = 1
+
+
+
+      nv = nx1*ny1*nz1*nelv
+      nt = nx1*ny1*nz1*nelt
+
+C     Send interpolation values to the corresponding processors 
+C     of remote session
+
+      call neknekgsync()
+      do zzid=1,2
+
+      if (idsess.eq.zzmat1(zzid)) then
+      do id=0,npsend-1
+         len=nsize*wdsize
+         call mpi_send(ranvar,len,mpi_byte,id,nid,intercomm,ierr)
+      enddo
+      else
+      do id=0,nprecv-1
+       nrecv = nsize
+       len=nrecv*wdsize
+        call mpi_recv (ranrec,len,mpi_byte,id,id,intercomm,status,ierr)
+      enddo
+
+      endif
+      enddo
+      call neknekgsync()
+
+      return
+      end
+C--------------------------------------------------------------------------
