@@ -23,9 +23,9 @@ endif
 L     = .
 
 
-NOBJS = prenek.o curve.o edit.o build.o build1.o build2.o bound.o plot.o xinterface.o glomod.o legend.o vprops.o iolib.o subs.o zipper2.o postnek6.o screen.o revert.o crs.o mxm.o xdriver.o 
+NOBJS = prenek.o curve.o edit.o build.o build1.o build2.o bound.o plot.o xinterface.o glomod.o legend.o vprops.o iolib.o subs.o zipper2.o postnek6.o screen.o revert.o crs.o mxm.o xdriver.o k10mesher.o
 
-TOBJS = prenek.o curve.o edit.o build.o build1.o build2.o bound.o plot.o xinterface.o glomod.o legend.o vprops.o iolib_no_graph.o subs.o zipper2.o postnek6.o screen.o revert.o crs.o mxm.o xdriver.o
+TOBJS = prenek.o curve.o edit.o build.o build1.o build2.o bound.o plot.o xinterface.o glomod.o legend.o vprops.o iolib_no_graph.o subs.o zipper2.o postnek6.o screen.o revert.o crs.o mxm.o xdriver.o k10mesher.o
 
 
 all: prex pretex
@@ -65,3 +65,4 @@ build2.o		: build2.f	basics.inc	; $(F77) -c $(FLAGS) build2.f
 g3d.o			: g3d.f		basics.inc	; $(F77) -c $(FLAGS) g3d.f
 xdriver.o	: xdriver.c			; $(CC) -c $(CFLAGS) xdriver.c
 revert.o		: revert.c			; $(CC) -c $(CFLAGS) revert.c
+k10mesher.o		: k10mesher.f	basics.inc	; $(F77) -c $(FLAGS) k10mesher.f

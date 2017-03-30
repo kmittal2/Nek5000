@@ -308,6 +308,9 @@ C     Only floor of elevator hilighted during modify
  160     continue
       ELSE IF(CHOICE.EQ.'REDRAW MESH')THEN
          call redraw_mesh
+      ELSE IF(CHOICE.EQ.'K10 MESHER')THEN
+         write(6,*) 'say what'
+         call k10meshmenu
       ELSE IF(CHOICE.EQ.'ZOOM')THEN
          call setzoom
          call redraw_mesh
@@ -2677,6 +2680,8 @@ c        nchoic = nchoic+1
          ITEM(nchoic)       =       'IMPORT vtx MESH'
          nchoic = nchoic+1
          ITEM(nchoic)       =       'REFLECT MESH '
+         nchoic = nchoic+1
+         ITEM(nchoic)       =       'K10 MESHER '
       ENDIF
      
       return   ! End of menu-driven query
