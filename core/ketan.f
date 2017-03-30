@@ -472,6 +472,7 @@ c-----------------------------------------------------------------------
       integer i,m,n
       real invcond,maxeig,mineig
       character*1 normt
+      real Ac(1)
         
 
       call heseig(Ac,n,m,eigr,eigi) !gets the eigenvalues

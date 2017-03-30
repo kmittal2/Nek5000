@@ -64,6 +64,7 @@ c
       call rzero(x,ntot2)
 
       do while(iconv.eq.0.and.iter.lt.100)
+c      do while(iconv.eq.0.and.iter.lt.5000)
          call rzero(hc,lgmres**2)
 
          if(iter.eq.0) then
@@ -103,8 +104,10 @@ c           call copy(r,res,ntot2)
                call uzprec(z(1,j),w,h1,h2,intype,wp)
             else                                  !       -1
                call hsmg_solve(z(1,j),w)          ! z  = M   w
-c              call copy(z(1,j),w,ntot2)          ! z  = M   w
-            endif     
+           if (nid.eq.0.and.iter.eq.1) write(6,*) 'usual preconditioner'
+c               call copy(z(1,j),w,ntot2)          ! z  = M   w
+c            if (nid.eq.0.and.iter.eq.1) write(6,*) 'no preconditioner'
+             endif     
             etime_p = etime_p + dnekclock()-etime2
      
             call cdabdtp(w,z(1,j),                ! w = A z
@@ -172,11 +175,6 @@ c            call outmat(h,m,j,' h    ',j)
          if (maxeig.gt.maxev) maxev = maxeig
          if (mineig.lt.minev) minev = mineig
          if (maxcond.gt.condv) condv = maxcond
-c         do i=1,j
-c         do k=1,i+1
-c            write(6,*) i,k,hc(k,i),h(k,i),'i,k,hc,h'
-c         enddo
-c         enddo
          continue
          !back substitution
          !     -1
@@ -202,7 +200,7 @@ c        if(iconv.eq.1) call dbg_write(x,nx2,ny2,nz2,nelv,'esol',3)
       maxcond = glmax(condv,1)
       if (nid.eq.0) then
       write(6,9998) istep,iter,maxeig,mineig,maxcond
- 9998 format(I10,' ',I4,' ',1p3e12.4,' k10cond')
+ 9998 format(I10,' ',I8,' ',1p3e12.4,' k10cond')
       endif
          
 
