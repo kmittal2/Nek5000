@@ -13,6 +13,9 @@ C
 C
 C THE PURPOSE OF THIS FILE IS TO CREATE MESHES IN A MODULAR WAY
 c UPDATE 1 - MARCH 30 - 2:46 AM - quad mesher works for 4 sided regions
+c UPDATE 2 - MARCH 31 - 1:00 AM - boundary mesher is in progress. I have added
+c most of the machinery. Need to mimic genquadmesh from matlab now
+c a lot of other supporting functions have been added
 c 
 C
 C
@@ -32,8 +35,10 @@ C
       ITEM(1)='BUILD MENU'
       ITEM(2)='DELETE'
       ITEM(3)='QUAD REGION'
-      ITEM(4)='STASH CHUNK'
-      NCHOIC = 4
+      ITEM(4)='QUAD BOUNDARY'
+      ITEM(5)='SMOOTH'
+      ITEM(6)='STASH CHUNK'
+      NCHOIC = 6
       CALL MENU(XMOUSE,YMOUSE,BUTTON,'K10 MESHER')
 3013  CONTINUE
 
@@ -49,8 +54,12 @@ C
             RETURN
       ELSEIF(CHOICE.EQ.'DELETE') THEN
         call delete
+      ELSE IF(CHOICE.EQ.'SMOOTH')THEN
+         call smoother2(nel)
       ELSEIF(CHOICE.EQ.'QUAD REGION')THEN
         call quadmesher
+      ELSEIF(CHOICE.EQ.'QUAD BOUNDARY')THEN
+        call quadfromboundary
       ENDIF
 
       GO TO 1
@@ -75,7 +84,7 @@ c
       integer ptr(4)
       character*3 bcs(4)
 
-      call prs('SEE GUIDE - ENTER POINTS CCW$')
+      call prs('SEE GUIDE - ENTER POINTS CW$')
       CALL prs('Enter the (X,Y) FOR 1st point:$')
       CALL rerr(xx(1),yy(1))
       CALL prs('Enter the (X,Y) FOR 2st point:$')
@@ -126,27 +135,152 @@ c
       return
       end
 c-----------------------------------------------------------------------
+      subroutine quadfromboundary
+      include 'basics.inc'
+      PARAMETER (NMAX=10000)
+      common /ctmpk10/ xdum(nmax),ydum(nmax),xn(nmax),yn(nmax),sc(nmax)
+      real xdum,ydum,xn,yn,sc
+      integer npts,xyspl(4),e12(2),r12(2)
+      character fnamef*8, string2*72, fname*4, bcs(4)*3
+      integer n,i
+c    This takes as input 1 big file which has all xy coordinates
+c    the user must also tell what are the ranges for each side
+c    example xy has 100 points so if the user says sides are between
+c    1,20,60,100 means S1 is from 1-20, S2 is 20-60 and so on
+c    sides must be in clocwise order
+c    the user must also tell geometric spacing factor and e1 and e2
+c    and also bcs
+      call prs('SEE GUIDE - You need to specify file name with xy$')
+      CALL prs('Enter the name of the comma separated dat file:$')
+      CALL prs('The name can be only 4 characters long:$')
+      CALL res(fnamef,4)
+      fname = '.dat'
+      fnamef(5:8) = fname
+
+      CALL prs('Please enter the points seperating the 4 lines:$')
+      call reiiii(xyspl(1),xyspl(2),xyspl(3),xyspl(4))
+
+      call prs('Enter number of elements on 1st and 2nd side:$')
+      call reii(e12(1),e12(2))
+      call prs('Enter GEOMETRIC spacing for both sides:$')
+      call rerr(r12(1),r12(2))
+      call prs('Enter the BCs for side 1:$')
+      call res(bcs(1),3)
+      call prs('Enter the BCs for side 2:$')
+      call res(bcs(2),3)
+      call prs('Enter the BCs for side 3:$')
+      call res(bcs(3),3)
+      call prs('Enter the BCs for side 4:$')
+      call res(bcs(4),3)
+
+  
+      write(6,*) fnamef,xyspl,'file name and critical points'
+      open (unit=9,file=fnamef,status='old', iostat=ierr)
+
+      do i=1,NMAX
+        READ(9,*,ERR=300,END=200) xdum(i),ydum(i)
+      enddo
+  200 CONTINUE
+
+      npts = i-1
+      write(6,*) npts,' points have been read from dat file'
+      call prexit
+
+      n = 10
+      call geomspace(0.,1.,n,1.1,sc)
+      call geomspace(3.,5.,n,1.2,xdum) 
+      call geomspace(1.,2.,n,1.1,ydum) 
+
+      call changescale(xn,yn,xdum,ydum,sc,n)
+      goto 400
+  300 CONTINUE
+      write(6,*) 'There was error in reading the dat file'
+      write(6,*) 'file name you said was ',fnamef
+      call prexit
+  400 CONTINUE
+ 
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine changescale(xn,yn,xx,yy,sc,n)
+c  this takes xx and yy and interpoaltes using cubic spline to xn,yn
+      integer n
+      real xx(n),yy(n),xn(n),yn(n),s(n),sc(n)
+
+      s(1) = 0.
+      do i=1,n-1
+       s(i+1) = s(i)+dist2d(xx(i),yy(i),xx(i+1),yy(i+1))
+      enddo
+
+      call rescale(sc,0.,s(n),n)
+      call spfit(s,xx,sc,xn,n)
+      call spfit(s,yy,sc,yn,n)
+
+      
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine spfit(xx,yy,xn,yn,n)
+c   given values of xin and yin, what are values of yout based on xout
+      integer n,i,j
+      real xx(n),xn(n),yy(n),yn(n),yp0,yp2(n)
+
+      yp0 = 0.0
+      call spline(xx,yy,n,yp0,yp0,yp2)
+
+      do i=1,n
+          call splint(xx,yy,yp2,n,xn(i),yn(i))
+      enddo
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine rescale(xx,x1,x2,n)
+c rescales x from x1 to x2 
+      integer i,n
+      real xx(n),x1,x2,xn(n)
+      real minv,maxv
+
+      minv = glmin(xx,n)
+      maxv = glmax(xx,n)
+      do i=1,n
+       xn(i) = (xx(i)-minv)/(maxv-minv)
+      enddo
+
+      do i=1,n
+       xx(i) = x1+xn(i)*(x2-x1)
+        if (i.eq.1) xx(i) = x1
+      enddo
+      
+      return
+      end
+c-----------------------------------------------------------------------
       subroutine makemesh(xmf,ymf,bcs,e1,e2)
       include 'basics.inc'
       integer e1,e2
       real xmf(e2,e1),ymf(e2,e1)
+      real xmft(e1,e2),ymft(e1,e2)
       integer i,e,j,f,ifld,dum
       character*3 bcs(4)
+
+      call transpose_r(xmft,e1,xmf,e2)
+      call transpose_r(ymft,e1,ymf,e2)
 
       nelold = nel
       write(6,*) nelold,'old element count'
          
-      do j=1,e1-1
-      do i=1,e2-1
+      do j=1,e2-1
+      do i=1,e1-1
         nel = nel+1
-        x(1,nel) = xmf(i,j) 
-        x(2,nel) = xmf(i+1,j) 
-        x(3,nel) = xmf(i+1,j+1)  
-        x(4,nel) = xmf(i,j+1) 
-        y(1,nel) = ymf(i,j) 
-        y(2,nel) = ymf(i+1,j) 
-        y(3,nel) = ymf(i+1,j+1)  
-        y(4,nel) = ymf(i,j+1) 
+        x(1,nel) = xmft(i,j) 
+        x(2,nel) = xmft(i+1,j) 
+        x(3,nel) = xmft(i+1,j+1)  
+        x(4,nel) = xmft(i,j+1) 
+        y(1,nel) = ymft(i,j) 
+        y(2,nel) = ymft(i+1,j) 
+        y(3,nel) = ymft(i+1,j+1)  
+        y(4,nel) = ymft(i,j+1) 
       enddo
       enddo
 
@@ -164,32 +298,28 @@ c-----------------------------------------------------------------------
       f=1
       do ifld=1,maxfld
       do e=nelold+1,nelold+e2
-       write(6,*) f,e,bcs(4),'k10fe'
-       cbc(f,e,ifld) = bcs(4)
-      enddo
-      enddo
-
-      f=4
-      do ifld=1,maxfld
-      do e=nelold+1,nel,e2
-       write(6,*) f,e,bcs(1),'k10fe'
        cbc(f,e,ifld) = bcs(1)
-      enddo
-      enddo
-
-      f=3
-      do ifld=1,maxfld
-      do e=nelold+e1*(e2-1)-1,nel
-       write(6,*) f,e,bcs(2),'k10fe'
-       cbc(f,e,ifld) = bcs(2)
       enddo
       enddo
 
       f=2
       do ifld=1,maxfld
-      do e=nelold+e2,nel,e2
-       write(6,*) f,e,bcs(3),'k10fe'
+      do e=nelold+e1,nel,e1
+       cbc(f,e,ifld) = bcs(2)
+      enddo
+      enddo
+
+      f=3
+      do ifld=1,maxfld
+      do e=nelold+e1*(e2-1)+1,nel
        cbc(f,e,ifld) = bcs(3)
+      enddo
+      enddo
+
+      f=4
+      do ifld=1,maxfld
+      do e=nelold+1,nel,e1
+       cbc(f,e,ifld) = bcs(4)
       enddo
       enddo
 
@@ -199,9 +329,10 @@ c-----------------------------------------------------------------------
 c-----------------------------------------------------------------------
       subroutine geomspace(a,b,n,r,xd)
       real a,b,r
-      integer n,i,j
-      real xd(100),dx,sc
- 
+      integer n,i,j,norig
+      real xd(n),dx,sc
+c genereates n points between a and b with ratio r and stores in xd
+      norig = n
       if (n.le.1) write(6,*) 'Invalid number of elements entered'
       if (n.le.1) call prexit
       if (b.ne.a) then
@@ -223,7 +354,7 @@ c-----------------------------------------------------------------------
            xd(i) = a
          enddo
        endif
- 
+      n = norig
       return
       end
 c-----------------------------------------------------------------------
@@ -238,4 +369,64 @@ c-----------------------------------------------------------------------
  
       return
       end
+c-----------------------------------------------------------------------
+      SUBROUTINE SPLINE(X,Y,N,YP1,YPN,Y2)
+C
+      PARAMETER (NMAX=4000)
+      DIMENSION X(N),Y(N),Y2(N),U(NMAX)
+C
+      Y2(1)=0.0
+      U(1) =0.0
+C
+      DO 10 I=2,N-1
+         IR=I+1
+         IL=I-1
+         SIG=(X(I)-X(IL))/(X(IR)-X(IL))
+         P=SIG*Y2(IL)+2.
+         Y2(I)=(SIG-1.)/P
+         U(I)= ( 6.*
+     $     ( (Y(IR)-Y(I))/(X(IR)-X(I))-(Y(I)-Y(IL))/ (X(I)-X(IL) ) )
+     $            / (X(IR)-X(IL))
+     $    - SIG*U(IL) )/P
+   10 CONTINUE
+C
+      QN=0.0
+      UN=0.0
+C
+      Y2(N)=(UN-QN*U(N-1))/(QN*Y2(N-1)+1.)
+      DO 20 K=N-1,1,-1
+         Y2(K)=Y2(K)*Y2(K+1)+U(K)
+   20 CONTINUE
+C
+      RETURN
+      END
+c-----------------------------------------------------------------------
+      SUBROUTINE SPLINT(XA,YA,Y2A,N,X,Y)
+C     p. 88-89, numerical recipes
+C
+      DIMENSION XA(N),YA(N),Y2A(N)
+C
+      KLO=1
+      KHI=N
+    1   IF ((KHI-KLO).GT.1) THEN
+           K=(KHI+KLO)/2
+           IF (XA(K).GT.X) THEN
+              KHI=K
+           ELSE
+              KLO=K
+           ENDIF
+           GOTO 1
+        ENDIF
+C
+      H=XA(KHI)-XA(KLO)
+      IF (H.EQ.0) THEN
+         WRITE(6,*) XA(KHI), 'Hey buddy - you blew it.'
+         RETURN
+      ENDIF
+      A=(XA(KHI)-X)/H
+      B=(X-XA(KLO))/H
+      Y=A*YA(KLO)+B*YA(KHI)+
+     $  ((A**3-A)*Y2A(KLO)+(B**3-B)*Y2A(KHI))*(H**2)/6.
+      RETURN
+      END
 c-----------------------------------------------------------------------

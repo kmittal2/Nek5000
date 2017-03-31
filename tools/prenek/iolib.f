@@ -612,3 +612,19 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
+      SUBROUTINE REiiii(i,j,k,l)
+C     Read Integer
+      CHARACTER*80 S
+C
+ 1    CALL RES(S,80)
+      REWIND(13)
+      WRITE (13,'(A80)')S
+      REWIND(13)
+      READ  (13,*,ERR=13,END=13) i,j,k,l
+      write (6,*) i,j,k,l
+      REWIND(13)
+      RETURN
+ 13   CALL PRS('Error reading input.  Enter 3 integer Values$')
+      GO TO 1
+      END
+c-----------------------------------------------------------------------

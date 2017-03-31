@@ -549,7 +549,6 @@ C
       i=1/(count-10)
       stop
       end
-
 c-----------------------------------------------------------------------
       subroutine reii(i,J) !     Read Integer
       character*132 S
@@ -755,5 +754,28 @@ c-----------------------------------------------------------------------
       logical ifgraf
       ifgraf = .false.
       return
+      end
+c-----------------------------------------------------------------------
+      subroutine reiiii(I,J,K,L)
+C     Read Integer
+      character*132 S
+      integer count
+      count=0
+C
+ 1    call RES(S,132)
+      REWIND(13)
+      WRITE (13,'(A132)')S
+      REWIND(13)
+      READ  (13,*,ERR=13,END=13) i,j,k,l
+      write (6,*) i,j,k,l
+      REWIND(13)
+      return
+ 13   call PRS('Error reading input.  Enter 3 integer Values$')
+
+      write(6,*) s
+      count=count+1
+      if (count.lt.10) goto 1
+      i=1/(count-10)
+      stop
       end
 c-----------------------------------------------------------------------
