@@ -16,6 +16,8 @@ c UPDATE 1 - MARCH 30 - 2:46 AM - quad mesher works for 4 sided regions
 c UPDATE 2 - MARCH 31 - 1:00 AM - boundary mesher is in progress. I have added
 c most of the machinery. Need to mimic genquadmesh from matlab now
 c a lot of other supporting functions have been added
+c UPDATE 3 - March 31 - 4:51 PM - found bug in last night's code.. fixed that
+c and started adding the boundary mesher part
 c 
 C
 C
@@ -140,9 +142,10 @@ c-----------------------------------------------------------------------
       PARAMETER (NMAX=10000)
       common /ctmpk10/ xdum(nmax),ydum(nmax),xn(nmax),yn(nmax),sc(nmax)
       real xdum,ydum,xn,yn,sc
-      integer npts,xyspl(4),e12(2),r12(2)
+      integer nnpts,xyspl(4),e12(2)
+      real r12(2)
       character fnamef*8, string2*72, fname*4, bcs(4)*3
-      integer n,i
+      integer n,i,n1,n2
 c    This takes as input 1 big file which has all xy coordinates
 c    the user must also tell what are the ranges for each side
 c    example xy has 100 points so if the user says sides are between
@@ -182,16 +185,32 @@ c    and also bcs
       enddo
   200 CONTINUE
 
-      npts = i-1
-      write(6,*) npts,' points have been read from dat file'
+      nnpts = i-1
+      write(6,*) nnpts,' points have been read from dat file'
+c     so far we have the data read. now we have to construct the matrix
+c     etc...
+
+      call genbndrelmat(e12,r12,xyspl,nnpts) !xdum,ydum are in common block
+
       call prexit
 
-      n = 10
-      call geomspace(0.,1.,n,1.1,sc)
-      call geomspace(3.,5.,n,1.2,xdum) 
-      call geomspace(1.,2.,n,1.1,ydum) 
+      n1 = 10
+      n2 = 6
+      write(6,*) 'try 1'
+      call geomspace(0.,1.,n2,1.1,sc)
+      call geomspace(3.,5.,n1,1.2,xdum) 
+      call geomspace(1.,2.,n1,1.1,ydum) 
 
-      call changescale(xn,yn,xdum,ydum,sc,n)
+      call changescale(xn,yn,xdum,ydum,sc,n2,n1)
+
+      do i=1,6
+       write(6,*) i,sc(i),xn(i),yn(i),'k10ints'
+      enddo
+      do i=1,10
+       write(6,*) i,xdum(i),ydum(i),'k10origs'
+      enddo
+
+      call prexit
       goto 400
   300 CONTINUE
       write(6,*) 'There was error in reading the dat file'
@@ -202,34 +221,127 @@ c    and also bcs
       return
       end
 c-----------------------------------------------------------------------
-      subroutine changescale(xn,yn,xx,yy,sc,n)
-c  this takes xx and yy and interpoaltes using cubic spline to xn,yn
-      integer n
-      real xx(n),yy(n),xn(n),yn(n),s(n),sc(n)
+      subroutine genbndrelmat(e12,r12,xyspl,nnpts)
+c INPUT e12, r12, xyspl - indices differentiation between different edges
+      PARAMETER (NMAX=10000)
+      common /ctmpk10/ xdum(nmax),ydum(nmax),xn(nmax),yn(nmax),sc(nmax)
+      integer e1,e2,e12(2),xyspl(4),nnpts,n1,n2,ind1,i,j
+      real x1(nnpts),y1(nnpts)
+      real x2(nnpts),y2(nnpts)
+      real x3(nnpts),y3(nnpts)
+      real x4(nnpts),y4(nnpts)
+      real r12(2)
+      real mf(e12(2),e12(1)),mdum(e12(2),e12(1))
+c  mf will be used first for x and then for y
+c  mdum will be used for dummy matrix with zeros
 
-      s(1) = 0.
-      do i=1,n-1
-       s(i+1) = s(i)+dist2d(xx(i),yy(i),xx(i+1),yy(i+1))
-      enddo
+      e1 = e12(1)
+      e2 = e12(2)
 
-      call rescale(sc,0.,s(n),n)
-      call spfit(s,xx,sc,xn,n)
-      call spfit(s,yy,sc,yn,n)
+c    1st edge
+      n1 = xyspl(2)-xyspl(1)+1
+      n2 = e12(1)+1
+      ind1 = xyspl(1)
+      call copy(xn,xdum(ind1),n1)
+      call copy(yn,ydum(ind1),n1)
+      call geomspace(0.,1.,n2,r12(1),sc)
+      call changescale(x1,y1,xn,yn,sc,n2,n1)
+c    2nd edge
+      n1 = xyspl(3)-xyspl(2)+1
+      n2 = e12(2)+1
+      ind1 = xyspl(2)
+      call copy(xn,xdum(ind1),n1)
+      call copy(yn,ydum(ind1),n1)
+      call geomspace(0.,1.,n2,r12(2),sc)
+      call changescale(x2,y2,xn,yn,sc,n2,n1)
+c    3rd edge
+      n1 = xyspl(4)-xyspl(3)+1
+      n2 = e12(1)+1
+      ind1 = xyspl(3)
+      call copy(xn,xdum(ind1),n1)
+      call copy(yn,ydum(ind1),n1)
+      call geomspace(0.,1.,n2,r12(1),sc)
+      call changescale(x3,y3,xn,yn,sc,n2,n1)
+c    4th edge
+      n1 = nnpts-xyspl(4)+1
+      n2 = e12(2)+1
+      ind1 = xyspl(4)
+      if (abs(xdum(nnpts)-xdum(1)).lt.1e-6.and.
+     $     abs(ydum(nnpts)-ydum(1)).lt.1e-6) then
+c      that means the wrap is closed
+      
+      else
+c      no periodic wrap..make it periodic
+       n1=n1+1
+       xdum(nnpts+1)=xdum(1)
+       ydum(nnpts+1)=ydum(1)
+      endif 
+      call copy(xn,xdum(ind1),n1)
+      call copy(yn,ydum(ind1),n1)
+      call geomspace(0.,1.,n2,r12(2),sc)
+      call changescale(x4,y4,xn,yn,sc,n2,n1)
+c ALL EDGES HAVE BEEN DONE AT THIS POINT
 
+c    Now need to make the interpolation matrix with zeros in interior
+      call rzero(mdum,e1*e2)
+
+
+
+
+
+c      do i=1,e12(1)+1
+c          write(6,*) x1(i),y1(i),i,'edge 1'
+c      enddo
+c      do i=1,e12(2)+1
+c          write(6,*) x2(i),y2(i),i,'edge 2'
+c      enddo
+c      do i=1,e12(1)+1
+c          write(6,*) x3(i),y3(i),i,'edge 3'
+c      enddo
+c      do i=1,e12(2)+1
+c          write(6,*) x4(i),y4(i),i,'edge 4'
+c      enddo
+      call prexit
+       
+      
       
       return
       end
 c-----------------------------------------------------------------------
-      subroutine spfit(xx,yy,xn,yn,n)
+      subroutine changescale(xn,yn,xx,yy,sc,n1,n2)
+c  this takes xx and yy and interpoaltes using cubic spline to xn,yn
+c  xx,yy has n2 points, xn,yn has n1 points
+      integer n1,n2
+      real xx(n2),yy(n2),xn(n1),yn(n1),s(n2),sc(n1)
+      real scb(n1)
+
+      call copy(scb,sc,n1)
+
+      s(1) = 0.
+      do i=1,n2-1
+       s(i+1) = s(i)+dist2d(xx(i),yy(i),xx(i+1),yy(i+1))
+      enddo
+
+      call rescale(sc,0.,s(n2),n1)
+      call spfit(s,xx,sc,xn,n1,n2)
+      call spfit(s,yy,sc,yn,n1,n2)
+
+      call copy(sc,scb,n1)
+      
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine spfit(xx,yy,xn,yn,n1,n2)
 c   given values of xin and yin, what are values of yout based on xout
-      integer n,i,j
-      real xx(n),xn(n),yy(n),yn(n),yp0,yp2(n)
+c   n2 are points in xx, n1 are points in xn
+      integer n,i,j,n1,n2
+      real xx(n2),xn(n1),yy(n2),yn(n1),yp0,yp2(n2)
 
       yp0 = 0.0
-      call spline(xx,yy,n,yp0,yp0,yp2)
+      call spline(xx,yy,n2,yp0,yp0,yp2)
 
-      do i=1,n
-          call splint(xx,yy,yp2,n,xn(i),yn(i))
+      do i=1,n1
+          call splint(xx,yy,yp2,n2,xn(i),yn(i))
       enddo
 
 
