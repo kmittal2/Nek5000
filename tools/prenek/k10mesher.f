@@ -231,7 +231,7 @@ c INPUT e12, r12, xyspl - indices differentiation between different edges
       real x3(nnpts),y3(nnpts)
       real x4(nnpts),y4(nnpts)
       real r12(2)
-      real mf(e12(2),e12(1)),mdum(e12(2),e12(1))
+      real mf(e12(2)+1,e12(1)+1),mdum(e12(2)+1,e12(1)+1)
 c  mf will be used first for x and then for y
 c  mdum will be used for dummy matrix with zeros
 
@@ -284,23 +284,29 @@ c ALL EDGES HAVE BEEN DONE AT THIS POINT
 
 c    Now need to make the interpolation matrix with zeros in interior
       call rzero(mdum,e1*e2)
+c  LAST ROW - A-B
+      j = e2+1
+      do i=1,e1+1
+       mdum(j,i) = x1(i)
+      enddo
+c  LAST COLUMN C - B down
+      j=e1+1
+      do i=1,e2+1
+       mdum(i,j) = x2(e2+2-i) 
+      enddo
+c   TOP ROW D - C
+      j = 1
+      do i=1,e1+1
+        mdum(j,i) = x3(e1+2-i)
+      enddo
+c   FIRST COLUMN D - A DOWN
+      j=1
+      do i=1,e2+1
+        mdum(i,j) = x4(i)
+      enddo
+c     MDUM is ready now
+c     NOW NEED TO INTERPOLATE THIS TO INTERIOR
 
-
-
-
-
-c      do i=1,e12(1)+1
-c          write(6,*) x1(i),y1(i),i,'edge 1'
-c      enddo
-c      do i=1,e12(2)+1
-c          write(6,*) x2(i),y2(i),i,'edge 2'
-c      enddo
-c      do i=1,e12(1)+1
-c          write(6,*) x3(i),y3(i),i,'edge 3'
-c      enddo
-c      do i=1,e12(2)+1
-c          write(6,*) x4(i),y4(i),i,'edge 4'
-c      enddo
       call prexit
        
       
