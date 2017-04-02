@@ -18,6 +18,7 @@ c most of the machinery. Need to mimic genquadmesh from matlab now
 c a lot of other supporting functions have been added
 c UPDATE 3 - March 31 - 4:51 PM - found bug in last night's code.. fixed that
 c and started adding the boundary mesher part
+c UPDATE 4 - April 2 - 6:06 pm - boundary mesher is now complete
 c 
 C
 C
@@ -190,27 +191,27 @@ c    and also bcs
 c     so far we have the data read. now we have to construct the matrix
 c     etc...
 
-      call genbndrelmat(e12,r12,xyspl,nnpts) !xdum,ydum are in common block
+      call genbndrelmat(e12,r12,xyspl,nnpts,bcs) !xdum,ydum are in common block
 
-      call prexit
+c      call prexit
 
-      n1 = 10
-      n2 = 6
-      write(6,*) 'try 1'
-      call geomspace(0.,1.,n2,1.1,sc)
-      call geomspace(3.,5.,n1,1.2,xdum) 
-      call geomspace(1.,2.,n1,1.1,ydum) 
+c      n1 = 10
+c      n2 = 6
+c      write(6,*) 'try 1'
+c      call geomspace(0.,1.,n2,1.1,sc)
+c      call geomspace(3.,5.,n1,1.2,xdum) 
+c      call geomspace(1.,2.,n1,1.1,ydum) 
 
-      call changescale(xn,yn,xdum,ydum,sc,n2,n1)
+c      call changescale(xn,yn,xdum,ydum,sc,n2,n1)
 
-      do i=1,6
-       write(6,*) i,sc(i),xn(i),yn(i),'k10ints'
-      enddo
-      do i=1,10
-       write(6,*) i,xdum(i),ydum(i),'k10origs'
-      enddo
+c      do i=1,6
+c       write(6,*) i,sc(i),xn(i),yn(i),'k10ints'
+c      enddo
+c      do i=1,10
+c       write(6,*) i,xdum(i),ydum(i),'k10origs'
+c      enddo
 
-      call prexit
+c      call prexit
       goto 400
   300 CONTINUE
       write(6,*) 'There was error in reading the dat file'
@@ -221,7 +222,7 @@ c     etc...
       return
       end
 c-----------------------------------------------------------------------
-      subroutine genbndrelmat(e12,r12,xyspl,nnpts)
+      subroutine genbndrelmat(e12,r12,xyspl,nnpts,bcs)
 c INPUT e12, r12, xyspl - indices differentiation between different edges
       PARAMETER (NMAX=10000)
       common /ctmpk10/ xdum(nmax),ydum(nmax),xn(nmax),yn(nmax),sc(nmax)
@@ -231,9 +232,13 @@ c INPUT e12, r12, xyspl - indices differentiation between different edges
       real x3(nnpts),y3(nnpts)
       real x4(nnpts),y4(nnpts)
       real r12(2)
-      real mf(e12(2)+1,e12(1)+1),mdum(e12(2)+1,e12(1)+1)
-c  mf will be used first for x and then for y
-c  mdum will be used for dummy matrix with zeros
+      real mfx(e12(2)+1,e12(1)+1),mdx(e12(2)+1,e12(1)+1)
+      real mdx2(e12(2)+1,e12(1)+1)
+      real mfy(e12(2)+1,e12(1)+1),mdy(e12(2)+1,e12(1)+1)
+      real mdy2(e12(2)+1,e12(1)+1)
+      character bcs(4)*3
+c  mfx will be used first for x and then for y
+c  mdx will be used for dummy matrix with zeros
 
       e1 = e12(1)
       e2 = e12(2)
@@ -283,56 +288,219 @@ c      no periodic wrap..make it periodic
 c ALL EDGES HAVE BEEN DONE AT THIS POINT
 
 c    Now need to make the interpolation matrix with zeros in interior
-      call rzero(mdum,e1*e2)
+      call rzero(mdx,e1*e2)
+      call rzero(mdy,e1*e2)
 c  LAST ROW - A-B
       j = e2+1
       do i=1,e1+1
-       mdum(j,i) = x1(i)
+       mdx(j,i) = x1(i)
+       mdy(j,i) = y1(i)
       enddo
 c  LAST COLUMN C - B down
       j=e1+1
       do i=1,e2+1
-       mdum(i,j) = x2(e2+2-i) 
+       mdx(i,j) = x2(e2+2-i) 
+       mdy(i,j) = y2(e2+2-i) 
       enddo
 c   TOP ROW D - C
       j = 1
       do i=1,e1+1
-        mdum(j,i) = x3(e1+2-i)
+        mdx(j,i) = x3(e1+2-i)
+        mdy(j,i) = y3(e1+2-i)
       enddo
 c   FIRST COLUMN D - A DOWN
       j=1
       do i=1,e2+1
-        mdum(i,j) = x4(i)
+        mdx(i,j) = x4(i)
+        mdy(i,j) = y4(i)
       enddo
-c     MDUM is ready now
-c     NOW NEED TO INTERPOLATE THIS TO INTERIOR
+c     MDX AND MDY ARE READY NOW 
 
-      call prexit
-       
-      
+c      do i=1,e2+1
+c      do j=1,e1+1
+c       write(6,*) i,j,mdx(i,j),mdy(i,j),'k10ij'
+c      enddo
+c      enddo
+
+c     NOW NEED TO INTERPOLATE THIS TO INTERIOR
+      call makeinteriormesh(mdx,mdy,e2+1,e1+1,mdx2,mdy2,r12)
+
+      call changemeshcw(mdx2,mdy2,e2+1,e1+1)
+
+      call makemesh(mdx2,mdy2,bcs,e1+1,e2+1)
+      call redraw_mesh
+
+
       
       return
       end
 c-----------------------------------------------------------------------
-      subroutine changescale(xn,yn,xx,yy,sc,n1,n2)
-c  this takes xx and yy and interpoaltes using cubic spline to xn,yn
-c  xx,yy has n2 points, xn,yn has n1 points
-      integer n1,n2
-      real xx(n2),yy(n2),xn(n1),yn(n1),s(n2),sc(n1)
-      real scb(n1)
-
-      call copy(scb,sc,n1)
-
-      s(1) = 0.
-      do i=1,n2-1
-       s(i+1) = s(i)+dist2d(xx(i),yy(i),xx(i+1),yy(i+1))
+      subroutine changemeshcw(mdx2,mdy2,nrr,ncc)
+      integer nrr,ncc,i,j,k,l
+      real mdx2(nrr,ncc),mdy2(nrr,ncc),dumx(nrr,ncc)
+c Takes a mesh which is input CCW and makes it CW
+c ESSENTIALLY MAKES FIRST ROW -> LAST, 2nd row -> 2nd last etc...
+  
+      call copy(dumx,mdx2,nrr*ncc)
+      do i=1,ncc
+      do j=1,nrr
+        mdx2(j,i) = dumx(nrr-j+1,i)
+      enddo
       enddo
 
-      call rescale(sc,0.,s(n2),n1)
-      call spfit(s,xx,sc,xn,n1,n2)
-      call spfit(s,yy,sc,yn,n1,n2)
+      call copy(dumx,mdy2,nrr*ncc)
+      do i=1,ncc
+      do j=1,nrr
+        mdy2(j,i) = dumx(nrr-j+1,i)
+      enddo
+      enddo
+      
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine makeinteriormesh(mdx,mdy,nrr,ncc,mdx2,mdy2,r12)
+      integer nrr,ncc,i,j,k,l
+      real mdx(nrr,ncc),mdy(nrr,ncc)
+      real mdx2(nrr,ncc),mdy2(nrr,ncc)
+      real mdxd(nrr,ncc),mdyd(nrr,ncc)
+      real xydum(4,2),xydum1(ncc,2),xydum2(nrr,2)
+      real sv1(ncc),sv2(nrr),r12(2)
+      real s1(ncc),s3(ncc),s2(nrr),s4(nrr)
+      real dx,dy,tdx,tdy,f1,f2
+c this takes the boundary mesh in mdum and interpolates it to interior
+c in md2.
+      xydum(1,1) = mdx(1,1)
+      xydum(2,1) = mdx(1,ncc)
+      xydum(3,1) = mdx(nrr,ncc)
+      xydum(4,1) = mdx(nrr,1)
+      xydum(1,2) = mdy(1,1)
+      xydum(2,2) = mdy(1,ncc)
+      xydum(3,2) = mdy(nrr,ncc)
+      xydum(4,2) = mdy(nrr,1)
 
-      call copy(sc,scb,n1)
+      call genquad(xydum,ncc,nrr,mdxd,mdyd,r12)
+c This genereates the mesh based on vertices
+
+      do i=1,ncc
+        xydum1(i,1) = mdxd(1,i)
+        xydum1(i,2) = mdyd(1,i)
+      enddo
+      call getlenscale(xydum1,s1,0,ncc)
+
+      do i=1,ncc
+        xydum1(i,1) = mdxd(nrr,i)
+        xydum1(i,2) = mdyd(nrr,i)
+      enddo
+      call getlenscale(xydum1,s3,0,ncc)
+
+      do i=1,nrr
+        xydum2(i,1) = mdxd(i,ncc)
+        xydum2(i,2) = mdyd(i,ncc)
+      enddo
+      call getlenscale(xydum2,s2,0,nrr)
+
+      do i=1,nrr
+        xydum2(i,1) = mdxd(i,1)
+        xydum2(i,2) = mdyd(i,1)
+      enddo
+      call getlenscale(xydum2,s4,0,nrr)
+
+      call copy(mdx2,mdxd,nrr*ncc) 
+      call copy(mdy2,mdyd,nrr*ncc) 
+
+c MOVE EDGE 1
+      do j=1,ncc
+       dx = mdx(1,j) - mdxd(1,j);
+       dy = mdy(1,j) - mdyd(1,j);
+       do i=1,nrr
+         f1 = (s1(ncc)-s1(j))/s1(ncc)
+         f2 = (s2(nrr)-s2(i))/s2(nrr);
+         tdx = dx*f2;
+         tdy = dy*f2;
+         mdx2(i,j) = mdx2(i,j)+tdx;
+         mdy2(i,j) = mdy2(i,j)+tdy;
+       enddo
+      enddo
+
+
+c MOVE EDGE 2
+      do i=1,nrr
+        dx = mdx(i,ncc) - mdxd(i,ncc);
+        dy = mdy(i,ncc) - mdyd(i,ncc);
+        do j=1,ncc
+          f1 = (s1(j))/s1(ncc);
+          f2 = (s2(nrr)-s2(i))/s2(nrr);
+          tdx = dx*f1;
+          tdy = dy*f1;
+          mdx2(i,j) = mdx2(i,j)+tdx;
+          mdy2(i,j) = mdy2(i,j)+tdy;
+        enddo
+       enddo
+
+c MOVE EDGE 3
+      do j=1,ncc
+       dx = mdx(nrr,j) - mdxd(nrr,j);
+       dy = mdy(nrr,j) - mdyd(nrr,j);
+       do i=1,nrr
+         f1 = (s1(j))/s1(ncc)
+         f2 = (s2(i))/s2(nrr);
+         tdx = dx*f2;
+         tdy = dy*f2;
+         mdx2(i,j) = mdx2(i,j)+tdx;
+         mdy2(i,j) = mdy2(i,j)+tdy;
+       enddo
+      enddo
+
+
+c MOVE EDGE 4
+      do i=1,nrr
+        dx = mdx(i,1) - mdxd(i,1);
+        dy = mdy(i,1) - mdyd(i,1);
+        do j=1,ncc
+          f1 = (s1(ncc)-s1(j))/s1(ncc);
+          f2 = (s2(i))/s2(nrr);
+          tdx = dx*f1;
+          tdy = dy*f1;
+          mdx2(i,j) = mdx2(i,j)+tdx;
+          mdy2(i,j) = mdy2(i,j)+tdy;
+        enddo
+       enddo
+
+ 
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine genquad(xydum,ncc,nrr,mdxd,mdyd,r12)
+      integer nrr,ncc,i,j,k,l
+      real xd1(ncc),xd2(nrr),r12(2)
+      real xydum(4,2),mdxd(nrr,ncc),mdyd(nrr,ncc)
+      real jx1(ncc,2),jx1t(2,ncc),dum1(ncc*nrr)
+      real jx2(nrr,2),jx2t(2,nrr)
+      real xyintd(4)
+      integer ptr(4)
+
+
+      call geomspace(0.,1.,ncc,r12(1),xd1)
+      call geomspace(0.,1.,nrr,r12(2),xd2)
+
+      xyintd(1) = 0.
+      xyintd(2) = 1.
+      call gen_int_gz(jx1,jx1t,xd1,ncc,xyintd,2)
+      call gen_int_gz(jx2,jx2t,xd2,nrr,xyintd,2)
+
+      ptr(1) = 1
+      ptr(2) = 4
+      ptr(3) = 2
+      ptr(4) = 3
+
+      call swapvecinds(xyintd,xydum(1,1),ptr,4)
+      call mxm(jx2,nrr,xyintd,2,dum1,2)
+      call mxm(dum1,nrr,jx1t,2,mdxd,ncc)
+
+      call swapvecinds(xyintd,xydum(1,2),ptr,4)
+      call mxm(jx2,nrr,xyintd,2,dum1,2)
+      call mxm(dum1,nrr,jx1t,2,mdyd,ncc)
+       
       
       return
       end
@@ -547,4 +715,45 @@ C
      $  ((A**3-A)*Y2A(KLO)+(B**3-B)*Y2A(KHI))*(H**2)/6.
       RETURN
       END
+c-----------------------------------------------------------------------
+      subroutine getlenscale(xyd,sv2,flag,n)
+      integer flag,i,n
+      real xyd(n,2),sv2(n)
+
+      sv2(1) = 0
+      do i=1,n-1
+       sv2(i+1) = sv2(i) +
+     $            dist2d(xyd(i,1),xyd(i,2),xyd(i+1,1),xyd(i+1,2))
+      enddo
+
+      if (flag.eq.1) then
+       call rescale(sv2,0.,1.,n)
+      endif
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine changescale(xn,yn,xx,yy,sc,n1,n2)
+c  this takes xx and yy and interpoaltes using cubic spline to xn,yn
+c  xx,yy has n2 points, xn,yn has n1 points
+      integer n1,n2
+      real xx(n2),yy(n2),xn(n1),yn(n1),s(n2),sc(n1)
+      real scb(n1)
+
+      call copy(scb,sc,n1)
+
+      s(1) = 0.
+      do i=1,n2-1
+       s(i+1) = s(i)+dist2d(xx(i),yy(i),xx(i+1),yy(i+1))
+      enddo
+
+      call rescale(sc,0.,s(n2),n1)
+      call spfit(s,xx,sc,xn,n1,n2)
+      call spfit(s,yy,sc,yn,n1,n2)
+
+      call copy(sc,scb,n1)
+
+      return
+      end
 c-----------------------------------------------------------------------
