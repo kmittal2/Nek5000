@@ -650,6 +650,8 @@ C     of remote session
          call mpi_send (rsend,len,mpi_byte, id, nid, intercomm, ierr)
       enddo
 
+ 
+
       il=0 
       do n=1,nprecv
          id    = inforecv(n,1)
@@ -668,13 +670,8 @@ C     of remote session
             enddo
          enddo
       enddo 
-c k10 - irecv not possible here because 1 processor might be receiving
-c info from a bunch of different procs
-
 
       call neknekgsync()
-
-c      call mpi_wait (msg,status,ierr)
 
       return
       end
