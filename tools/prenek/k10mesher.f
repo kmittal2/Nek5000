@@ -82,9 +82,10 @@ c This creates the mesh outside a circle in a rectangle
 c INPUTS - center of circle, Radius of circle 
 c 4 corners of Rectangle CW along with Elements and spacing 
 c Circle surface is assumed to be a WALL
-      real xycir(2),xyrec(4,2),r12(2),radcir
-      integer i,j,k,l,e12(2)
-      character*3 bcs(4)
+      real xycir(2),xyrec(4,2),r12(2),radcir,angles(4)
+      real xylist(5,2),rrad
+      integer i,j,k,l,e12(2),erad
+      character*3 bcs(4),bcin
 
       call prs('SEE GUIDE - CIRCLE IN A BOUNDARY$')
       CALL prs('Please enter the center of the circle:$')
@@ -100,10 +101,14 @@ c Circle surface is assumed to be a WALL
       CALL rerr(xyrec(3,1),xyrec(3,2))
       CALL prs('Enter the (X,Y) FOR 4st point:$')
       CALL rerr(xyrec(4,1),xyrec(4,2))
-      call prs('Enter number of elements on 1st and 2nd side:$')
+      call prs('Enter EVEN number of elements on 1st and 2nd side:$')
       call reii(e12(1),e12(2))
       call prs('Enter GEOMETRIC spacing for both sides:$')
       call rerr(r12(1),r12(2))
+      call prs('Enter the number of elements in radial direction:$')
+      call rei(erad)
+      call prs('Enter GEOMETRIC spacing for interior:$')
+      call rer(rrad)
       call prs('Enter the BCs for side 1:$')
       call res(bcs(1),3)
       call prs('Enter the BCs for side 2:$')
@@ -115,10 +120,145 @@ c Circle surface is assumed to be a WALL
 
 c We have all the inputs now, we are ready to mesh this :)
 
+c First need to identify which quadrant is the first point in
+      call getangle(xyrec,xycir,angles,4)
+c For now let's assume that point is in the 3rd quadrant (which is ideal)
+
+      xylist(5,1) = xycir(1)
+      xylist(5,2) = xycir(2)
+c     MESH 1st part
+      xylist(1,1) = xyrec(1,1)
+      xylist(1,2) = xyrec(1,2)
+      xylist(2,1) = xyrec(2,1)
+      xylist(2,2) = xyrec(2,2)
+      xylist(3,1) = -(radcir/sqrt(2.))+xycir(1)
+      xylist(3,2) = -(radcir/sqrt(2.))+xycir(2)
+      xylist(4,1) =  (radcir/sqrt(2.))+xycir(1)
+      xylist(4,2) = -(radcir/sqrt(2.))+xycir(2)
+      bcin = bcs(1)
+
+      call meshoutcir(xylist,radcir,bcin,e12(1),erad,r12(1),rrad)
+
+      call prexit
+
+      RETURN
+      END
+c-----------------------------------------------------------------------
+      subroutine meshoutcir(xylist,radcir,bcin,e1,e2,r1,r2)
+      integer e1,e2,ncc,nrr,e12(2),xyspl(4)
+      real radcir,xylist(5,2),xycir(1,2),r12(2)
+      character*3 bcs(4),bcin
+      PARAMETER (NMAX=10000)
+      common /ctmpk10/ xdum(nmax),ydum(nmax),xn(nmax),yn(nmax),sc(nmax)
+      real ang1(1),ang2(1),dth,xydum(100,2)
+
+      e12(1) = e1
+      e12(2) = e2
+      r12(1) = r1
+      r12(2) = r2
+      xycir(1,1) = xylist(5,1)
+      xycir(1,2) = xylist(5,2)
+      ncc = e1+1
+      nrr = e2+1
+      bcs(1) = bcin
+      bcs(2) = 'E  '
+      bcs(3) = 'W  '
+      bcs(4) = 'E  '
+
+c Generate point along edge of rectangle 
+      call geomspace(0.,1.,ncc,r12(1),sc)
+      call changescale(xn,yn,xylist(1,1),xylist(1,2),sc,ncc,2)
+      npts = ncc
+      xyspl(1) = 1
+      xyspl(2) = npts
+
+      do i=1,ncc
+        write(6,*) i,xn(i),yn(i),'k10 xn yn'
+      enddo
+c points between rectangle corner to circle point
+      call geomspace(0.,1.,nrr,r12(2),sc)
+      call changescale(xn(npts),yn(npts),xylist(2,1),xylist(2,2),
+     $                 sc,nrr,2)
+      do i=npts,npts+nrr-1
+        write(6,*) i,xn(i),yn(i),'k10 xn yn'
+      enddo
+      npts = npts+nrr-1
+      xyspl(3) = npts
+
+c points along circumfrence of circle
+c STUCK HERE
+      xdum(1) = xylist(3,1) 
+      xdum(2) = xylist(4,1)
+      ydum(1) = xylist(3,2) 
+      ydum(2) = xylist(4,2)
+      write(6,*) xdum(1),ydum(1),xdum(2),ydum(2),'k10xdumydum'
+      call geomspace(0.,1.,100,1.,sc)
+      write(6,*) 'Done so far'
+      call changescale(xydum(1,1),xydum(1,2),xdum,ydum,sc,100,2)
+      write(6,*) 'Done so far'
+c these points are along a straight line - project them to center
+      call projtocir(xydum,xycir,radcir,100)
+c now the points are on the circle
+      write(6,*) 'DOne so far'
+
+      call geomspace(0.,1.,ncc,1./r12(1),sc)
+      call changescale(xn(npts),yn(npts),xydum(1,1),xydum(1,2),
+     $        sc,ncc,100)
+      do i=npts,npts+ncc-1
+        write(6,*) i,xn(i),yn(i),sqrt((xn(i)-xycir(1,1))**2+
+     $  (yn(i)-xycir(1,2))**2),'k10xnyn'
+      enddo
+      npts = npts+ncc-1
+      xyspl(4) = npts
       
 
 
+      RETURN
+      END
+c-----------------------------------------------------------------------
+      subroutine projtocir(xypts,xycir,cirrad,n)
+      integer n,i,j,k,l
+      real xypts(n,2),xycir(2),cirrad
+      real dx,dy,x1,y1,xy1(1,2),th(1),disval
 
+      do i=1,n
+       x1 = xypts(i,1)
+       y1 = xypts(i,2)
+       write(6,*) x1,y1
+       xy1(1,1) = x1
+       xy1(1,2) = y1
+       dx = x1-xycir(1)
+       dy = y1-xycir(2)
+       call getangle(xy1,xycir,th,1)
+       disval = dist2d(x1,y1,xycir(1),xycir(2))
+       xypts(i,1) = xycir(1) + (cirrad)*dx/disval 
+       xypts(i,2) = xycir(2) + (cirrad)*dy/disval 
+      enddo
+
+      write(6,*) x1,y1,dx,dy,th,disval,'k10projtocir'
+      
+      RETURN
+      END
+c-----------------------------------------------------------------------
+      subroutine getangle(xyrec,xycir,angles,n)
+      integer i,j,k,l,n
+      real xyrec(n,2),xycir(2),angles(n)
+      real v1(2),v2(2),v1c2(2)
+      real normc,detc
+
+       pi = 4*atan(1.)
+
+       v1(1) = 1.
+       v1(2) = 0.
+       do i=1,n
+         v2(1) = xyrec(i,1)-xycir(1)
+         v2(2) = xyrec(i,2)-xycir(2)
+         detc = v2(2)
+         dotc = v1(1)*v2(1)
+         th = (180./pi)*atan2(detc,dotc)
+         if (th.lt.0) th = th+360.
+         angles(i) = th
+       enddo
 
       RETURN
       END
