@@ -39,9 +39,10 @@ C
       ITEM(2)='DELETE'
       ITEM(3)='QUAD REGION'
       ITEM(4)='QUAD BOUNDARY'
-      ITEM(5)='SMOOTH'
-      ITEM(6)='STASH CHUNK'
-      NCHOIC = 6
+      ITEM(5)='CIRCLE IN RECTANGLE'
+      ITEM(6)='SMOOTH'
+      ITEM(7)='STASH CHUNK'
+      NCHOIC = 7
       CALL MENU(XMOUSE,YMOUSE,BUTTON,'K10 MESHER')
 3013  CONTINUE
 
@@ -63,9 +64,59 @@ C
         call quadmesher
       ELSEIF(CHOICE.EQ.'QUAD BOUNDARY')THEN
         call quadfromboundary
+      ELSEIF(CHOICE.EQ.'CIRCLE IN RECTANGLE')THEN
+        call circleinrectangle
       ENDIF
 
       GO TO 1
+
+      RETURN
+      END
+c-----------------------------------------------------------------------
+      subroutine circleinrectangle
+      include 'basics.inc'
+c 
+c This creates the mesh outside a circle in a rectangle
+c INPUTS - center of circle, Radius of circle 
+c 4 corners of Rectangle CW along with Elements and spacing 
+c Circle surface is assumed to be a WALL
+      real xycir(2),xyrec(4,2),r12(2),radcir
+      integer i,j,k,l,e12(2)
+      character*3 bcs(4)
+
+      call prs('SEE GUIDE - CIRCLE IN A BOUNDARY$')
+      CALL prs('Please enter the center of the circle:$')
+      CALL rerr(xycir(1),xycir(2))
+      CALL prs('Please enter the radius of the circle:$')
+      CALL rer(radcir)
+      CALL prs('Enter the corners of rectangle CW:$')
+      CALL prs('Enter the (X,Y) FOR 1st point:$')
+      CALL rerr(xyrec(1,1),xyrec(1,2))
+      CALL prs('Enter the (X,Y) FOR 2st point:$')
+      CALL rerr(xyrec(2,1),xyrec(2,2))
+      CALL prs('Enter the (X,Y) FOR 3st point:$')
+      CALL rerr(xyrec(3,1),xyrec(3,2))
+      CALL prs('Enter the (X,Y) FOR 4st point:$')
+      CALL rerr(xyrec(4,1),xyrec(4,2))
+      call prs('Enter number of elements on 1st and 2nd side:$')
+      call reii(e12(1),e12(2))
+      call prs('Enter GEOMETRIC spacing for both sides:$')
+      call rerr(r12(1),r12(2))
+      call prs('Enter the BCs for side 1:$')
+      call res(bcs(1),3)
+      call prs('Enter the BCs for side 2:$')
+      call res(bcs(2),3)
+      call prs('Enter the BCs for side 3:$')
+      call res(bcs(3),3)
+      call prs('Enter the BCs for side 4:$')
+      call res(bcs(4),3)
+
+c We have all the inputs now, we are ready to mesh this :)
+
+      
+
+
+
 
       RETURN
       END
@@ -79,12 +130,7 @@ c also specify boundary conditions
 c 
       real xx(4),yy(4)
       integer e12(2),i,j
-      real r12(2),xd(100),xd2(100)
-      real jx1(200),jx1t(200),dum1(200)
-      real jx2(200),jx2t(200),dum2(200)
-      real xmf(10000),ymf(10000)
-      real xyintd(4) 
-      integer ptr(4)
+      real r12(2)
       character*3 bcs(4)
 
       call prs('SEE GUIDE - ENTER POINTS CW$')
@@ -108,31 +154,28 @@ c
       call res(bcs(3),3)
       call prs('Enter the BCs for side 4:$')
       call res(bcs(4),3)
-      write(6,*) bcs
-      write(6,*) xx,yy,e12,r12,'k10xyer'
 
-      call geomspace(0.,1.,e12(1)+1,r12(1),xd)
-      call geomspace(0.,1.,e12(2)+1,r12(2),xd2)
+      call makemeshfromcorners(xx,yy,e12(2)+1,e12(1)+1,r12,bcs)
 
-      xyintd(1) = 0.
-      xyintd(2) = 1.
-      call gen_int_gz(jx1,jx1t,xd,e12(1)+1,xyintd,2)
-      call gen_int_gz(jx2,jx2t,xd2,e12(2)+1,xyintd,2)
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine makemeshfromcorners(xx,yy,nrr,ncc,r12,bcs)
+      integer nrr,ncc,i,j,k,l
+      real mdxd(nrr,ncc),mdyd(nrr,ncc)
+      real xydum(4,2),xx(4),yy(4)
+      real sv1(ncc),sv2(nrr),r12(2)
+      real s1(ncc),s3(ncc),s2(nrr),s4(nrr)
+      real dx,dy,tdx,tdy,f1,f2
+      character*3 bcs(4)
 
-      ptr(1) = 1
-      ptr(2) = 4
-      ptr(3) = 2
-      ptr(4) = 3
+      do i=1,4
+       xydum(i,1) = xx(i)
+       xydum(i,2) = yy(i)
+      enddo
+      call genquad(xydum,ncc,nrr,mdxd,mdyd,r12)
 
-      call swapvecinds(xyintd,xx,ptr,4)      
-      call mxm(jx2,e12(2)+1,xyintd,2,dum1,2)
-      call mxm(dum1,e12(2)+1,jx1t,2,xmf,e12(1)+1)
-
-      call swapvecinds(xyintd,yy,ptr,4)      
-      call mxm(jx2,e12(2)+1,xyintd,2,dum1,2)
-      call mxm(dum1,e12(2)+1,jx1t,2,ymf,e12(1)+1)
-
-      call makemesh(xmf,ymf,bcs,(e12(1)+1),(e12(2)+1))
+      call makemesh(mdxd,mdyd,bcs,ncc,nrr)
       call redraw_mesh
 
       return
@@ -192,24 +235,6 @@ c     so far we have the data read. now we have to construct the matrix
 c     etc...
 
       call genbndrelmat(e12,r12,xyspl,nnpts,bcs) !xdum,ydum are in common block
-
-c      call prexit
-
-c      n1 = 10
-c      n2 = 6
-c      write(6,*) 'try 1'
-c      call geomspace(0.,1.,n2,1.1,sc)
-c      call geomspace(3.,5.,n1,1.2,xdum) 
-c      call geomspace(1.,2.,n1,1.1,ydum) 
-
-c      call changescale(xn,yn,xdum,ydum,sc,n2,n1)
-
-c      do i=1,6
-c       write(6,*) i,sc(i),xn(i),yn(i),'k10ints'
-c      enddo
-c      do i=1,10
-c       write(6,*) i,xdum(i),ydum(i),'k10origs'
-c      enddo
 
 c      call prexit
       goto 400

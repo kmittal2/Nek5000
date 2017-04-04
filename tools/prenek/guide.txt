@@ -1,3 +1,6 @@
+% The Quad mesher accepts the input of four corners of a four sided area along with
+% element count, spacing and boundary conditions
+% 
 %
 %      QUAD MESHER
 %           bc3
@@ -11,5 +14,11 @@
 %           bc1
 %
 %
+% Quad from boundary mesher
+% This mesher takes the same input as above but this time the edges AB, BC, CD, DA 
+% are specified in a long dat file. This mesher is useful for not rectangular/circular
+% shapes. The user must also specify the demarcation of edges in the dat file
 %
+%
+% circle in a rectangle
 
