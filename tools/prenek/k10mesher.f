@@ -19,6 +19,8 @@ c a lot of other supporting functions have been added
 c UPDATE 3 - March 31 - 4:51 PM - found bug in last night's code.. fixed that
 c and started adding the boundary mesher part
 c UPDATE 4 - April 2 - 6:06 pm - boundary mesher is now complete
+c UPDATE 5 - April 3 - 7:14 pm - made quadmesher simpler and have started adding
+c circle in rectangle mesher
 c 
 C
 C
