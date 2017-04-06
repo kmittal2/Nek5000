@@ -288,6 +288,7 @@ C     Determine amount of points to send to each processor
       iaddress=1
       iraddress=1
 
+
       do id=0,np_neighbor-1
         if(id.le.iremainder-1) then
             nsend = ndistrib + 1
