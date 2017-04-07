@@ -509,13 +509,13 @@ c
 c
 
 c     Store point counts (infosend(:,2)) instead of pointers 
-
       do n=2,npsend
          ip=infosend(n-1,2)
          ic=infosend(n,2)
          infosend(n-1,2)=ic-ip
       enddo
       infosend(npsend,2)=npoints-infosend(npsend,2)+1
+
 
       if (istep.eq.0) write(6,'(a7,i12,1x,a10)') 'found', npoints, 
      &                     session
