@@ -55,9 +55,9 @@ C     and path (PATH_MULT(n-1))
 
       call bcast(nsessions,4)
 
-      if (nsessions.gt.2) 
-     &  call exitti('More than 2 sessions are currently 
-     &  not supported!$',1)
+c      if (nsessions.gt.2) 
+c     &  call exitti('More than 2 sessions are currently 
+c     &  not supported!$',1)
 
       do n=0,nsessions-1
          call bcast(npsess(n),4)
@@ -87,6 +87,10 @@ C     Assign key for splitting into multiple groups
      &    idsess=n
       enddo
 
+      write(6,*) idsess,nid,'idsess and nid of procs'
+      write(6,*) idsess,nid,npall,npsess(1),npsess(2),npsess(3),'npall'
+
+
       call mpi_comm_split(mpi_comm_world,idsess,nid,intracomm,ierr)
  
       session = session_mult(idsess)
@@ -96,18 +100,19 @@ C     Intercommunications set up only for 2 sessions
 
       if (nsessions.gt.1) then
 
-         if (idsess.eq.0) idsess_neighbor=1
-         if (idsess.eq.1) idsess_neighbor=0
+c         if (idsess.eq.0) idsess_neighbor=1
+c         if (idsess.eq.1) idsess_neighbor=0
  
-         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
-     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
+c         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
+c     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
 
-         np_neighbor=npsess(idsess_neighbor)
+c         np_neighbor=npsess(idsess_neighbor)
       
          call iniproc(intracomm)
 
          ifhigh=.true.
-         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+c         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+         iglobalcomm = mpi_comm_world
       
          ifneknek   = .true.
          ifneknekm  = .false.
@@ -131,6 +136,7 @@ C-----------------------------------------------------------------------
       save    icalld
       data    icalld  /0/
 c   Do some sanity checks - just once at setup
+      call neknekgsync()
       call nekneksanchk(1)
 C     Set interpolation flag: points with bc = 'int' get intflag=1. 
 C     Boundary conditions are changed back to 'v' or 't'.
@@ -332,7 +338,11 @@ c-----------------------------------------------------------------------
       include 'GLOBALCOM'
 
       call happy_check(1)
-      call mpi_barrier(intercomm,ierr)
+      call setintercomm(nekcommtrue,nptrue)
+      call nekgsync()
+      call unsetintercomm(nekcommtrue,nptrue)
+       
+c      call mpi_barrier(intercomm,ierr)
       return
       end
 c------------------------------------------------------------------------
@@ -481,6 +491,7 @@ c     Get diamter of the domain
       mn_glob=uglmin(xm1,lx1*ly1*lz1*nelt)
       dx1 = mx_glob-mn_glob
       call neknekgsync()
+      write(6,*) idsess,nid,mx_glob,mn_glob,'k10idsess'
 
       dxf = 10.+dx1
       dyf = 0.
