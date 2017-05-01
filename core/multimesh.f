@@ -131,7 +131,9 @@ C-----------------------------------------------------------------------
       save    icalld
       data    icalld  /0/
 c   Do some sanity checks - just once at setup
-      call nekneksanchk(1)
+      if (istep.lt.1) then
+        call nekneksanchk(1)
+      endif
 C     Set interpolation flag: points with bc = 'int' get intflag=1. 
 C     Boundary conditions are changed back to 'v' or 't'.
 
@@ -476,7 +478,6 @@ c     Get total number of processors and number of p
 
 ccccc
 c     Get diamter of the domain
-      call neknekgsync()
       mx_glob=uglmax(xm1,lx1*ly1*lz1*nelt)
       mn_glob=uglmin(xm1,lx1*ly1*lz1*nelt)
       dx1 = mx_glob-mn_glob
