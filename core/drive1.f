@@ -287,32 +287,59 @@ c-----------------------------------------------------------------------
 
          call setprop
          do igeom=1,ngeom
+            if (ifplan5) then
+               if (igeom.gt.2) call userchk_set_xfer
 
-            if (igeom.gt.2) call userchk_set_xfer
+               if (ifgeom) then
+!                 call gengeom (igeom)
+                  call geneig  (igeom)
+               endif
 
-            if (ifgeom) then
-               call gengeom (igeom)
-               call geneig  (igeom)
+               if (ifneknekm.and.igeom.eq.2) call multimesh_create
+
+               if (ifmhd) then
+                  if (ifheat)      call heat     (igeom)
+                                   call induct   (igeom)
+               elseif (ifpert) then
+                  if (ifbase.and.ifheat)  call heat          (igeom)
+                  if (ifbase.and.ifflow)  call fluid         (igeom)
+                  if (ifflow)             call fluidp        (igeom)
+                  if (ifheat)             call heatp         (igeom)
+               else  ! std. nek case
+                  if (ifheat)             call heat          (igeom)
+                  if (ifflow)             call fluid         (igeom)
+!                 if (ifmvbd)             call meshv         (igeom)
+               endif
+
+               if (igeom.eq.ngeom.and.param(103).gt.0) 
+     $            call q_filter(param(103))
+            else
+               if (igeom.gt.2) call userchk_set_xfer
+
+               if (ifgeom) then
+                  call gengeom (igeom)
+                  call geneig  (igeom)
+               endif
+
+               if (ifneknekm.and.igeom.eq.2) call multimesh_create
+
+               if (ifmhd) then
+                  if (ifheat)      call heat     (igeom)
+                                   call induct   (igeom)
+               elseif (ifpert) then
+                  if (ifbase.and.ifheat)  call heat          (igeom)
+                  if (ifbase.and.ifflow)  call fluid         (igeom)
+                  if (ifflow)             call fluidp        (igeom)
+                  if (ifheat)             call heatp         (igeom)
+               else  ! std. nek case
+                  if (ifheat)             call heat          (igeom)
+                  if (ifflow)             call fluid         (igeom)
+                  if (ifmvbd)             call meshv         (igeom)
+               endif
+
+               if (igeom.eq.ngeom.and.param(103).gt.0) 
+     $            call q_filter(param(103))
             endif
-
-            if (ifneknekm.and.igeom.eq.2) call multimesh_create
-
-            if (ifmhd) then
-               if (ifheat)      call heat     (igeom)
-                                call induct   (igeom)
-            elseif (ifpert) then
-               if (ifbase.and.ifheat)  call heat          (igeom)
-               if (ifbase.and.ifflow)  call fluid         (igeom)
-               if (ifflow)             call fluidp        (igeom)
-               if (ifheat)             call heatp         (igeom)
-            else  ! std. nek case
-               if (ifheat)             call heat          (igeom)
-               if (ifflow)             call fluid         (igeom)
-               if (ifmvbd)             call meshv         (igeom)
-            endif
-
-            if (igeom.eq.ngeom.and.param(103).gt.0) 
-     $          call q_filter(param(103))
          enddo
       endif
 
