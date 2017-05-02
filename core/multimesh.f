@@ -468,7 +468,6 @@ c-----------------------------------------------------------------------
 c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
 c     THE MESH IS DISPLACED BACK TO ORIGINAL POSITION IN EXCH_POINTS2
 
-      call findpts_free(inth_multi2)
 ccccc
 c     Get total number of processors and number of p
       npall = 0
