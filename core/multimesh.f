@@ -232,6 +232,7 @@ c------------------------------------------------------------------------
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
+      integer i,k,n
 
       n    = nx1*ny1*nz1*nelt
 
