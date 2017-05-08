@@ -1,0 +1,3 @@
+plan5v2.f has all solves for each dt
+
+plan5v3 (current) has two half steps solve first, followed by the big step

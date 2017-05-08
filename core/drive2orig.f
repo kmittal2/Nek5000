@@ -766,9 +766,10 @@ c                - Incompressibe or Weakly compressible (div u .ne. 0).
       elseif (iftran) then
 
 c        call plan1 (igeom)       !  Orig. NEKTON time stepper
-
-         if (ifrich) then
-            call plan5_basic(igeom)
+         if (ifplan5) then
+            write (*,*) 'plan5'
+            write (*,*) 'igeomf=',igeom
+            call plan5(igeom)
          else
             call plan3 (igeom)    !  Same as PLAN 1 w/o nested iteration
                                   !  Std. NEKTON time stepper  !
@@ -816,6 +817,8 @@ C
       include 'DEALIAS'
 
       real*8 ts, dnekclock
+
+      write (*,*) 'heat got called'
 
       ts = dnekclock()
 
@@ -875,6 +878,7 @@ C-----------------------------------------------------------------------
       include 'INPUT'
       include 'TSTEP'
 C
+      write (*,*) 'meshv got called'
       IF (IGEOM.EQ.1) RETURN
 C
       IFIELD = 0
