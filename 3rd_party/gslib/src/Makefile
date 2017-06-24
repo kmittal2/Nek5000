@@ -44,8 +44,8 @@ GS=gs.o sort.o sarray_transfer.o sarray_sort.o \
    gs_local.o fail.o crystal.o comm.o tensor.o
 XXT=sparse_cholesky.o xxt.o
 AMG=amg.o
-FWRAPPER=fcrystal.o fcrs.o findpts.o
-INTP=findpts_local.o obbox.o poly.o lob_bnd.o findpts_el_3.o findpts_el_2.o
+FWRAPPER=fcrystal.o fcrs.o findpts.o findptsnn.o
+INTP=findpts_local.o obbox.o poly.o lob_bnd.o findpts_el_3.o findpts_el_2.o findptsnn_local.o findptsnn_el_3.o findptsnn_el_2.o
 
 .PHONY: all lib cmds deps tests clean objects odepinfo
 
