@@ -463,6 +463,7 @@ c-----------------------------------------------------------------------
       include 'mpif.h'
 
       real dx1,dy1,dz1,dxf,dyf,dzf,mx_glob,mn_glob
+      integer sid_nn(lx1,ly1,lz1,lelt)
       integer i,j,k,n,ntot2,npall
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
 c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
@@ -504,10 +505,21 @@ c     Setup findpts
       nzf     = 2*nz1
       bb_t    = 0.1 ! relative size to expand bounding boxes by
 
-      call findpts_setup(inth_multi2,mpi_comm_world,npall,ndim,
+ccccc
+c      make a vector of sessions
+
+      call ione(sid_nn,nelt)
+      call cmult(sid_nn,idsess,nelt)
+       
+
+      call findptsnn_setup(inth_multi2,mpi_comm_world,npall,ndim,
      &                   xm1,ym1,zm1,nx1,ny1,nz1,
      &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                   npt_max,tol)
+     &                   npt_max,tol,sid_nn)
+c      call findpts_setup(inth_multi2,mpi_comm_world,npall,ndim,
+c     &                   xm1,ym1,zm1,nx1,ny1,nz1,
+c     &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
+c     &                   npt_max,tol)
 
       return
       end
@@ -521,6 +533,7 @@ c-----------------------------------------------------------------------
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
       integer jsend(nmaxl_nn)
       common /exchr/ rsend(ldim*nmaxl_nn)
+      real rsid_nn(nmaxl_nn)
       integer rcode_all(nmaxl_nn),elid_all(nmaxl_nn)
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
@@ -591,16 +604,38 @@ c     points in jsend
 
       call neknekgsync()
 
+c     also make a vector of idsess of the points that are being found
+      call ione(rsid_nn,nbp)
+      call cmult(rsid_nn,idsess,nbp)
 cccc
 c     JL's routine to find which points these procs are on
-      call findpts(inth_multi2,rcode_all,1,
+      call findptsnn(inth_multi2,rcode_all,1,
      &             proc_all,1,
      &             elid_all,1,
      &             rst_all,ndim,
      &             dist_all,1,
      &             rsend(1),ndim,
      &             rsend(2),ndim,
-     &             rsend(3),ndim,nbp)
+     &             rsend(3),ndim,
+     $             rsid_nn,1,nbp)
+       do i=1,nbp
+        write(6,*) rsend((i-1)*ndim+1),rsend((i-1)*ndim+2),
+     $ rsend((i-1)*ndim+3),'k101'
+        write(6,*) elid_all(i),proc_all(i),dist_all(i),'k102'
+        write(6,*) rst_all((i-1)*ndim+1),
+     $  rst_all((i-1)*ndim+2),rst_all((i-1)*ndim+3),'k103'
+        enddo
+
+
+c      call findpts(inth_multi2,rcode_all,1,
+c     &             proc_all,1,
+c     &             elid_all,1,
+c     &             rst_all,ndim,
+c     &             dist_all,1,
+c     &             rsend(1),ndim,
+c     &             rsend(2),ndim,
+c     &             rsend(3),ndim,
+c     $             nbp)
 
       call neknekgsync()
 cccc
@@ -708,7 +743,7 @@ C--------------------------------------------------------------------------
       integer fieldstride
 cccc
 c     Used for findpts_eval of various fields
-      call findpts_eval(inth_multi2,fieldout,fieldstride,
+      call findptsnn_eval(inth_multi2,fieldout,fieldstride,
      &                     rcode,1,
      &                     proc,1,
      &                     elid,1,
