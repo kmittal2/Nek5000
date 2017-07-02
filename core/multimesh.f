@@ -463,7 +463,7 @@ c-----------------------------------------------------------------------
       include 'mpif.h'
 
       real dx1,dy1,dz1,dxf,dyf,dzf,mx_glob,mn_glob
-      integer sid_nn(lx1,ly1,lz1,lelt)
+      integer sid_nn(lelt)
       integer i,j,k,n,ntot2,npall
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
 c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
@@ -488,6 +488,7 @@ c     Get diamter of the domain
       dxf = 10.+dx1
       dyf = 0.
       dzf = 0.
+      dxf = 0.
 ccccc
 c     Displace MESH 1
       ntot = lx1*ly1*lz1*nelt
@@ -507,10 +508,9 @@ c     Setup findpts
 
 ccccc
 c      make a vector of sessions
-
-      call ione(sid_nn,nelt)
-      call cmult(sid_nn,idsess,nelt)
-       
+      do i=1,nelt
+        sid_nn(i) = idsess;
+      enddo
 
       call findptsnn_setup(inth_multi2,mpi_comm_world,npall,ndim,
      &                   xm1,ym1,zm1,nx1,ny1,nz1,
@@ -533,7 +533,7 @@ c-----------------------------------------------------------------------
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
       integer jsend(nmaxl_nn)
       common /exchr/ rsend(ldim*nmaxl_nn)
-      real rsid_nn(nmaxl_nn)
+      integer rsid_nn(nmaxl_nn)
       integer rcode_all(nmaxl_nn),elid_all(nmaxl_nn)
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
@@ -605,8 +605,9 @@ c     points in jsend
       call neknekgsync()
 
 c     also make a vector of idsess of the points that are being found
-      call ione(rsid_nn,nbp)
-      call cmult(rsid_nn,idsess,nbp)
+      do i=1,nbp
+       rsid_nn(i) = idsess;
+      enddo
 cccc
 c     JL's routine to find which points these procs are on
       call findptsnn(inth_multi2,rcode_all,1,
@@ -618,13 +619,8 @@ c     JL's routine to find which points these procs are on
      &             rsend(2),ndim,
      &             rsend(3),ndim,
      $             rsid_nn,1,nbp)
-       do i=1,nbp
-        write(6,*) rsend((i-1)*ndim+1),rsend((i-1)*ndim+2),
-     $ rsend((i-1)*ndim+3),'k101'
-        write(6,*) elid_all(i),proc_all(i),dist_all(i),'k102'
-        write(6,*) rst_all((i-1)*ndim+1),
-     $  rst_all((i-1)*ndim+2),rst_all((i-1)*ndim+3),'k103'
-        enddo
+
+       call neknekgsync()
 
 
 c      call findpts(inth_multi2,rcode_all,1,
