@@ -125,7 +125,7 @@ C-----------------------------------------------------------------------
 
       include 'SIZE'
       include 'TOTAL'
-      real dxf,dyf,dzf
+      real disint(lx1,ly1,lz1,lelt)
 
       integer icalld
       save    icalld
@@ -136,6 +136,8 @@ c   Do some sanity checks - just once at setup
 C     Set interpolation flag: points with bc = 'int' get intflag=1. 
 C     Boundary conditions are changed back to 'v' or 't'.
 
+      call cheap_dist(disint,1,'int')
+
       if (icalld.eq.0) then
          call set_intflag
          call neknekmv()
@@ -144,11 +146,11 @@ C     Boundary conditions are changed back to 'v' or 't'.
       call neknekgsync()
 
 c   Figure out the displacement for the first mesh 
-      call setup_int_neknek(dxf,dyf,dzf)  !sets up interpolation for 2 meshes
+      call setup_int_neknek(disint)  !sets up interpolation for 2 meshes
 
 c    exchange_points2 finds the processor and element number at
 c    comm_world level and displaces the 1st mesh back
-      call exchange_points2(dxf,dyf,dzf)
+      call exchange_points2
       
 
       return
@@ -455,19 +457,17 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
-      subroutine setup_int_neknek(dxf,dyf,dzf)
+      subroutine setup_int_neknek(disint)
       include 'SIZE'
       include 'TOTAL'
       include 'NEKUSE'
       include 'NEKNEK'
       include 'mpif.h'
 
-      real dx1,dy1,dz1,dxf,dyf,dzf,mx_glob,mn_glob
+      real disint(lx1,ly1,lz1,lelt)   !distance from interpolatory surfaces
       integer sid_nn(lelt)
       integer i,j,k,n,ntot2,npall
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
-c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
-c     THE MESH IS DISPLACED BACK TO ORIGINAL POSITION IN EXCH_POINTS2
 
 ccccc
 c     Get total number of processors and number of p
@@ -478,25 +478,7 @@ c     Get total number of processors and number of p
       enddo
 
 ccccc
-c     Get diamter of the domain
-      call neknekgsync()
-      mx_glob=uglmax(xm1,lx1*ly1*lz1*nelt)
-      mn_glob=uglmin(xm1,lx1*ly1*lz1*nelt)
-      dx1 = mx_glob-mn_glob
-      call neknekgsync()
-
-      dxf = 10.+dx1
-      dyf = 0.
-      dzf = 0.
-      dxf = 0.
-ccccc
-c     Displace MESH 1
       ntot = lx1*ly1*lz1*nelt
-      if (idsess.eq.0) then
-         call cadd(xm1,-dxf,ntot)
-      endif
-
-      call neknekgsync()
 ccccc
 c     Setup findpts    
       tol     = 1e-13
@@ -512,19 +494,18 @@ c      make a vector of sessions
         sid_nn(i) = idsess;
       enddo
 
+      call outpost(disint,vy,vz,pr,t,'   ')
+
       call findptsnn_setup(inth_multi2,mpi_comm_world,npall,ndim,
      &                   xm1,ym1,zm1,nx1,ny1,nz1,
      &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                   npt_max,tol,sid_nn)
-c      call findpts_setup(inth_multi2,mpi_comm_world,npall,ndim,
-c     &                   xm1,ym1,zm1,nx1,ny1,nz1,
-c     &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-c     &                   npt_max,tol)
+     &                   npt_max,tol,sid_nn) !disint)
+
 
       return
       end
 c-----------------------------------------------------------------------
-      subroutine exchange_points2(dxf,dyf,dzf)
+      subroutine exchange_points2
       include 'SIZE'
       include 'TOTAL'
       include 'NEKUSE'
@@ -537,6 +518,7 @@ c-----------------------------------------------------------------------
       integer rcode_all(nmaxl_nn),elid_all(nmaxl_nn)
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
+      real     rdisind(nmaxl_nn)
       real    rst_all(nmaxl_nn*ldim)
       integer e,ip,iface,nel,nfaces,ix,iy,iz
       integer kx1,kx2,ky1,ky2,kz1,kz2,idx,nxyz,nxy
@@ -563,9 +545,6 @@ cccc
 c     Setup arrays of x,y,zs to send to findpts and indices of boundary 
 c     points in jsend
       ip = 0
-      if (idsess.eq.0) then
-        dxf = -dxf
-      endif
       do e=1,nel
       do iface=1,nfaces
          if (intflag(iface,e).eq.1) then
@@ -578,11 +557,11 @@ c     points in jsend
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
                if (if3d) then
-                 rsend(ldim*(ip-1)+1)=x-dxf
+                 rsend(ldim*(ip-1)+1)=x 
                  rsend(ldim*(ip-1)+2)=y
                  rsend(ldim*(ip-1)+3)=z
                else
-                 rsend(ldim*(ip-1)+1)=x-dxf
+                 rsend(ldim*(ip-1)+1)=x
                  rsend(ldim*(ip-1)+2)=y
                endif
 
@@ -606,10 +585,13 @@ c     points in jsend
 
 c     also make a vector of idsess of the points that are being found
       do i=1,nbp
-       rsid_nn(i) = idsess;
+       rsid_nn(i) = idsess
+       rdisind(i) = 2.5
       enddo
 cccc
 c     JL's routine to find which points these procs are on
+      call neknekgsync()
+
       call findptsnn(inth_multi2,rcode_all,1,
      &             proc_all,1,
      &             elid_all,1,
@@ -619,26 +601,13 @@ c     JL's routine to find which points these procs are on
      &             rsend(2),ndim,
      &             rsend(3),ndim,
      $             rsid_nn,1,nbp)
+c     $             rdisind,1,nbp)
 
        call neknekgsync()
+       write(6,*) idsess,nid,'woooo done'
+c       call exitt
 
-
-c      call findpts(inth_multi2,rcode_all,1,
-c     &             proc_all,1,
-c     &             elid_all,1,
-c     &             rst_all,ndim,
-c     &             dist_all,1,
-c     &             rsend(1),ndim,
-c     &             rsend(2),ndim,
-c     &             rsend(3),ndim,
-c     $             nbp)
-
-      call neknekgsync()
 cccc
-c     Move mesh 1 back to its original position
-      if (idsess.eq.0) then
-        call cadd(xm1,-dxf,lx1*ly1*lz1*nelt)
-      endif
 
       ip=0
       icount=0

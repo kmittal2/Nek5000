@@ -20,7 +20,7 @@ PPLIST="NEKNEK"
 
 # optional compiler flags
 #FFLAGS=""
-#CFLAGS=""
+#CFLAGS="-O0"
 
 # optional linking flags
 #USR_LFLAGS+=" -L/usr/lib -lfoo"
