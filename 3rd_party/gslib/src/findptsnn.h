@@ -23,7 +23,8 @@ struct findptsnn_data_2 *findptsnn_setup_2(
   const unsigned n[2], const uint nel,
   const unsigned m[2], const double bbox_tol,
   const uint local_hash_size, const uint global_hash_size,
-  const unsigned npt_max, const double newt_tol, const sint *const nsid);
+  const unsigned npt_max, const double newt_tol, 
+  const uint *const nsid, const double *const distfint);
 
 struct findptsnn_data_3 *findptsnn_setup_3(
   const struct comm *const comm,
@@ -31,7 +32,8 @@ struct findptsnn_data_3 *findptsnn_setup_3(
   const unsigned n[3], const uint nel,
   const unsigned m[3], const double bbox_tol,
   const uint local_hash_size, const uint global_hash_size,
-  const unsigned npt_max, const double newt_tol, const sint *const nsid);
+  const unsigned npt_max, const double newt_tol,
+  const uint *const nsid, const double *const distfint);
 
 void findptsnn_free_2(struct findptsnn_data_2 *fd);
 void findptsnn_free_3(struct findptsnn_data_3 *fd);
@@ -43,6 +45,7 @@ void findptsnn_2(    uint   *const  code_base   , const unsigned  code_stride   
                    double *const dist2_base   , const unsigned dist2_stride   ,
              const double *const     x_base[2], const unsigned     x_stride[2],
     const uint  *const  session_id_base , const unsigned  session_id_stride   ,
+                   double *const disti_base   , const unsigned disti_stride   ,
              const uint npt, struct findptsnn_data_2 *const fd);
 
 void findptsnn_3(    uint   *const  code_base   , const unsigned  code_stride   ,
@@ -52,6 +55,7 @@ void findptsnn_3(    uint   *const  code_base   , const unsigned  code_stride   
                    double *const dist2_base   , const unsigned dist2_stride   ,
              const double *const     x_base[3], const unsigned     x_stride[3],
   const uint *const  session_id_base   , const unsigned    session_id_stride   ,
+                   double *const disti_base   , const unsigned disti_stride   ,
              const uint npt, struct findptsnn_data_3 *const fd);
 
 void findptsnn_eval_2(

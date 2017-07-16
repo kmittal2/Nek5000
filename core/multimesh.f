@@ -12,6 +12,7 @@ c-----------------------------------------------------------------------
       character*132 session_mult(0:nsessmax-1), path_mult(0:nsessmax-1)
 
       logical ifhigh
+      integer n
 
 C     nsessmax = upper limit for number of sessions
 C     nfldmax_nn  = max number of fields to be interpolated
@@ -55,9 +56,9 @@ C     and path (PATH_MULT(n-1))
 
       call bcast(nsessions,4)
 
-      if (nsessions.gt.2) 
-     &  call exitti('More than 2 sessions are currently 
-     &  not supported!$',1)
+c      if (nsessions.gt.2) 
+c     &  call exitti('More than 2 sessions are currently 
+c     &  not supported!$',1)
 
       do n=0,nsessions-1
          call bcast(npsess(n),4)
@@ -87,6 +88,10 @@ C     Assign key for splitting into multiple groups
      &    idsess=n
       enddo
 
+      write(6,*) idsess,nid,'idsess and nid of procs'
+      write(6,*) idsess,nid,npall,npsess(0),npsess(1),npsess(2),'npall'
+
+
       call mpi_comm_split(mpi_comm_world,idsess,nid,intracomm,ierr)
  
       session = session_mult(idsess)
@@ -96,18 +101,19 @@ C     Intercommunications set up only for 2 sessions
 
       if (nsessions.gt.1) then
 
-         if (idsess.eq.0) idsess_neighbor=1
-         if (idsess.eq.1) idsess_neighbor=0
+c         if (idsess.eq.0) idsess_neighbor=1
+c         if (idsess.eq.1) idsess_neighbor=0
  
-         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
-     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
+c         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
+c     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
 
-         np_neighbor=npsess(idsess_neighbor)
+c         np_neighbor=npsess(idsess_neighbor)
       
          call iniproc(intracomm)
 
          ifhigh=.true.
-         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+         iglobalcomm = mpi_comm_world
+c         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
       
          ifneknek   = .true.
          ifneknekm  = .false.
@@ -122,10 +128,9 @@ C     Intercommunications set up only for 2 sessions
       end
 C-----------------------------------------------------------------------
       subroutine multimesh_create
-
       include 'SIZE'
       include 'TOTAL'
-      real disint(lx1,ly1,lz1,lelt)
+      include 'NEKNEK'
 
       integer icalld
       save    icalld
@@ -136,7 +141,10 @@ c   Do some sanity checks - just once at setup
 C     Set interpolation flag: points with bc = 'int' get intflag=1. 
 C     Boundary conditions are changed back to 'v' or 't'.
 
-      call cheap_dist(disint,1,'int')
+c     Get distance from int
+      call cheap_dist(distfint,1,'int')
+      call outpost(distfint,vy,vz,pr,t,'   ')
+
 
       if (icalld.eq.0) then
          call set_intflag
@@ -146,7 +154,7 @@ C     Boundary conditions are changed back to 'v' or 't'.
       call neknekgsync()
 
 c   Figure out the displacement for the first mesh 
-      call setup_int_neknek(disint)  !sets up interpolation for 2 meshes
+      call setup_int_neknek  !sets up interpolation for 2 meshes
 
 c    exchange_points2 finds the processor and element number at
 c    comm_world level and displaces the 1st mesh back
@@ -457,17 +465,19 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
-      subroutine setup_int_neknek(disint)
+      subroutine setup_int_neknek
       include 'SIZE'
       include 'TOTAL'
       include 'NEKUSE'
       include 'NEKNEK'
       include 'mpif.h'
 
-      real disint(lx1,ly1,lz1,lelt)   !distance from interpolatory surfaces
-      integer sid_nn(lelt)
       integer i,j,k,n,ntot2,npall
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
+
+     
+c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
+c     THE MESH IS DISPLACED BACK TO ORIGINAL POSITION IN EXCH_POINTS2
 
 ccccc
 c     Get total number of processors and number of p
@@ -476,9 +486,13 @@ c     Get total number of processors and number of p
       do i=1,nsessions
        npall = npall+npsess(i-1)
       enddo
-
 ccccc
       ntot = lx1*ly1*lz1*nelt
+
+      call neknekgsync()
+      do i=1,nelt
+        sid_nn(i) = idsess
+      enddo
 ccccc
 c     Setup findpts    
       tol     = 1e-13
@@ -488,19 +502,27 @@ c     Setup findpts
       nzf     = 2*nz1
       bb_t    = 0.1 ! relative size to expand bounding boxes by
 
-ccccc
-c      make a vector of sessions
-      do i=1,nelt
-        sid_nn(i) = idsess;
-      enddo
+      if (idsess.eq.0) then
+      if (nid.eq.0) then
+         write(6,*) "About to setup findpts in multimesh"
+      endif
+      endif
+c      call findpts_setup(inth_multi2,mpi_comm_world,npall,ndim,
+c     &                   xm1,ym1,zm1,nx1,ny1,nz1,
+c     &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
+c     &                   npt_max,tol)
 
-      call outpost(disint,vy,vz,pr,t,'   ')
-
+  
       call findptsnn_setup(inth_multi2,mpi_comm_world,npall,ndim,
      &                   xm1,ym1,zm1,nx1,ny1,nz1,
      &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                   npt_max,tol,sid_nn) !disint)
+     &                   npt_max,tol,sid_nn,distfint)
 
+      if (idsess.eq.0) then
+      if (nid.eq.0) then
+         write(6,*) "Findpts setup complete"
+      endif
+      endif
 
       return
       end
@@ -514,17 +536,17 @@ c-----------------------------------------------------------------------
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
       integer jsend(nmaxl_nn)
       common /exchr/ rsend(ldim*nmaxl_nn)
-      integer rsid_nn(nmaxl_nn)
       integer rcode_all(nmaxl_nn),elid_all(nmaxl_nn)
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
-      real     rdisind(nmaxl_nn)
       real    rst_all(nmaxl_nn*ldim)
       integer e,ip,iface,nel,nfaces,ix,iy,iz
       integer kx1,kx2,ky1,ky2,kz1,kz2,idx,nxyz,nxy
       integer icalld
       save    icalld
       data    icalld /0/
+      integer rsid_nn(nmaxl_nn)
+      real    disti_all(nmaxl_nn)
 
 cccc
 c     Look for boundary points with Diriclet b.c. (candidates for
@@ -557,7 +579,7 @@ c     points in jsend
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
                if (if3d) then
-                 rsend(ldim*(ip-1)+1)=x 
+                 rsend(ldim*(ip-1)+1)=x
                  rsend(ldim*(ip-1)+2)=y
                  rsend(ldim*(ip-1)+3)=z
                else
@@ -581,17 +603,22 @@ c     points in jsend
       enddo
       nbp = ip
 
-      call neknekgsync()
-
 c     also make a vector of idsess of the points that are being found
       do i=1,nbp
        rsid_nn(i) = idsess
-       rdisind(i) = 2.5
+       disti_all(i) = 21312412412.  !initialize to large number and check in c
       enddo
-cccc
-c     JL's routine to find which points these procs are on
       call neknekgsync()
 
+cccc
+      if (idsess.eq.0) then
+      if (nid.eq.0) then
+         write(6,*) "About to do findptsh"
+      endif
+      endif
+c     JL's routine to find which points these procs are on
+
+      call neknekgsync()
       call findptsnn(inth_multi2,rcode_all,1,
      &             proc_all,1,
      &             elid_all,1,
@@ -600,13 +627,25 @@ c     JL's routine to find which points these procs are on
      &             rsend(1),ndim,
      &             rsend(2),ndim,
      &             rsend(3),ndim,
-     $             rsid_nn,1,nbp)
-c     $             rdisind,1,nbp)
+     &             rsid_nn,1,
+     $             disti_all,1
+     $             ,nbp)
 
-       call neknekgsync()
-       write(6,*) idsess,nid,'woooo done'
-c       call exitt
+c      call findpts(inth_multi2,rcode_all,1,
+c     &             proc_all,1,
+c     &             elid_all,1,
+c     &             rst_all,ndim,
+c     &             dist_all,1,
+c     &             rsend(1),ndim,
+c     &             rsend(2),ndim,
+c     &             rsend(3),ndim,nbp)
 
+      call neknekgsync()
+      if (idsess.eq.0) then
+      if (nid.eq.0) then
+         write(6,*) "findpts done"
+      endif
+      endif
 cccc
 
       ip=0
@@ -709,6 +748,7 @@ C--------------------------------------------------------------------------
 cccc
 c     Used for findpts_eval of various fields
       call findptsnn_eval(inth_multi2,fieldout,fieldstride,
+c      call findpts_eval(inth_multi2,fieldout,fieldstride,
      &                     rcode,1,
      &                     proc,1,
      &                     elid,1,

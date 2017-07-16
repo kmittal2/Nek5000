@@ -42,6 +42,6 @@ mpif77 -o nek5000 obj/eddy_uv.o obj/drive.o obj/drive1.o obj/drive2.o obj/plan4.
 #                  Compilation successful!                  #
 #############################################################
 __TEXT	__DATA	__OBJC	others	dec	hex
-2707456	417607680	0	4295151616	4715466752	119105000	
+2711552	417611776	0	4295155712	4715479040	119108000	
 
 

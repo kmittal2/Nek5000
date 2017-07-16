@@ -34,3 +34,8 @@ c
       integer inth_multi2
       save    inth_multi2
 
+      integer sid_nn(lelt)
+      common /ifpt_neknek/ sid_nn
+
+      integer distfint(lx1,ly1,lz1,lelt)
+      common /rfpt_neknek/ distfint

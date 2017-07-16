@@ -222,7 +222,8 @@ void ffindptsnn_setup(sint *const handle,
   const sint *const loc_hash_size, const sint *const gbl_hash_size,
   const sint *const npt_max,
   const double *const newt_tol,
-  const sint *const nsid)
+  const uint *const nsid,
+  const double *const distfint)
 {
   struct handle *h;
   if(handle_n==handle_max)
@@ -242,7 +243,7 @@ void ffindptsnn_setup(sint *const handle,
     buffer_init(&fd->cr.data,1000);
     buffer_init(&fd->cr.work,1000);
     setupnn_aux_2(fd, elx,n,*nel,m,*bbox_tol,
-                *loc_hash_size,*gbl_hash_size, *npt_max, *newt_tol, nsid);
+                *loc_hash_size,*gbl_hash_size, *npt_max, *newt_tol, nsid, distfint);
   } else if(h->ndim==3) {
     struct findptsnn_data_3 *const fd = tmalloc(struct findptsnn_data_3,1);
     const double *elx[3];
@@ -255,7 +256,7 @@ void ffindptsnn_setup(sint *const handle,
     buffer_init(&fd->cr.data,1000);
     buffer_init(&fd->cr.work,1000);
     setupnn_aux_3(fd, elx,n,*nel,m,*bbox_tol,
-                *loc_hash_size,*gbl_hash_size, *npt_max, *newt_tol, nsid);
+                *loc_hash_size,*gbl_hash_size, *npt_max, *newt_tol, nsid, distfint);
   } else
     fail(1,__FILE__,__LINE__,
          "findptsnn_setup: ndim must be 2 or 3; given ndim=%u",(unsigned)h->ndim);
@@ -287,6 +288,7 @@ void ffindptsnn(const sint *const handle,
   const double *const     y_base, const sint *const     y_stride,
   const double *const     z_base, const sint *const     z_stride,
   const   uint *const session_id_base,const uint *const     session_id_stride,
+        double *const disti_base, const sint *const disti_stride,
   const sint *const npt)
 {
   CHECK_HANDLE("findptsnn");
@@ -310,6 +312,7 @@ void ffindptsnn(const sint *const handle,
             dist2_base,(*dist2_stride)*sizeof(double),
                xv_base,     xv_stride,
                sess_base, sess_stride,
+            disti_base,(*disti_stride)*sizeof(double),
       *npt, h->data);
   } else {
     const double *xv_base[3];
@@ -330,6 +333,7 @@ void ffindptsnn(const sint *const handle,
             dist2_base,(*dist2_stride)*sizeof(double),
                xv_base,     xv_stride,
                sess_base, sess_stride,
+            disti_base,(*disti_stride)*sizeof(double),
       *npt, h->data);
   }
 }

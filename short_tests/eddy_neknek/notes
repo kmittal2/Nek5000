@@ -1,0 +1,7 @@
+logfile_james_O0 and O2 are original findpts implementation with dxf not set to 0. These both run fine and are baseline
+
+logfile_k10_O0 and O2 are my f1working code with dxf = 0. O2 runs fine but O0 blows up.
+
+logfiletest1 - what I did was took my f1working code, commented out the line in map_points_els where it checks and did not set dxf = 0. This runs fine with optimization O0 which means that findptsnn files were copied fine. Now I need to figure out where I am sending information the wrong way.
+
+

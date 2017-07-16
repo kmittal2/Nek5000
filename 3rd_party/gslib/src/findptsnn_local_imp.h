@@ -23,6 +23,7 @@
 #define map_points_to_els   TOKEN_PASTE(map_points_to_els_ ,D)
 #define findptsnn_local_setup TOKEN_PASTE(PREFIXED_NAME(findptsnn_local_setup_),D)
 #define findptsnn_local_free  TOKEN_PASTE(PREFIXED_NAME(findptsnn_local_free_ ),D)
+#define findptsnn_local_el_eval  TOKEN_PASTE(PREFIXED_NAME(findptsnn_local_el_eval_ ),D)
 #define findptsnn_local       TOKEN_PASTE(PREFIXED_NAME(findptsnn_local_      ),D)
 #define findptsnn_local_eval  TOKEN_PASTE(PREFIXED_NAME(findptsnn_local_eval_ ),D)
 
@@ -195,16 +196,19 @@ static void hash_free(struct hash_data *p) { free(p->offset); }
 struct findptsnn_local_data {
   unsigned ntot;
   const double *elx[D];
-  const int *session_id;
+  const unsigned *nsid;
   struct obbox *obb;
   struct hash_data hd;
   struct findptsnn_el_data fed;
   double tol;
+  double *distint;
+  const double *distfint;
 };
 
 void findptsnn_local_setup(struct findptsnn_local_data *const fd,
                          const double *const elx[D],
-                         const int *const session_id,
+                         const unsigned *const nsid,
+                         const double *const distfint,
                          const unsigned n[D], const uint nel,
                          const unsigned m[D], const double bbox_tol,
                          const uint max_hash_size,
@@ -213,13 +217,15 @@ void findptsnn_local_setup(struct findptsnn_local_data *const fd,
   unsigned d;
   unsigned ntot=n[0]; for(d=1;d<D;++d) ntot*=n[d];
   fd->ntot = ntot;
-  for(d=0;d<D+1;++d) fd->elx[d]=elx[d];
-  fd->session_id = session_id;
+  for(d=0;d<D;++d) fd->elx[d]=elx[d];
+  fd->nsid = nsid;
   fd->obb=tmalloc(struct obbox,nel);
   obbox_calc(fd->obb,elx,n,nel,m,bbox_tol);
   hash_build(&fd->hd,fd->obb,nel,max_hash_size);
   findptsnn_el_setup(&fd->fed,n,npt_max);
   fd->tol = newt_tol;
+  fd->distint = tmalloc(double, npt_max);
+  fd->distfint = distfint;
 }
 
 void findptsnn_local_free(struct findptsnn_local_data *const fd)
@@ -227,6 +233,7 @@ void findptsnn_local_free(struct findptsnn_local_data *const fd)
   findptsnn_el_free(&fd->fed);
   hash_free(&fd->hd);
   free(fd->obb);
+  free(fd->distint);
 }
 
 #define   AT(T,var,i)   \
@@ -252,14 +259,13 @@ static void map_points_to_els(
   const uint *sess_id; sess_id = session_id_base;
   for(index=0;index<npt;++index) {
     double x[D]; for(d=0;d<D;++d) x[d]=*xp[d];
-    uint session_id_chk = *sess_id;
     { const uint hi = hash_index(&fd->hd,x);
       const uint       *elp = fd->hd.offset + fd->hd.offset[hi  ],
                  *const ele = fd->hd.offset + fd->hd.offset[hi+1];
       *code = CODE_NOT_FOUND;
       for(; elp!=ele; ++elp) {
         const uint el = *elp;
-        if (fd->session_id[el] == *sess_id) continue;
+        if (fd->nsid[el] == *sess_id) continue;
         if(obbox_test(&fd->obb[el],x)>=0) {
           struct index_el *const p =
             array_reserve(struct index_el,map,map->n+1);
@@ -272,7 +278,7 @@ static void map_points_to_els(
     for(d=0;d<D;++d)
     xp[d] = (const double*)((const char*)xp[d]+   x_stride[d]);
     code  =         (uint*)(      (char*)code +code_stride   );
-    sess_id  =(const uint*)(      (char*)sess_id +session_id_stride);
+    sess_id  =(const uint*)((const char*)sess_id +session_id_stride);
   }
   /* group by element */
   sarray_sort(struct index_el,map->ptr,map->n, el,0, buf);
@@ -284,6 +290,29 @@ static void map_points_to_els(
   }
 }
 
+void findptsnn_local_el_eval(
+        double *const out_base, const unsigned out_stride,
+  const double *const   r_base, const unsigned   r_stride,
+  const uint npt, const uint elnum,
+  const double *const in, struct findptsnn_local_data *const fd)
+{
+  struct findptsnn_el_data *const fed = &fd->fed;
+  const unsigned npt_max = fed->npt_max;
+  uint p;
+  for(p=0;p<npt;) {
+    const uint el = elnum;
+    const double *const in_el = in+el*fd->ntot;
+    do {
+      unsigned i; uint q;
+      for(i=0,q=p;i<npt_max && q<npt;++q) ++i;
+      findptsnn_el_eval( AT(double,out,p),out_stride,
+                      CAT(double,  r,p),  r_stride, i,
+                      in_el,fed);
+      p=q;
+    } while(p<npt);
+  }
+}
+
 void findptsnn_local(
         uint   *const  code_base   , const unsigned  code_stride   ,
         uint   *const    el_base   , const unsigned    el_stride   ,
@@ -291,6 +320,7 @@ void findptsnn_local(
         double *const dist2_base   , const unsigned dist2_stride   ,
   const double *const     x_base[D], const unsigned     x_stride[D],
   const uint   *const  session_id_base, const unsigned session_id_stride,
+        double *const disti_base   , const unsigned disti_stride   ,
   const uint npt, struct findptsnn_local_data *const fd,
   buffer *buf)
 {
@@ -314,25 +344,42 @@ void findptsnn_local(
         unsigned i;
         for(i=0,q=p;i<npt_max && q->el==el;++q) {
           uint *code = AT(uint,code,q->index);
-          if(*code==CODE_INTERNAL) continue;
+//k10c                if(*code==CODE_INTERNAL) continue;
           for(d=0;d<D;++d) fpt[i].x[d]=*CATD(double,x,q->index,d);
           ++i;
         }
         findptsnn_el(fed,i,fd->tol);
+// At this point all the points will be considered for disti check..
+// We need a findpts_local_eval for this
         for(i=0,q=p;i<npt_max && q->el==el;++q) {
           const uint index=q->index;
           uint *code = AT(uint,code,index);
           double *dist2 = AT(double,dist2,index);
+          double *disti = AT(double,disti,index);
 
-          if(*code==CODE_INTERNAL) continue;
-          if(*code==CODE_NOT_FOUND
-             || fpt[i].flags==(1u<<(2*D)) /* converged, no constraints */
-             || fpt[i].dist2<*dist2) {
+// k10 do local eval per point here for now
+          double rtc[D];
+          for(d=0;d<D;++d) rtc[d]=fpt[i].r[d];
+          double distpt;
+          findptsnn_local_el_eval(&distpt,1,
+                               &rtc[0], 1,
+                               1,el,fd->distfint,fd);
+//           printf(" %f %f k10chdi\n",distpt,*disti);
+//           printf(" %f %f k10chd2\n",fpt[i].dist2,*dist2);
+          if((*code==CODE_INTERNAL && fpt[i].flags==(1u<<(2*D))
+              && distpt<=*disti) ||
+             (*code==CODE_BORDER && fpt[i].dist2<*dist2) ||
+             (*code==CODE_NOT_FOUND)) {
+//              (*code==CODE_NOT_FOUND
+//            || fpt[i].flags==(1u<<(2*D)) /* converged, no constraints */
+//            || fpt[i].dist2<*dist2)) {
+//      printf("%u %f %f %f %f k10det\n",*code,distpt,*disti,fpt[i].dist2,*dist2);
             double *r = AT(double,r,index);
             uint *eli = AT(uint,el,index);
             *eli = el;
             *code = fpt[i].flags==(1u<<(2*D)) ? CODE_INTERNAL : CODE_BORDER;
             *dist2 = fpt[i].dist2;
+            *disti = distpt;
             for(d=0;d<D;++d) r[d]=fpt[i].r[d];
           }
           ++i;
@@ -375,6 +422,7 @@ void findptsnn_local_eval(
 
 #undef findptsnn_local_eval
 #undef findptsnn_local
+#undef findptsnn_local_el_eval
 #undef findptsnn_local_free
 #undef findptsnn_local_setup
 #undef map_points_to_els
