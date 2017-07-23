@@ -490,12 +490,13 @@ ccccc
       ntot = lx1*ly1*lz1*nelt
 
       call neknekgsync()
+      write(6,*) nelt,idsess,'k10 idsess'
       do i=1,nelt
         sid_nn(i) = idsess
       enddo
 ccccc
 c     Setup findpts    
-      tol     = 1e-13
+      tol     = 1e-08
       npt_max = 256
       nxf     = 2*nx1 ! fine mesh for bb-test
       nyf     = 2*ny1
@@ -545,7 +546,7 @@ c-----------------------------------------------------------------------
       integer icalld
       save    icalld
       data    icalld /0/
-      integer rsid_nn(nmaxl_nn)
+      integer rsid_nn(nmaxl_nn),elsid_nn(nmaxl_nn)
       real    disti_all(nmaxl_nn)
 
 cccc
@@ -629,7 +630,12 @@ c     JL's routine to find which points these procs are on
      &             rsend(3),ndim,
      &             rsid_nn,1,
      $             disti_all,1
+     $             ,elsid_nn,1
      $             ,nbp)
+c      do i=1,nbp
+c      write(6,*) i,idsess,rsid_nn(i),elsid_nn(i), 
+c     $   rsend(1+(i-1)*ndim),disti_all(i),'k10ds'
+c      enddo
 
 c      call findpts(inth_multi2,rcode_all,1,
 c     &             proc_all,1,

@@ -37,5 +37,5 @@ c
       integer sid_nn(lelt)
       common /ifpt_neknek/ sid_nn
 
-      integer distfint(lx1,ly1,lz1,lelt)
+      real distfint(lx1,ly1,lz1,lelt)
       common /rfpt_neknek/ distfint

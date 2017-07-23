@@ -242,8 +242,8 @@ void findptsnn_free(struct findptsnn_data *fd)
   free(fd);
 }
 
-struct src_pt { double x[D], disti; uint index, proc, session_id; };
-struct out_pt { double r[D], dist2, disti; uint index, code, el, proc; };
+struct src_pt { double x[D]; uint index, proc, session_id; };
+struct out_pt { double r[D], dist2, disti; uint index, code, el, proc, elsid; };
 
 void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   ,
                    uint   *const  proc_base   , const unsigned  proc_stride   ,
@@ -253,17 +253,11 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
              const double *const     x_base[D], const unsigned     x_stride[D],
              const uint   *const  session_id_base, const unsigned session_id_stride,
                    double *const disti_base   , const unsigned disti_stride   ,
+                   uint   *const elsid_base   , const unsigned elsid_stride   ,
              const uint npt, struct findptsnn_data *const fd)
 {
   const uint np = fd->cr.comm.np, id=fd->cr.comm.id;
   struct array hash_pt, src_pt, out_pt;
-
-//k10debug  double *distf; unsigned i; distf = disti_base;for(i=0;i<npt;++i) 
-//    {
-//         distf = (double*)((char*)distf+   disti_stride);
-//         printf("%f k10checkval\n",*distf);
-//    }
-// THis matched the values that were initialized for disti in fortran code
   /* look locally first */
   if(npt) findptsnn_local( code_base, code_stride,
                            el_base,   el_stride,
@@ -272,6 +266,7 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
                             x_base,    x_stride,
                             session_id_base,session_id_stride,
                         disti_base,disti_stride,
+                        elsid_base,elsid_stride,
                         npt,&fd->local,&fd->cr.data);
    printf("first findptsnn_local is done now\n");
   /* send unfound and border points to global hash cells */
@@ -281,7 +276,6 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
     const uint *sess_id;
     sess_id=session_id_base;
     const double *xp[D];
-    double *disti = disti_base;
     struct src_pt *pt;
     unsigned d; for(d=0;d<D;++d) xp[d]=x_base[d];
     array_init(struct src_pt, &hash_pt, npt), pt=hash_pt.ptr;
@@ -296,7 +290,6 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
         pt->index=index;
         pt->proc=hi%np;
         pt->session_id = session_id;
-        pt->disti = *disti;
         ++pt;
 //k10c      }
       for(d=0;d<D;++d)
@@ -304,7 +297,6 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
       code  =         (uint*)(      (char*)code +code_stride   );
       proc  =         (uint*)(      (char*)proc +proc_stride   );
       sess_id = (const uint*)((const char*)sess_id +session_id_stride);
-      disti = (      double*)(      (char*)disti+   disti_stride);
     }
     hash_pt.n = pt - (struct src_pt*)hash_pt.ptr;
     sarray_transfer(struct src_pt,&hash_pt,proc,1,&fd->cr);
@@ -347,7 +339,7 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
     struct out_pt *opt;
     array_init(struct out_pt,&out_pt,n), out_pt.n=n;
     spt=src_pt.ptr, opt=out_pt.ptr;
-    for(;n;--n,++spt,++opt) opt->index=spt->index,opt->proc=spt->proc,opt->disti                            =spt->disti;
+    for(;n;--n,++spt,++opt) opt->index=spt->index,opt->proc=spt->proc;
     spt=src_pt.ptr, opt=out_pt.ptr;
     if(src_pt.n) {
       const double *spt_x_base[D]; unsigned spt_x_stride[D];
@@ -363,6 +355,7 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
                      spt_x_base  ,spt_x_stride,
                      spt_sid_base  ,spt_sid_stride,
                     &opt[0].disti,sizeof(struct out_pt),
+                    &opt[0].elsid ,sizeof(struct out_pt),
                     src_pt.n,&fd->local,&fd->cr.data);
     }
     array_free(&src_pt);
@@ -385,15 +378,14 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
       uint *code = AT(uint,code,index);
       double *dist2 = AT(double,dist2,index);
       double *disti = AT(double,disti,index);
-//      printf("%f %f k10checkdis\n",opt->disti,*disti);
-      if((*code==CODE_INTERNAL && opt->code==CODE_INTERNAL
-              && opt->disti<=*disti) ||
-             (*code==CODE_BORDER && opt->dist2<*dist2) ||
-             (*code==CODE_NOT_FOUND)) {
-//           (*code==CODE_NOT_FOUND
-//           || opt->code==CODE_INTERNAL
-//           || opt->dist2<*dist2)) {
-//       printf("%f %f k10checkdis\n",opt->disti,*disti);
+      uint *elsid = AT(uint,elsid,index);
+      if (*code==CODE_INTERNAL && *elsid==opt->elsid) continue;
+      if (*code==CODE_NOT_FOUND || 
+         (*elsid == opt->elsid && (opt->code==CODE_INTERNAL || opt->dist2<=*dist2)) || 
+         (*elsid != opt->elsid && opt->dist2<=*dist2 && *dist2 > 0.       ) ||
+         (*elsid != opt->elsid && opt->dist2<=*dist2 && opt->disti<=*disti)
+              ) {
+
         double *r = AT(double,r,index);
         uint  *el = AT(uint,el,index), *proc = AT(uint,proc,index);
         unsigned d; for(d=0;d<D;++d) r[d]=opt->r[d];
@@ -402,6 +394,7 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
         *proc = opt->proc;
         *el = opt->el;
         *code = opt->code;
+        *elsid = opt->elsid; 
       }
     }
     array_free(&out_pt);

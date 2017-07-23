@@ -46,6 +46,7 @@ void findptsnn_2(    uint   *const  code_base   , const unsigned  code_stride   
              const double *const     x_base[2], const unsigned     x_stride[2],
     const uint  *const  session_id_base , const unsigned  session_id_stride   ,
                    double *const disti_base   , const unsigned disti_stride   ,
+                   uint   *const elsid_base   , const unsigned elsid_stride   ,
              const uint npt, struct findptsnn_data_2 *const fd);
 
 void findptsnn_3(    uint   *const  code_base   , const unsigned  code_stride   ,
@@ -56,6 +57,7 @@ void findptsnn_3(    uint   *const  code_base   , const unsigned  code_stride   
              const double *const     x_base[3], const unsigned     x_stride[3],
   const uint *const  session_id_base   , const unsigned    session_id_stride   ,
                    double *const disti_base   , const unsigned disti_stride   ,
+                   uint   *const elsid_base   , const unsigned elsid_stride   ,
              const uint npt, struct findptsnn_data_3 *const fd);
 
 void findptsnn_eval_2(

@@ -289,6 +289,7 @@ void ffindptsnn(const sint *const handle,
   const double *const     z_base, const sint *const     z_stride,
   const   uint *const session_id_base,const uint *const     session_id_stride,
         double *const disti_base, const sint *const disti_stride,
+          sint *const elsid_base, const sint *const elsid_stride,
   const sint *const npt)
 {
   CHECK_HANDLE("findptsnn");
@@ -313,6 +314,7 @@ void ffindptsnn(const sint *const handle,
                xv_base,     xv_stride,
                sess_base, sess_stride,
             disti_base,(*disti_stride)*sizeof(double),
+      (uint*)elsid_base,(*elsid_stride)*sizeof(sint  ),
       *npt, h->data);
   } else {
     const double *xv_base[3];
@@ -334,6 +336,7 @@ void ffindptsnn(const sint *const handle,
                xv_base,     xv_stride,
                sess_base, sess_stride,
             disti_base,(*disti_stride)*sizeof(double),
+      (uint*)elsid_base,(*elsid_stride)*sizeof(sint  ),
       *npt, h->data);
   }
 }

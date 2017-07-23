@@ -42,6 +42,59 @@ mpif77 -o nek5000 obj/eddy_uv.o obj/drive.o obj/drive1.o obj/drive2.o obj/plan4.
 #                  Compilation successful!                  #
 #############################################################
 __TEXT	__DATA	__OBJC	others	dec	hex
-2711552	417611776	0	4295155712	4715479040	119108000	
+2711552	417738752	0	4295151616	4715601920	119126000	
+
+
+mpif77 -c  -O2 -fdefault-real-8 -fdefault-double-8 -cpp -DNEKNEK -DMPI -DUNDERSCORE -DTIMER -I/Users/K10/Nek5000/short_tests/eddy_neknek -I/Users/K10/Nek5000/core -I./ /Users/K10/Nek5000/short_tests/eddy_neknek/eddy_uv.f  -o obj/eddy_uv.o 
+mpif77 -o nek5000 obj/eddy_uv.o obj/drive.o obj/drive1.o obj/drive2.o obj/plan4.o obj/bdry.o obj/coef.o obj/conduct.o obj/connect1.o obj/connect2.o obj/dssum.o obj/edgec.o obj/eigsolv.o obj/gauss.o obj/genxyz.o obj/navier1.o obj/makeq.o obj/navier0.o obj/navier2.o obj/navier3.o obj/navier4.o obj/prepost.o obj/speclib.o obj/map2.o obj/turb.o obj/mvmesh.o obj/ic.o obj/gfldr.o obj/ssolv.o obj/planx.o obj/math.o obj/mxm_wrapper.o obj/hmholtz.o obj/gfdm_par.o obj/gfdm_op.o obj/gfdm_solve.o obj/subs1.o obj/subs2.o obj/genbox.o obj/gmres.o obj/hsmg.o obj/convect.o obj/induct.o obj/perturb.o obj/navier5.o obj/navier6.o obj/navier7.o obj/navier8.o obj/fast3d.o obj/fasts.o obj/calcz.o obj/byte.o obj/chelpers.o obj/byte_mpi.o obj/postpro.o obj/intp_usr.o obj/cvode_driver.o obj/nek_comm.o obj/vprops.o obj/makeq_aux.o obj/papi.o obj/nek_in_situ.o obj/readat_new.o obj/reader_re2.o obj/finiparser.o obj/iniparser.o obj/dictionary.o obj/mxm_std.o obj/comm_mpi.o obj/multimesh.o obj/blas.o obj/dsygv.o -L/Users/K10/Nek5000/3rd_party/gslib/src -lgs 
+
+#############################################################
+#                  Compilation successful!                  #
+#############################################################
+__TEXT	__DATA	__OBJC	others	dec	hex
+2711552	417738752	0	4295151616	4715601920	119126000	
+
+
+mpif77 -c  -O2 -fdefault-real-8 -fdefault-double-8 -cpp -DNEKNEK -DMPI -DUNDERSCORE -DTIMER -I/Users/K10/Nek5000/short_tests/eddy_neknek -I/Users/K10/Nek5000/core -I./ /Users/K10/Nek5000/core/multimesh.f -o obj/multimesh.o
+/Users/K10/Nek5000/core/multimesh.f:635:13:
+
+      write(6,*) rsid_nn(i),elsid_nn(i),dist_all(i),disti_all(i),'k10dis'
+             1
+Error: Syntax error in argument list at (1)
+/Users/K10/Nek5000/core/multimesh.f:636:9:
+
+       enddo
+         1
+Error: Expecting END SUBROUTINE statement at (1)
+/Users/K10/Nek5000/core/multimesh.f:92:61:
+
+       write(6,*) idsess,nid,npall,npsess(0),npsess(1),npsess(2),'npall'
+                                                             1
+Warning: Array reference at (1) is out of bounds (2 > 1) in dimension 1
+make: *** [obj/multimesh.o] Error 1
+mpif77 -c  -O2 -fdefault-real-8 -fdefault-double-8 -cpp -DNEKNEK -DMPI -DUNDERSCORE -DTIMER -I/Users/K10/Nek5000/short_tests/eddy_neknek -I/Users/K10/Nek5000/core -I./ /Users/K10/Nek5000/core/multimesh.f -o obj/multimesh.o
+/Users/K10/Nek5000/core/multimesh.f:92:61:
+
+       write(6,*) idsess,nid,npall,npsess(0),npsess(1),npsess(2),'npall'
+                                                             1
+Warning: Array reference at (1) is out of bounds (2 > 1) in dimension 1
+mpif77 -c  -O2 -fdefault-real-8 -fdefault-double-8 -cpp -DNEKNEK -DMPI -DUNDERSCORE -DTIMER -I/Users/K10/Nek5000/short_tests/eddy_neknek -I/Users/K10/Nek5000/core -I./ /Users/K10/Nek5000/short_tests/eddy_neknek/eddy_uv.f  -o obj/eddy_uv.o 
+mpif77 -o nek5000 obj/eddy_uv.o obj/drive.o obj/drive1.o obj/drive2.o obj/plan4.o obj/bdry.o obj/coef.o obj/conduct.o obj/connect1.o obj/connect2.o obj/dssum.o obj/edgec.o obj/eigsolv.o obj/gauss.o obj/genxyz.o obj/navier1.o obj/makeq.o obj/navier0.o obj/navier2.o obj/navier3.o obj/navier4.o obj/prepost.o obj/speclib.o obj/map2.o obj/turb.o obj/mvmesh.o obj/ic.o obj/gfldr.o obj/ssolv.o obj/planx.o obj/math.o obj/mxm_wrapper.o obj/hmholtz.o obj/gfdm_par.o obj/gfdm_op.o obj/gfdm_solve.o obj/subs1.o obj/subs2.o obj/genbox.o obj/gmres.o obj/hsmg.o obj/convect.o obj/induct.o obj/perturb.o obj/navier5.o obj/navier6.o obj/navier7.o obj/navier8.o obj/fast3d.o obj/fasts.o obj/calcz.o obj/byte.o obj/chelpers.o obj/byte_mpi.o obj/postpro.o obj/intp_usr.o obj/cvode_driver.o obj/nek_comm.o obj/vprops.o obj/makeq_aux.o obj/papi.o obj/nek_in_situ.o obj/readat_new.o obj/reader_re2.o obj/finiparser.o obj/iniparser.o obj/dictionary.o obj/mxm_std.o obj/comm_mpi.o obj/multimesh.o obj/blas.o obj/dsygv.o -L/Users/K10/Nek5000/3rd_party/gslib/src -lgs 
+
+#############################################################
+#                  Compilation successful!                  #
+#############################################################
+__TEXT	__DATA	__OBJC	others	dec	hex
+2711552	417738752	0	4295151616	4715601920	119126000	
+
+
+mpif77 -c  -O2 -fdefault-real-8 -fdefault-double-8 -cpp -DNEKNEK -DMPI -DUNDERSCORE -DTIMER -I/Users/K10/Nek5000/short_tests/eddy_neknek -I/Users/K10/Nek5000/core -I./ /Users/K10/Nek5000/short_tests/eddy_neknek/eddy_uv.f  -o obj/eddy_uv.o 
+mpif77 -o nek5000 obj/eddy_uv.o obj/drive.o obj/drive1.o obj/drive2.o obj/plan4.o obj/bdry.o obj/coef.o obj/conduct.o obj/connect1.o obj/connect2.o obj/dssum.o obj/edgec.o obj/eigsolv.o obj/gauss.o obj/genxyz.o obj/navier1.o obj/makeq.o obj/navier0.o obj/navier2.o obj/navier3.o obj/navier4.o obj/prepost.o obj/speclib.o obj/map2.o obj/turb.o obj/mvmesh.o obj/ic.o obj/gfldr.o obj/ssolv.o obj/planx.o obj/math.o obj/mxm_wrapper.o obj/hmholtz.o obj/gfdm_par.o obj/gfdm_op.o obj/gfdm_solve.o obj/subs1.o obj/subs2.o obj/genbox.o obj/gmres.o obj/hsmg.o obj/convect.o obj/induct.o obj/perturb.o obj/navier5.o obj/navier6.o obj/navier7.o obj/navier8.o obj/fast3d.o obj/fasts.o obj/calcz.o obj/byte.o obj/chelpers.o obj/byte_mpi.o obj/postpro.o obj/intp_usr.o obj/cvode_driver.o obj/nek_comm.o obj/vprops.o obj/makeq_aux.o obj/papi.o obj/nek_in_situ.o obj/readat_new.o obj/reader_re2.o obj/finiparser.o obj/iniparser.o obj/dictionary.o obj/mxm_std.o obj/comm_mpi.o obj/multimesh.o obj/blas.o obj/dsygv.o -L/Users/K10/Nek5000/3rd_party/gslib/src -lgs 
+
+#############################################################
+#                  Compilation successful!                  #
+#############################################################
+__TEXT	__DATA	__OBJC	others	dec	hex
+2711552	417738752	0	4295151616	4715601920	119126000	
 
 
