@@ -28,7 +28,7 @@ G+=-DNEK_EXITT
 #G+=-DGS_TIMING -DGS_BARRIER
 #G+=-DUSE_NAIVE_BLAS
 
-CCCMD=$(CC) -O0 $(G) $(CFLAGS)
+CCCMD=$(CC) -O2 $(G) $(CFLAGS)
 LINKCMD=$(CC) $(G) -L./ -l$(LIBNAME) $(LDFLAGS)
 
 TESTS=sort_test sort_test2 sarray_sort_test spchol_test \
