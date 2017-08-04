@@ -480,7 +480,6 @@ c-----------------------------------------------------------------------
       mineig = 1.e7
       do i=1,m
          eigmag(i) = sqrt(eigr(i)**2+eigi(m)**2)
-         write(6,*) i,eigr(i),eigi(i),eigmag(i),' k10eigs'
          if (eigmag(i).gt.maxeig) maxeig=eigmag(i)
          if (eigmag(i).lt.mineig) mineig=eigmag(i)
       enddo       
@@ -709,7 +708,6 @@ c     Ac is matrix of size nxn and Bc is the matrix mxm from Ac
 
       call rzero(B,n**2)
 
-      write(6,*) 'about to do heseig2'
 
       nn = 0
       do i=1,m
