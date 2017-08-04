@@ -707,7 +707,7 @@ c     Ac is matrix of size nxn and Bc is the matrix mxm from Ac
       common /bigw/ bw(lbw)
       real Ac(1),B(n,n),wr(n),wi(n),z,H(1)
 
-      call rzero(B,m**2)
+      call rzero(B,n**2)
 
       write(6,*) 'about to do heseig2'
 
@@ -735,7 +735,7 @@ c     Ac is matrix of size nxn and Bc is the matrix mxm from Ac
       real Ac(1),B(n,n),piv(m),anorm,rcond
       character*1 normt
 
-      call rzero(B,m**2)
+      call rzero(B,n**2)
       nn = 0
       do i=1,m
       do j=1,m
