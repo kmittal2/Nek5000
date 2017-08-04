@@ -474,13 +474,13 @@ c-----------------------------------------------------------------------
       character*1 normt
       real Ac(1)
         
-
-      call heseig(Ac,n,m,eigr,eigi) !gets the eigenvalues
-      call hescon(Ac,n,m,invcond,normt)  !gets the inverse of condition number
+      call heseig2(Ac,n,m,eigr,eigi) !gets the eigenvalues
+      call hescon2(Ac,n,m,invcond,normt)  !gets the inverse of condition number
       maxeig = -1.e7
       mineig = 1.e7
       do i=1,m
          eigmag(i) = sqrt(eigr(i)**2+eigi(m)**2)
+         write(6,*) i,eigr(i),eigi(i),eigmag(i),' k10eigs'
          if (eigmag(i).gt.maxeig) maxeig=eigmag(i)
          if (eigmag(i).lt.mineig) mineig=eigmag(i)
       enddo       
@@ -694,6 +694,60 @@ c     Set the z-average handle
       n = nel*nx1*ny1*nz1
 
       call gs_setup(gs_avg_hndl,glo_num,n,nekcomm,mp)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine heseig2(Ac,n,m,wr,wi)
+      include 'SIZE'
+      include 'TOTAL'
+c     Ac is matrix of size nxn and Bc is the matrix mxm from Ac
+      integer nn,i,ns,info,f,n,m,ind1,flag
+      parameter (lbw=4*lx1*ly1*lz1*lelv)
+      common /bigw/ bw(lbw)
+      real Ac(1),B(n,n),wr(n),wi(n),z,H(1)
+
+      call rzero(B,m**2)
+
+      write(6,*) 'about to do heseig2'
+
+      nn = 0
+      do i=1,m
+      do j=1,m
+         ind1 = (i-1)*n+j
+         nn=nn+1
+         B(nn,1) = Ac(ind1)
+      enddo
+      enddo
+
+      call DHSEQR('E','N',m,1,m,B,m,wr,wi,z,1,bw,lbw,info)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine hescon2(Ac,n,m,rcond,normt)
+      include 'SIZE'
+      include 'TOTAL'
+c     Ac is matrix of size nxn and Bc is the matrix mxm from Ac
+      integer nn,i,ns,info,f,n,m,ind1,flag
+      real kwk1(4*m)
+      integer kwk2(m)
+      real Ac(1),B(n,n),piv(m),anorm,rcond
+      character*1 normt
+
+      call rzero(B,m**2)
+      nn = 0
+      do i=1,m
+      do j=1,m
+         ind1 = (i-1)*n+j
+         nn=nn+1
+         B(nn,1) = Ac(ind1)
+      enddo
+      enddo
+
+      anorm =  DLANGE( normt, m, m, B, m, kwk1 )
+      call DGETRF( m, m, B, m, piv, info )
+      call DGECON( normt, m, B, m, anorm, rcond,kwk1,kwk2,info)
 
       return
       end

@@ -46,7 +46,7 @@ navier5.o navier6.o navier7.o navier8.o fast3d.o fasts.o calcz.o \
 byte.o chelpers.o byte_mpi.o postpro.o \
 cvode_driver.o nek_comm.o \
 init_plugin.o setprop.o qthermal.o cvode_aux.o makeq_aux.o \
-papi.o nek_in_situ.o \
+papi.o nek_in_situ.o ketan.o \
 readat_new.o finiparser.o iniparser.o dictionary.o
 ################################################################################
 # MXM 
@@ -209,6 +209,7 @@ $(OBJDIR)/navier2.o	:$S/navier2.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier3.o	:$S/navier3.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier4.o	:$S/navier4.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier5.o	:$S/navier5.f;			$(F77) -c $(FL2) $< -o $@
+$(OBJDIR)/ketan.o	:$S/ketan.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier6.o	:$S/navier6.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier7.o	:$S/navier7.f;			$(F77) -c $(FL2) $< -o $@
 $(OBJDIR)/navier8.o	:$S/navier8.f;			$(F77) -c $(FL2) $< -o $@
