@@ -107,19 +107,25 @@ static void print_gll_lag_fix(int n)
     }
     puts("\n};\n");
   }
-  printf(STATIC "void gll_lag_%02d(double *restrict p, double *restrict w,\n"
-           "                       unsigned n, int d, double xh)\n{\n",n);
+  printf("static double gllw_%02d[%2d];\n\n", n, n);
+  printf(STATIC "void gll_lag_%02d(double *restrict const p, "
+                                  "const unsigned n,\n"
+           "                       const int d, const double xh)\n{\n", n);
+  printf("  const double ");
+  if (n > 3) printf("*restrict z = gllz_%02d, ", n);
+  printf("*restrict w = gllw_%02d;\n", n);
+  
   printf("  const double x = xh*2;\n");
   #define PRINT_D(i) do { \
     printf("d%02d=x",i); \
-    if(2*i+1==n)    printf("              "); \
-    else if(i==0)   printf("+2            "); \
-    else if(i==n-1) printf("-2            "); \
-    else if(i<n/2)  printf("+2*gllz_%02d[%2d]",n,i-1); \
-    else            printf("-2*gllz_%02d[%2d]",n,n-2-i); \
+    if(2*i+1==n)    printf("        ");  \
+    else if(i==0)   printf("+2      ");  \
+    else if(i==n-1) printf("-2      ");  \
+    else if(i<n/2)  printf("+2*z[%2d]",i-1);   \
+    else            printf("-2*z[%2d]",n-2-i); \
   } while(0)
   printf("%s",                            "  const double ");
-  PRINT_LIST(i, 0,3,n, PRINT_D(i),",",",\n               ");
+  PRINT_LIST(i, 0,4,n, PRINT_D(i),",",",\n               ");
   #undef PRINT_D
   #define PRINT_U0(i) (i==0  ?printf("    1"):printf("u0_%02d",i))
   #define PRINT_V0(i) (i==n-1?printf("    1"):printf("v0_%02d",i))
@@ -216,7 +222,13 @@ int main()
     printf("gllz_%02d",i), ", ",",\n  ");
   puts("\n};");
   puts("");
-  printf(STATIC "lagrange_fun *const gll_lag_table[%d] = {\n  ",
+  printf(STATIC "double *const gllw_table[%d] = {\n  ",
+    GLL_LAG_FIX_MAX-1);
+  PRINT_LIST(i, 2,8,(GLL_LAG_FIX_MAX+1),
+    printf("gllw_%02d",i), ", ",",\n  ");
+  puts("\n};");
+  puts("");
+  printf(STATIC "gll_lag_fun *const gll_lag_table[%d] = {\n  ",
     GLL_LAG_FIX_MAX-1);
   PRINT_LIST(i, 2,6,(GLL_LAG_FIX_MAX+1),
     printf("&gll_lag_%02d",i), ", ",",\n  ");

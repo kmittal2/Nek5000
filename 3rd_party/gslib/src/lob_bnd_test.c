@@ -30,14 +30,14 @@ int main()
   double lb[2*(RESFAC*NZ)*(RESFAC*NY)*(RESFAC*N)];
   double work[2*(RESFAC*N)*(RESFAC*NY)*(NZ+1)];
 
-  double *ld_N = tmalloc(double,N+gll_lag_size(N));
-  lagrange_fun *lag_N = gll_lag_setup(ld_N+N,N);
+  double *ld_N = tmalloc(double, N);
+  gll_lag_fun *lag_N = gll_lag_setup(N);
 
-  double *ld_NY= tmalloc(double,NY+gll_lag_size(NY));
-  lagrange_fun *lag_NY = gll_lag_setup(ld_NY+NY,NY);
+  double *ld_NY= tmalloc(double, NY);
+  gll_lag_fun *lag_NY = gll_lag_setup(NY);
 
-  double *ld_NZ= tmalloc(double,NZ+gll_lag_size(NZ));
-  lagrange_fun *lag_NZ = gll_lag_setup(ld_NZ+NZ,NZ);
+  double *ld_NZ= tmalloc(double, NZ);
+  gll_lag_fun *lag_NZ = gll_lag_setup(NZ);
   
   double *lb_N  = tmalloc(double,lob_bnd_size(N ,RESFAC*N ));
   double *lb_NY = tmalloc(double,lob_bnd_size(NY,RESFAC*NY));
@@ -67,7 +67,7 @@ int main()
     if(r<3)
       printf("%g <= %g <= %g,   f = %g\n",
         cos((m-1-j)*PI/(m-1)), x, cos((m-1-(j+1))*PI/(m-1)), f);
-    lag_N(ld_N,ld_N+N,N,0,x);
+    lag_N(ld_N,N,0,x);
     for(i=0;i<NY;++i) {
       double lo = (1-f)*lb[(i*m+j)*2  ] + f*lb[(i*m+j+1)*2  ],
              up = (1-f)*lb[(i*m+j)*2+1] + f*lb[(i*m+j+1)*2+1],
@@ -104,8 +104,8 @@ int main()
         cos((mx-1-jx)*PI/(mx-1)), x, cos((mx-1-(jx+1))*PI/(mx-1)), fx),
       printf("y: %g <= %g <= %g,   f = %g\n",
         cos((my-1-jy)*PI/(my-1)), y, cos((my-1-(jy+1))*PI/(my-1)), fy);
-    lag_N (ld_N ,ld_N +N ,N ,0,x);
-    lag_NY(ld_NY,ld_NY+NY,NY,0,y);
+    lag_N (ld_N ,N ,0,x);
+    lag_NY(ld_NY,NY,0,y);
 
     for(i=0;i<NZ;++i) {
       double lo = (1-fx)*(1-fy)*lb[((i*mx+jx  )*my+jy  )*2  ]
@@ -145,9 +145,9 @@ int main()
         cos((my-1-jy)*PI/(my-1)), y, cos((my-1-(jy+1))*PI/(my-1)), fy),
       printf("z: %g <= %g <= %g,   f = %g\n",
         cos((mz-1-jz)*PI/(mz-1)), z, cos((mz-1-(jz+1))*PI/(mz-1)), fz);
-    lag_N (ld_N ,ld_N +N ,N ,0,x);
-    lag_NY(ld_NY,ld_NY+NY,NY,0,y);
-    lag_NZ(ld_NZ,ld_NZ+NZ,NZ,0,z);
+    lag_N (ld_N ,N ,0,x);
+    lag_NY(ld_NY,NY,0,y);
+    lag_NZ(ld_NZ,NZ,0,z);
 
     {
       double lo = 

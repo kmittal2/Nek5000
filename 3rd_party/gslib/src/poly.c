@@ -8,67 +8,114 @@
 #include "fail.h"
 #include "mem.h"
 
-#define lagrange_size  PREFIXED_NAME(lagrange_size )
+#define lagrange_eval  PREFIXED_NAME(lagrange_eval )
 #define lagrange_setup PREFIXED_NAME(lagrange_setup)
+#define gll_lag_setup  PREFIXED_NAME(gll_lag_setup )
 #define gauss_nodes    PREFIXED_NAME(gauss_nodes   )
 #define gauss_quad     PREFIXED_NAME(gauss_quad    )
 #define lobatto_nodes  PREFIXED_NAME(lobatto_nodes )
 #define lobatto_quad   PREFIXED_NAME(lobatto_quad  )
-#define gll_lag_size   PREFIXED_NAME(gll_lag_size  )
-#define gll_lag_setup  PREFIXED_NAME(gll_lag_setup )
 
-typedef void lagrange_fun(double *restrict p,
-  double *restrict data, unsigned n, int d, double x);
+/*--------------------------------------------------------------------------
+  Lagrangian basis function (and derivatives) evaluation
+  --------------------------------------------------------------------------*/
 
-#include "poly_imp.h"
+static struct array lagrange_data = null_array;
 
-static void lagrange_eval(double *restrict p,
-                          double *restrict data, unsigned n, int der, double x)
-{{
+void lagrange_eval(double *restrict const p,
+                   const double *restrict const z,
+                   const double *restrict const w,
+                   const unsigned n, const int der, const double x)
+{
+  double *restrict const d = lagrange_data.ptr,
+         *restrict const u0 = d+n, *restrict const v0 = u0+n;
   unsigned i;
-  const double *restrict z=data, *restrict w=z+n;
-  double *restrict d=data+2*n, *restrict u0=d+n, *restrict v0=u0+n;
   for(i=0;i<n;++i) d[i]=2*(x-z[i]);
   u0[0  ]=1; for(i=0  ;i<n-1;++i) u0[i+1]=u0[i]*d[i];
   v0[n-1]=1; for(i=n-1;i    ;--i) v0[i-1]=d[i]*v0[i];
   for(i=0;i<n;++i) p[i]=w[i]*u0[i]*v0[i];
   if(der>0) {
-    double *restrict p1 = p+n, *restrict u1=v0+n, *restrict v1=u1+n;
+    double *restrict const p1 = p+n,
+           *restrict const u1 = v0+n, *restrict const v1 = u1+n;
     u1[0  ]=0; for(i=0  ;i<n-1;++i) u1[i+1]=u1[i]*d[i]+u0[i];
     v1[n-1]=0; for(i=n-1;i    ;--i) v1[i-1]=d[i]*v1[i]+v0[i];
     for(i=0;i<n;++i) p1[i]=2*w[i]*(u1[i]*v0[i]+u0[i]*v1[i]);
     if(der>1) {
-      double *restrict p2 = p1+n, *restrict u2=v1+n, *restrict v2=u2+n;
+      double *restrict const p2 = p1+n,
+             *restrict const u2 = v1+n, *restrict const v2 = u2+n;
       u2[0  ]=0; for(i=0  ;i<n-1;++i) u2[i+1]=u2[i]*d[i]+2*u1[i];
       v2[n-1]=0; for(i=n-1;i    ;--i) v2[i-1]=d[i]*v2[i]+2*v1[i];
       for(i=0;i<n;++i)
         p2[i]=4*w[i]*(u2[i]*v0[i]+2*u1[i]*v1[i]+u0[i]*v2[i]);
     }
   }
-}}
+}
 
-static void lagrange_coef(
-  double *restrict p, double *data, double *w, const double *z,
-  unsigned n, lagrange_fun *lag_eval)
+void lagrange_setup(double *restrict const w,
+                    const double *restrict const z, unsigned n)
 {
   unsigned i;
-  for(i=0;i<n;++i) w[i]=1;
-  for(i=0;i<n;++i) lag_eval(p,data,n,0,z[i]), w[i]=1/p[i];
+  double *const data = array_reserve(double, &lagrange_data, 7*n);
+  double *restrict const p = data + 3*n;
+  for(i=0;i<n;i++) w[i]=1, lagrange_eval(p, z,w,n,0, z[i]), w[i]=1/p[i];
 }
 
-unsigned lagrange_size(unsigned n)
-{
-  return 9*n;
+/*--------------------------------------------------------------------------
+  Lagrange basis function (and derivatives) evaluation
+  for Gauss-Lobatto-Legendre quadrature nodes
+  --------------------------------------------------------------------------*/
+
+typedef void gll_lag_fun(double *restrict p, unsigned n, int der, double x);
+
+#include "poly_imp.h"
+
+static struct array gll_data = null_array;
+
+static void gll_lag_gen(double *restrict p, unsigned n, int der, double x) {
+  const double **data = gll_data.ptr;
+  const double *restrict const z = data[n-GLL_LAG_FIX_MAX-1];
+  lagrange_eval(p, z,z+n,n, der, x);
 }
 
-lagrange_fun *lagrange_setup(
-  double *restrict data, const double *restrict z, unsigned n)
+void lobatto_nodes(double *restrict z, int n);
+
+static unsigned long gll_lag_fix_init = 0;
+
+static gll_lag_fun *gll_lag_fix_setup(const unsigned n) {
+  gll_lag_fun *const f = gll_lag_table[n-2];
+  const unsigned long bit = 1ul << (n-2);
+  if (gll_lag_fix_init & bit) return f;
+  else {
+    double *restrict const p = array_reserve(double, &lagrange_data, 2*n),
+           *restrict const z = p + n, *restrict const w = gllw_table[n-2];
+    unsigned i;
+    gll_lag_fix_init |= bit;
+    lobatto_nodes(z, n);
+    for(i=0;i<n;i++) w[i]=1, f(p,n,0, z[i]), w[i]=1/p[i];
+    return f;
+  }
+}
+
+static void gll_lag_gen_setup(const unsigned n) {
+  const unsigned index = n - GLL_LAG_FIX_MAX - 1;
+  double **data = array_reserve(double*, &gll_data, index+1);
+  if (gll_data.n < gll_data.max) {
+    unsigned i;
+    for (i = gll_data.n; i<gll_data.max; i++) data[i] = 0;
+    gll_data.n = gll_data.max;
+  }
+  if (!data[index]) {
+    double *const z = data[index] = tmalloc(double, 2*n), *const w = z+n;
+    lobatto_nodes(z, n);
+    lagrange_setup(w, z,n);
+  }
+}
+
+gll_lag_fun *gll_lag_setup(unsigned n)
 {
-  double *restrict p = tmalloc(double,n);
-  memcpy(data,z,n*sizeof(double));
-  lagrange_coef(p,data,data+n,z,n,&lagrange_eval);
-  free(p);
-  return &lagrange_eval;
+  if (n<=GLL_LAG_FIX_MAX) return gll_lag_fix_setup(n);
+  gll_lag_gen_setup(n);
+  return gll_lag_gen;
 }
 
 #define EPS   (128*DBL_EPSILON)
@@ -212,25 +259,4 @@ void lobatto_quad(double *restrict z, double *restrict w, int n)
     w[i] = 2/((n-1)*n*d*d);
   }
   for(j=(n+1)/2,i=n/2-1; j<n; ++j,--i) w[j]=w[i];
-}
-
-unsigned gll_lag_size(unsigned n)
-{
-  return (n<=GLL_LAG_FIX_MAX?1:9)*n;
-}
-
-lagrange_fun *gll_lag_setup(double *restrict data, int n)
-{
-  double *z, *w, *p;
-  lagrange_fun *f;
-  if(n<2) return 0;
-  p = tmalloc(double,2*n);
-  if(n<=GLL_LAG_FIX_MAX)
-    f=gll_lag_table[n-2], z=p+n, w=data;
-  else
-    f=&lagrange_eval, z=data, w=z+n;
-  lobatto_nodes(z,n);
-  lagrange_coef(p,data,w,z,n,f);
-  free(p);
-  return f;
 }

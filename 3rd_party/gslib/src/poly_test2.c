@@ -24,7 +24,12 @@ DEFINE_HW_COUNTER()
 #define EPS (128*DBL_EPSILON)
 
 static int not_same(double a, double b) {
-  return fabs(b-a)/(fabs(b)+fabs(a)) > 16*EPS;
+  int differ;
+  double den = fabs(a)+fabs(b);
+  if (den < EPS) den = EPS;
+  differ = fabs(b-a)/den > 16*EPS;
+  if (differ) printf("%16g != %16g\n", a, b);
+  return differ;
 }
 
 /* OLD CODE (reference implemenatoin ) =======================================*/
@@ -247,18 +252,16 @@ int main()
       unsigned rep = REPEAT/(n+1)/(d+1);
       unsigned long long tr=0,tt=0;
 
-      double *p, x = rand()/(double)RAND_MAX;
-      double z[N], zr[N];
-      lagrange_fun *lag;
+      double x = rand()/(double)RAND_MAX;
+      double z[N], w[N], zr[N], p[3*N];
       ref_lagrange_data rld;
       gauss_nodes(z,n);
-      p = tmalloc(double, 3*n+lagrange_size(n));
-      lag = lagrange_setup(p+3*n,z,n);
+      lagrange_setup(w, z,n);
     
       ref_gauss_nodes(zr,n);
       ref_lagrange_setup(&rld,zr,n);
 
-      TIME(tt,rep,lag(p,p+3*n,n,d,x));
+      TIME(tt,rep,lagrange_eval(p, z,w,n, d, x));
       switch(d) {
       case 0: TIME(tr,rep,ref_lagrange_0(&rld,x)); break;
       case 1: TIME(tr,rep,ref_lagrange_1(&rld,x)); break;
@@ -269,35 +272,31 @@ int main()
         tr/(double)rep,tt/(double)rep,tr/(double)tt);
 
       ref_lagrange_free(&rld);
-      free(p);
     }
 
     for(d=0;d<3;++d) for(n=2;n<N;++n) {
       unsigned rep = REPEAT/(n+1)/(d+1);
       unsigned long long tr=0,tt=0;
 
-      double *p, x = rand()/(double)RAND_MAX;
-      double zr[N];
-      lagrange_fun *lag;
+      double x = rand()/(double)RAND_MAX;
+      double zr[N], p[3*N];
+      gll_lag_fun *lag = gll_lag_setup(n);
       ref_lagrange_data rld;
-      p = tmalloc(double, 3*n+gll_lag_size(n));
-      lag = gll_lag_setup(p+3*n,n);
     
       ref_lobatto_nodes(zr,n);
       ref_lagrange_setup(&rld,zr,n);
 
-      TIME(tt,rep,lag(p,p+3*n,n,d,x));
+      TIME(tt,rep,lag(p,n,d,x));
       switch(d) {
       case 0: TIME(tr,rep,ref_lagrange_0(&rld,x)); break;
       case 1: TIME(tr,rep,ref_lagrange_1(&rld,x)); break;
       case 2: TIME(tr,rep,(ref_lagrange_1(&rld,x),ref_lagrange_2u(&rld)));
       }
       printf("gll_lag_%d_%02d cycles per call: "
-             "ref=%g\timp=%g\tspup=%g\n", d, (int)n,
-        tr/(double)rep,tt/(double)rep,tr/(double)tt);
+             "ref=%g\timp=%g\tspup=%g\timp/n=%g\n", d, (int)n,
+        tr/(double)rep,tt/(double)rep,tr/(double)tt,tt/((double)rep*n));
 
       ref_lagrange_free(&rld);
-      free(p);
     }
   }
 #endif
@@ -323,14 +322,12 @@ int main()
   printf("Gauss-Lobatto quadrature tests: %s\n", n==N?"passed":"failed");
 
   for(n=1;n<N;++n) {
-    double *p, x = rand()/(double)RAND_MAX;
-    double z[N], zr[N];
-    lagrange_fun *lag;
+    double x = rand()/(double)RAND_MAX;
+    double z[N], w[N], zr[N], p[3*N];
     ref_lagrange_data rld;
     gauss_nodes(z,n);
-    p = tmalloc(double, 3*n+lagrange_size(n));
-    lag = lagrange_setup(p+3*n,z,n);
-    lag(p,p+3*n,n,2,x);
+    lagrange_setup(w, z,n);
+    lagrange_eval(p, z,w,n, 2, x);
     
     ref_gauss_nodes(zr,n);
     ref_lagrange_setup(&rld,zr,n);
@@ -342,18 +339,15 @@ int main()
     for(i=0;i<n;++i) if(not_same(p[2*n+i],rld.D2[i])) break; if(i!=n) break;
     
     ref_lagrange_free(&rld);
-    free(p);
   }
   printf("Gauss nodal Lagrange basis tests: %s\n", n==N?"passed":"failed");
 
   for(n=2;n<N;++n) {
-    double *p, x = rand()/(double)RAND_MAX;
-    double zr[N];
-    lagrange_fun *lag;
+    double x = rand()/(double)RAND_MAX;
+    double zr[N], p[3*N];
+    gll_lag_fun *lag = gll_lag_setup(n);
     ref_lagrange_data rld;
-    p = tmalloc(double, 3*n+gll_lag_size(n));
-    lag = gll_lag_setup(p+3*n,n);
-    lag(p,p+3*n,n,2,x);
+    lag(p,n,2,x);
     
     ref_lobatto_nodes(zr,n);
     ref_lagrange_setup(&rld,zr,n);
@@ -365,7 +359,6 @@ int main()
     for(i=0;i<n;++i) if(not_same(p[2*n+i],rld.D2[i])) break; if(i!=n) break;
 
     ref_lagrange_free(&rld);
-    free(p);
   }
   printf("Gauss-Lobatto nodal Lagrange basis tests: %s\n",
          n==N?"passed":"failed");

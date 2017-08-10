@@ -24,8 +24,7 @@ struct findpts_el_data_2 {
 
   unsigned n[2];
   double *z[2];
-  lagrange_fun *lag[2];
-  double *lag_data[2];
+  gll_lag_fun *lag[2];
   double *wtend[2];
   
   const double *x[2];
@@ -81,8 +80,7 @@ struct findpts_el_data_3 {
 
   unsigned n[3];
   double *z[3];
-  lagrange_fun *lag[3];
-  double *lag_data[3];
+  gll_lag_fun *lag[3];
   double *wtend[3];
   
   const double *x[3];

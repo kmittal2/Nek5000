@@ -106,8 +106,7 @@ struct findpts_el_data_2 {
 
   unsigned n[2];
   double *z[2];
-  lagrange_fun *lag[2];
-  double *lag_data[2];
+  gll_lag_fun *lag[2];
   double *wtend[2];
   
   const double *x[2];
@@ -146,33 +145,29 @@ void findpts_el_setup_2(struct findpts_el_data_2 *const fd,
 {
   const unsigned nr=n[0], ns=n[1];
   const unsigned tot = 8*ns + 4*nr;
-  unsigned d,i, lag_size[2];
+  unsigned d,i;
 
   fd->npt_max = npt_max;
   fd->p = tmalloc(struct findpts_el_pt_2, npt_max*2);
 
   fd->n[0]=nr, fd->n[1]=ns;
-  for(d=0;d<2;++d) lag_size[d] = gll_lag_size(fd->n[d]);
 
-  fd->z[0]        = tmalloc(double,lag_size[0]+lag_size[1]
-                                   +7*(nr+ns) + tot +
-                                   work_size(nr,ns,npt_max));
-  fd->z[1]        = fd->z[0]+nr;
-  fd->lag_data[0] = fd->z[1]+ns;
-  fd->lag_data[1] = fd->lag_data[0]+lag_size[0];
-  fd->wtend[0]    = fd->lag_data[1]+lag_size[1];
-  fd->wtend[1]    = fd->wtend[0]+6*nr;
-  fd->sides       = fd->wtend[1]+6*ns;
-  fd->work        = fd->sides + tot;
+  fd->z[0]     = tmalloc(double, 7*(nr+ns) + tot +
+                                 work_size(nr,ns,npt_max));
+  fd->z[1]     = fd->z[0]+nr;
+  fd->wtend[0] = fd->z[1]+ns;
+  fd->wtend[1] = fd->wtend[0]+6*nr;
+  fd->sides    = fd->wtend[1]+6*ns;
+  fd->work     = fd->sides + tot;
 
   fd->side_init = 0;
   
   for(d=0;d<2;++d) {
     double *wt=fd->wtend[d]; unsigned n=fd->n[d];
     lobatto_nodes(fd->z[d],n);
-    fd->lag[d] = gll_lag_setup(fd->lag_data[d],n);
-    fd->lag[d](wt    , fd->lag_data[d],n,2,-1);
-    fd->lag[d](wt+3*n, fd->lag_data[d],n,2, 1);
+    fd->lag[d] = gll_lag_setup(n);
+    fd->lag[d](wt    , n,2,-1);
+    fd->lag[d](wt+3*n, n,2, 1);
     
     wt[0]=1; for(i=1;i<n;++i) wt[i]=0;
     wt+=3*n; { for(i=0;i<n-1;++i) wt[i]=0; } wt[i]=1;
@@ -574,9 +569,9 @@ static void findpt_area(
   unsigned i; unsigned d;
   /* evaluate x(r) and jacobian */
   for(i=0;i<pn;++i)
-    fd->lag[0](wtr+2*i*nr, fd->lag_data[0], nr, 1, p[i].r[0]);
+    fd->lag[0](wtr+2*i*nr, nr, 1, p[i].r[0]);
   for(i=0;i<pn;++i)
-    fd->lag[1](wts+2*i*ns, fd->lag_data[1], ns, 1, p[i].r[1]);
+    fd->lag[1](wts+2*i*ns, ns, 1, p[i].r[1]);
   for(d=0;d<2;++d) {
     tensor_mxm(slice,nr, fd->x[d],ns, wts,2*pn);
     for(i=0;i<pn;++i) {
@@ -619,7 +614,7 @@ static void findpt_edge(
 
   /* evaluate x(r), jacobian, hessian */
   for(i=0;i<pn;++i)
-    fd->lag[de](wt+3*i*n, fd->lag_data[de], n, 2, p[i].r[de]);
+    fd->lag[de](wt+3*i*n, n, 2, p[i].r[de]);
   for(i=0;i<pn;++i) hes[i]=0;
   for(d=0;d<2;++d) {
     tensor_mtxv(slice,3*pn, wt, edge->x[d],n);
@@ -805,8 +800,8 @@ void findpts_el_eval_2(
          *const slice = wts+ns*pn;
   unsigned i; const double *r; double *out;
   for(i=0,r=r_base;i<pn;++i) {
-    fd->lag[0](wtr+i*nr, fd->lag_data[0], nr, 0, r[0]);
-    fd->lag[1](wts+i*ns, fd->lag_data[1], ns, 0, r[1]);
+    fd->lag[0](wtr+i*nr, nr, 0, r[0]);
+    fd->lag[1](wts+i*ns, ns, 0, r[1]);
     r = (const double*)((const char*)r + r_stride);
   }
   

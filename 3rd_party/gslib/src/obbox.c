@@ -139,8 +139,6 @@ void obbox_calc_2(struct obbox_2 *out,
                  lbsize1 = lob_bnd_size(ns,ms);
   unsigned wsize = 4*ns+2*ms;
   DO_MAX(wsize,2*nr+2*mr);
-  DO_MAX(wsize,gll_lag_size(nr));
-  DO_MAX(wsize,gll_lag_size(ns));
   data = tmalloc(double, 2*(nr+ns)+lbsize0+lbsize1+wsize);
 
   {
@@ -150,8 +148,8 @@ void obbox_calc_2(struct obbox_2 *out,
     double *const work = data+2*(nr+ns)+lbsize0+lbsize1;
 
     #define SETUP_DIR(r) do { \
-      lagrange_fun *const lag = gll_lag_setup(work, n##r); \
-      lag(I0##r, work,n##r,1, 0); \
+      gll_lag_fun *const lag = gll_lag_setup(n##r); \
+      lag(I0##r, n##r,1, 0); \
       lob_bnd_setup(lob_bnd_data_##r, n##r,m##r); \
     } while(0)
     
@@ -240,9 +238,6 @@ void obbox_calc_3(struct obbox_3 *out,
   DO_MAX(wsize,6*nr*nt+2*mr*(nt+mt+1));
   DO_MAX(wsize,6*ns*nt+2*ms*(nt+mt+1));
   DO_MAX(wsize,2*nr*ns+3*nr);
-  DO_MAX(wsize,gll_lag_size(nr));
-  DO_MAX(wsize,gll_lag_size(ns));
-  DO_MAX(wsize,gll_lag_size(nt));
   data = tmalloc(double, 2*(nr+ns+nt)+lbsize0+lbsize1+lbsize2+wsize);
 
   {
@@ -253,8 +248,8 @@ void obbox_calc_3(struct obbox_3 *out,
     double *const work = data+2*(nr+ns+nt)+lbsize0+lbsize1+lbsize2;
     
     #define SETUP_DIR(r) do { \
-      lagrange_fun *const lag = gll_lag_setup(work, n##r); \
-      lag(I0##r, work,n##r,1, 0); \
+      gll_lag_fun *const lag = gll_lag_setup(n##r); \
+      lag(I0##r, n##r,1, 0); \
       lob_bnd_setup(lob_bnd_data_##r, n##r,m##r); \
     } while(0)
     

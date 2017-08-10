@@ -76,10 +76,10 @@ void lob_bnd_setup(double *restrict data, unsigned n, unsigned m)
   double *restrict z=data,
          *restrict Q=z+n, *restrict h=Q+2*n,
          *restrict lb=h+m, *restrict lbnp=lb+2*nm;
-  double *restrict pl = tmalloc(double,5*n + gll_lag_size(n)),
+  double *restrict pl = tmalloc(double, 5*n),
          *restrict dl = pl+n, *restrict pr=dl+n, *restrict dr=pr+n,
-         *restrict p=dr+n, *restrict gll_data=p+n;
-  lagrange_fun *lag = gll_lag_setup(gll_data,n);
+         *restrict p=dr+n;
+  gll_lag_fun *lag = gll_lag_setup(n);
   
   /* set z and Q to Lobatto nodes, weights */
   lobatto_quad(z,Q,n);
@@ -99,11 +99,11 @@ void lob_bnd_setup(double *restrict data, unsigned n, unsigned m)
     lb[(i*m+  0)*2+1]=lb[(i*m+  0)*2+0]=(i==  0?1:0),
     lb[(i*m+m-1)*2+1]=lb[(i*m+m-1)*2+0]=(i==n-1?1:0);
 
-  lag(pl,gll_data,n,1,(h[0]+h[1])/2);
+  lag(pl,n,1,(h[0]+h[1])/2);
   for(j=1;j<m-1;++j) {
     double x = h[j], xl = (x+h[j-1])/2, xr = (x+h[j+1])/2;
-    lag(pr,gll_data,n,1,xr);
-    lag(p ,gll_data,n,0,x );
+    lag(pr,n,1,xr);
+    lag(p ,n,0,x );
     for(i=0;i<n;++i) {
       double lo,up, cl = pl[i] + (x-xl)*dl[i], cr = pr[i] + (x-xr)*dr[i];
       if(cl<cr) lo=cl,up=cr; else lo=cr,up=cl;

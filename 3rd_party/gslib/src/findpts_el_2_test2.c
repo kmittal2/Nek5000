@@ -66,8 +66,8 @@ int main()
   lobatto_nodes(tzr,TNR), lobatto_nodes(tzs,TNS);
   lobatto_nodes(zr,NR), lobatto_nodes(zs,NS);
 
-  for(i=0;i<TNR;++i) fd.lag[0](Jr+i*NR, fd.lag_data[0], NR, 0, tzr[i]);
-  for(i=0;i<TNS;++i) fd.lag[1](Js+i*NS, fd.lag_data[1], NS, 0, tzs[i]);
+  for(i=0;i<TNR;++i) fd.lag[0](Jr+i*NR, NR, 0, tzr[i]);
+  for(i=0;i<TNS;++i) fd.lag[1](Js+i*NS, NS, 0, tzs[i]);
   for(n=0;n<REPEAT;++n) {
     rand_elt_2(elx,ely, zr,NR, zs,NS);
     tensor_2t(telx[0], Jr,TNR,NR, Js,TNS,NS, elx, work);

@@ -5,14 +5,13 @@
 #warning "poly.h" requires "name.h"
 #endif
 
-#define lagrange_size  PREFIXED_NAME(lagrange_size )
+#define lagrange_eval  PREFIXED_NAME(lagrange_eval )
 #define lagrange_setup PREFIXED_NAME(lagrange_setup)
+#define gll_lag_setup  PREFIXED_NAME(gll_lag_setup )
 #define gauss_nodes    PREFIXED_NAME(gauss_nodes   )
 #define gauss_quad     PREFIXED_NAME(gauss_quad    )
 #define lobatto_nodes  PREFIXED_NAME(lobatto_nodes )
 #define lobatto_quad   PREFIXED_NAME(lobatto_quad  )
-#define gll_lag_size   PREFIXED_NAME(gll_lag_size  )
-#define gll_lag_setup  PREFIXED_NAME(gll_lag_setup )
 
 /*--------------------------------------------------------------------------
    Quadrature Nodes and Weights Calculation
@@ -35,31 +34,45 @@ void lobatto_quad(double *restrict z, double *restrict w, int n);
    Usage:
    
    double z[N] = ..., x = ...; // nodes and evaluation point
+   double w[N]; // Coefficients for Lagrange polynomial
    double p[3*N];
-   double *data = tmalloc(double, lagrange_size(N));
-   lagrange_fun *const lag = lagrange_setup(data, z, N);
+   
+   lagrange_setup(w, z,n);  // Compute w
    
    int d = ...; // 0, 1, or 2  --- the highest derivative to compute
-   lag(p, data,N,d, x);
+   lagrange_eval(p, z,w,N,d, x);
    // now p[i] = h_i(x), 0 <= i < N 
    // if d>=1, p[N+i] = h_i'(x)
    // if d>=2, p[2*N+i] = h_i''(x)
-   free(data);
-   
-   gll_lag_* are similar, but are specialized  for GLL nodes, and faster,
-   and also don't need to be given the nodal locations
   --------------------------------------------------------------------------*/
 
-typedef void lagrange_fun(double *restrict p,
-  double *restrict data, unsigned n, int d, double x);
+void lagrange_setup(double *restrict w, const double *restrict z, unsigned n);
 
-unsigned lagrange_size(unsigned n);
-lagrange_fun *lagrange_setup(
-  double *restrict data, const double *restrict z, unsigned n);
+void lagrange_eval(
+  double *restrict p,
+  const double *restrict z, const double *restrict w, unsigned n,
+  int der, double x);
 
-unsigned gll_lag_size(unsigned n);
-lagrange_fun *gll_lag_setup(double *restrict data, int n);
+/*--------------------------------------------------------------------------
+   Lagrangian basis function evaluation
+   for Gauss-Lobatto-Legendre quadrature nodes
+   
+   Usage:
+   double x;  // evaluation point
+   double p[3*N];
 
+   gll_lag_fun *gll_lag = gll_lag_setup(N);
+   
+   int d = ...; // 0, 1, or 2  --- the highest derivative to compute
+   gll_lag(p, N,d, x);
+   // now p[i] = h_i(x), 0 <= i < N 
+   // if d>=1, p[N+i] = h_i'(x)
+   // if d>=2, p[2*N+i] = h_i''(x)
+  --------------------------------------------------------------------------*/
+
+typedef void gll_lag_fun(double *restrict p, unsigned n, int der, double x);
+
+gll_lag_fun *gll_lag_setup(unsigned n);
 
 #endif
 

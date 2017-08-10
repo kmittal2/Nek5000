@@ -71,9 +71,9 @@ int main()
   lobatto_nodes(tzr,TNR), lobatto_nodes(tzs,TNS), lobatto_nodes(tzt,TNT);
   lobatto_nodes(zr,NR), lobatto_nodes(zs,NS), lobatto_nodes(zt,NT);
 
-  for(i=0;i<TNR;++i) fd.lag[0](Jr+i*NR, fd.lag_data[0], NR, 0, tzr[i]);
-  for(i=0;i<TNS;++i) fd.lag[1](Js+i*NS, fd.lag_data[1], NS, 0, tzs[i]);
-  for(i=0;i<TNT;++i) fd.lag[2](Jt+i*NT, fd.lag_data[2], NT, 0, tzt[i]);
+  for(i=0;i<TNR;++i) fd.lag[0](Jr+i*NR, NR, 0, tzr[i]);
+  for(i=0;i<TNS;++i) fd.lag[1](Js+i*NS, NS, 0, tzs[i]);
+  for(i=0;i<TNT;++i) fd.lag[2](Jt+i*NT, NT, 0, tzt[i]);
   for(n=0;n<6+REPEAT;++n) {
     if(n<6)
       bubble_elt(elx,ely,elz, zr,NR, zs,NS, zt,NT, n);

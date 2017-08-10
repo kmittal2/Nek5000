@@ -153,8 +153,7 @@ struct findpts_el_data_3 {
 
   unsigned n[3];
   double *z[3];
-  lagrange_fun *lag[3];
-  double *lag_data[3];
+  gll_lag_fun *lag[3];
   double *wtend[3];
   
   const double *x[3];
@@ -208,36 +207,31 @@ void findpts_el_setup_3(struct findpts_el_data_3 *const fd,
   const unsigned face_size = 12*nst + 12*ntr + 6*nrs;
   const unsigned off_es = face_size + 36*nr, off_et = off_es + 36*ns,
                  tot = off_et + 36*nt;
-  unsigned d,i, lag_size[3];
+  unsigned d,i;
 
   fd->npt_max = npt_max;
   fd->p = tmalloc(struct findpts_el_pt_3, npt_max*2);
 
   fd->n[0]=nr, fd->n[1]=ns, fd->n[2]=nt;
-  for(d=0;d<3;++d) lag_size[d] = gll_lag_size(fd->n[d]);
 
-  fd->z[0]        = tmalloc(double,lag_size[0]+lag_size[1]+lag_size[2]
-                                   +7*(nr+ns+nt) + tot +
-                                   work_size(nr,ns,nt,npt_max));
-  fd->z[1]        = fd->z[0]+nr;
-  fd->z[2]        = fd->z[1]+ns;
-  fd->lag_data[0] = fd->z[2]+nt;
-  fd->lag_data[1] = fd->lag_data[0]+lag_size[0];
-  fd->lag_data[2] = fd->lag_data[1]+lag_size[1];
-  fd->wtend[0]    = fd->lag_data[2]+lag_size[2];
-  fd->wtend[1]    = fd->wtend[0]+6*nr;
-  fd->wtend[2]    = fd->wtend[1]+6*ns;
-  fd->sides       = fd->wtend[2]+6*nt;
-  fd->work        = fd->sides + tot;
+  fd->z[0]     = tmalloc(double, 7*(nr+ns+nt) + tot +
+                                 work_size(nr,ns,nt,npt_max));
+  fd->z[1]     = fd->z[0]+nr;
+  fd->z[2]     = fd->z[1]+ns;
+  fd->wtend[0] = fd->z[2]+nt;
+  fd->wtend[1] = fd->wtend[0]+6*nr;
+  fd->wtend[2] = fd->wtend[1]+6*ns;
+  fd->sides    = fd->wtend[2]+6*nt;
+  fd->work     = fd->sides + tot;
 
   fd->side_init = 0;
   
   for(d=0;d<3;++d) {
     double *wt=fd->wtend[d]; unsigned n=fd->n[d];
     lobatto_nodes(fd->z[d],n);
-    fd->lag[d] = gll_lag_setup(fd->lag_data[d],n);
-    fd->lag[d](wt    , fd->lag_data[d],n,2,-1);
-    fd->lag[d](wt+3*n, fd->lag_data[d],n,2, 1);
+    fd->lag[d] = gll_lag_setup(n);
+    fd->lag[d](wt    , n,2,-1);
+    fd->lag[d](wt+3*n, n,2, 1);
     
     wt[0]=1; for(i=1;i<n;++i) wt[i]=0;
     wt+=3*n; { for(i=0;i<n-1;++i) wt[i]=0; } wt[i]=1;
@@ -931,11 +925,11 @@ static void findpt_vol(
   unsigned i; unsigned d;
   /* evaluate x(r) and jacobian */
   for(i=0;i<pn;++i)
-    fd->lag[0](wtrs+2*i*(nr+ns)     , fd->lag_data[0], nr, 1, p[i].r[0]);
+    fd->lag[0](wtrs+2*i*(nr+ns)     , nr, 1, p[i].r[0]);
   for(i=0;i<pn;++i)
-    fd->lag[1](wtrs+2*i*(nr+ns)+2*nr, fd->lag_data[1], ns, 1, p[i].r[1]);
+    fd->lag[1](wtrs+2*i*(nr+ns)+2*nr, ns, 1, p[i].r[1]);
   for(i=0;i<pn;++i)
-    fd->lag[2](wtt+2*i*nt           , fd->lag_data[2], nt, 1, p[i].r[2]);
+    fd->lag[2](wtt+2*i*nt           , nt, 1, p[i].r[2]);
   for(d=0;d<3;++d) {
     tensor_mxm(slice,nrs, fd->x[d],nt, wtt,2*pn);
     for(i=0;i<pn;++i) {
@@ -980,9 +974,9 @@ static void findpt_face(
 
   /* evaluate x(r), jacobian, hessian */
   for(i=0;i<pn;++i)
-    fd->lag[d1](wt1+3*i*n1, fd->lag_data[d1], n1, 2, p[i].r[d1]);
+    fd->lag[d1](wt1+3*i*n1, n1, 2, p[i].r[d1]);
   for(i=0;i<pn;++i)
-    fd->lag[d2](wt2+3*i*n2, fd->lag_data[d2], n2, 2, p[i].r[d2]);
+    fd->lag[d2](wt2+3*i*n2, n2, 2, p[i].r[d2]);
   for(i=0;i<3*pn;++i) hes[i]=0;
   for(d=0;d<3;++d) {
     tensor_mxm(slice,n1, face->x[d],n2, wt2,3*pn);
@@ -1056,7 +1050,7 @@ static void findpt_edge(
     double dxi[3], resid[3], jac[9];
     double hes[5] = {0,0,0,0,0};
     /* evaluate x(r), jacobian, hessian */
-    fd->lag[de](wt, fd->lag_data[de], n, 2, p[i].r[de]);
+    fd->lag[de](wt, n, 2, p[i].r[de]);
     for(d=0;d<3;++d) {
       double r;
       tensor_mtxv(dxi,3, wt, edge->x[d],n);
@@ -1302,9 +1296,9 @@ void findpts_el_eval_3(
          *const slice = wtt+nt*pn, *const temp = slice + pn*nrs;
   unsigned i; const double *r; double *out;
   for(i=0,r=r_base;i<pn;++i) {
-    fd->lag[0](wtrs+i*(nr+ns)   , fd->lag_data[0], nr, 0, r[0]);
-    fd->lag[1](wtrs+i*(nr+ns)+nr, fd->lag_data[1], ns, 0, r[1]);
-    fd->lag[2](wtt +i*nt        , fd->lag_data[2], nt, 0, r[2]);
+    fd->lag[0](wtrs+i*(nr+ns)   , nr, 0, r[0]);
+    fd->lag[1](wtrs+i*(nr+ns)+nr, ns, 0, r[1]);
+    fd->lag[2](wtt +i*nt        , nt, 0, r[2]);
     r = (const double*)((const char*)r + r_stride);
   }
   

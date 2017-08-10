@@ -2,11 +2,14 @@
 
 #define GLL_LAG_FIX_MAX 24
 
-static void gll_lag_02(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_02[ 2];
+
+static void gll_lag_02(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict w = gllw_02;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x-2            ;
+  const double d00=x+2      ,d01=x-2      ;
   const double u0_01=    1*d00;
   const double v0_00=d01*    1;
   p[ 0]=w[ 0]*    1*v0_00; p[ 1]=w[ 1]*u0_01*    1;
@@ -20,11 +23,14 @@ static void gll_lag_02(double *restrict p, double *restrict w,
   }
 }
 
-static void gll_lag_03(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_03[ 3];
+
+static void gll_lag_03(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict w = gllw_03;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x              ,d02=x-2            ;
+  const double d00=x+2      ,d01=x        ,d02=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01;
   const double v0_01=d02*    1,v0_00=d01*v0_01;
   p[ 0]=w[ 0]*    1*v0_00; p[ 1]=w[ 1]*u0_01*v0_01; p[ 2]=w[ 2]*u0_02*    1;
@@ -46,12 +52,14 @@ static const double gllz_04[ 1] = {
   0.44721359549995793928183473374625524708812367192231
 };
 
-static void gll_lag_04(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_04[ 4];
+
+static void gll_lag_04(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_04, *restrict w = gllw_04;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_04[ 0],d02=x-2*gllz_04[ 0],
-               d03=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x-2*z[ 0],d03=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02;
   const double v0_02=d03*    1,v0_01=d02*v0_02,v0_00=d01*v0_01;
   p[ 0]=w[ 0]*    1*v0_00; p[ 1]=w[ 1]*u0_01*v0_01; p[ 2]=w[ 2]*u0_02*v0_02;
@@ -78,12 +86,15 @@ static const double gllz_05[ 1] = {
   0.65465367070797714379829245624685835556920808239542
 };
 
-static void gll_lag_05(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_05[ 5];
+
+static void gll_lag_05(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_05, *restrict w = gllw_05;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_05[ 0],d02=x              ,
-               d03=x-2*gllz_05[ 0],d04=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x        ,d03=x-2*z[ 0],
+               d04=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03;
   const double v0_03=d04*    1,v0_02=d03*v0_03,v0_01=d02*v0_02,
@@ -117,12 +128,15 @@ static const double gllz_06[ 2] = {
   0.28523151648064509631415099404087907191900347272643
 };
 
-static void gll_lag_06(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_06[ 6];
+
+static void gll_lag_06(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_06, *restrict w = gllw_06;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_06[ 0],d02=x+2*gllz_06[ 1],
-               d03=x-2*gllz_06[ 1],d04=x-2*gllz_06[ 0],d05=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x-2*z[ 1],
+               d04=x-2*z[ 0],d05=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04;
   const double v0_04=d05*    1,v0_03=d04*v0_04,v0_02=d03*v0_03,
@@ -160,13 +174,15 @@ static const double gllz_07[ 2] = {
   0.46884879347071421380377188190876632940559747167184
 };
 
-static void gll_lag_07(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_07[ 7];
+
+static void gll_lag_07(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_07, *restrict w = gllw_07;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_07[ 0],d02=x+2*gllz_07[ 1],
-               d03=x              ,d04=x-2*gllz_07[ 1],d05=x-2*gllz_07[ 0],
-               d06=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x        ,
+               d04=x-2*z[ 1],d05=x-2*z[ 0],d06=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05;
   const double v0_05=d06*    1,v0_04=d05*v0_05,v0_03=d04*v0_04,
@@ -210,13 +226,15 @@ static const double gllz_08[ 3] = {
   0.20929921790247886876865726034535125529554540508668
 };
 
-static void gll_lag_08(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_08[ 8];
+
+static void gll_lag_08(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_08, *restrict w = gllw_08;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_08[ 0],d02=x+2*gllz_08[ 1],
-               d03=x+2*gllz_08[ 2],d04=x-2*gllz_08[ 2],d05=x-2*gllz_08[ 1],
-               d06=x-2*gllz_08[ 0],d07=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x-2*z[ 2],d05=x-2*z[ 1],d06=x-2*z[ 0],d07=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06;
@@ -266,13 +284,16 @@ static const double gllz_09[ 3] = {
   0.36311746382617815871075206870865921302064227760088
 };
 
-static void gll_lag_09(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_09[ 9];
+
+static void gll_lag_09(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_09, *restrict w = gllw_09;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_09[ 0],d02=x+2*gllz_09[ 1],
-               d03=x+2*gllz_09[ 2],d04=x              ,d05=x-2*gllz_09[ 2],
-               d06=x-2*gllz_09[ 1],d07=x-2*gllz_09[ 0],d08=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x        ,d05=x-2*z[ 2],d06=x-2*z[ 1],d07=x-2*z[ 0],
+               d08=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07;
@@ -327,14 +348,16 @@ static const double gllz_10[ 4] = {
   0.16527895766638702462621976595817353323115034354948
 };
 
-static void gll_lag_10(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_10[10];
+
+static void gll_lag_10(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_10, *restrict w = gllw_10;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_10[ 0],d02=x+2*gllz_10[ 1],
-               d03=x+2*gllz_10[ 2],d04=x+2*gllz_10[ 3],d05=x-2*gllz_10[ 3],
-               d06=x-2*gllz_10[ 2],d07=x-2*gllz_10[ 1],d08=x-2*gllz_10[ 0],
-               d09=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x-2*z[ 3],d06=x-2*z[ 2],d07=x-2*z[ 1],
+               d08=x-2*z[ 0],d09=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08;
@@ -394,14 +417,16 @@ static const double gllz_11[ 4] = {
   0.2957581355869393914319115155590575089410064343486
 };
 
-static void gll_lag_11(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_11[11];
+
+static void gll_lag_11(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_11, *restrict w = gllw_11;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_11[ 0],d02=x+2*gllz_11[ 1],
-               d03=x+2*gllz_11[ 2],d04=x+2*gllz_11[ 3],d05=x              ,
-               d06=x-2*gllz_11[ 3],d07=x-2*gllz_11[ 2],d08=x-2*gllz_11[ 1],
-               d09=x-2*gllz_11[ 0],d10=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x        ,d06=x-2*z[ 3],d07=x-2*z[ 2],
+               d08=x-2*z[ 1],d09=x-2*z[ 0],d10=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -468,14 +493,16 @@ static const double gllz_12[ 5] = {
   0.13655293285492755486406185573969389689841411128206
 };
 
-static void gll_lag_12(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_12[12];
+
+static void gll_lag_12(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_12, *restrict w = gllw_12;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_12[ 0],d02=x+2*gllz_12[ 1],
-               d03=x+2*gllz_12[ 2],d04=x+2*gllz_12[ 3],d05=x+2*gllz_12[ 4],
-               d06=x-2*gllz_12[ 4],d07=x-2*gllz_12[ 3],d08=x-2*gllz_12[ 2],
-               d09=x-2*gllz_12[ 1],d10=x-2*gllz_12[ 0],d11=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x-2*z[ 4],d07=x-2*z[ 3],
+               d08=x-2*z[ 2],d09=x-2*z[ 1],d10=x-2*z[ 0],d11=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -546,15 +573,17 @@ static const double gllz_13[ 5] = {
   0.24928693010623999256867370037422698148881131249298
 };
 
-static void gll_lag_13(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_13[13];
+
+static void gll_lag_13(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_13, *restrict w = gllw_13;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_13[ 0],d02=x+2*gllz_13[ 1],
-               d03=x+2*gllz_13[ 2],d04=x+2*gllz_13[ 3],d05=x+2*gllz_13[ 4],
-               d06=x              ,d07=x-2*gllz_13[ 4],d08=x-2*gllz_13[ 3],
-               d09=x-2*gllz_13[ 2],d10=x-2*gllz_13[ 1],d11=x-2*gllz_13[ 0],
-               d12=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x        ,d07=x-2*z[ 4],
+               d08=x-2*z[ 3],d09=x-2*z[ 2],d10=x-2*z[ 1],d11=x-2*z[ 0],
+               d12=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -631,15 +660,17 @@ static const double gllz_14[ 6] = {
   0.11633186888370386765877670973616016794150904425628
 };
 
-static void gll_lag_14(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_14[14];
+
+static void gll_lag_14(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_14, *restrict w = gllw_14;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_14[ 0],d02=x+2*gllz_14[ 1],
-               d03=x+2*gllz_14[ 2],d04=x+2*gllz_14[ 3],d05=x+2*gllz_14[ 4],
-               d06=x+2*gllz_14[ 5],d07=x-2*gllz_14[ 5],d08=x-2*gllz_14[ 4],
-               d09=x-2*gllz_14[ 3],d10=x-2*gllz_14[ 2],d11=x-2*gllz_14[ 1],
-               d12=x-2*gllz_14[ 0],d13=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x-2*z[ 5],
+               d08=x-2*z[ 4],d09=x-2*z[ 3],d10=x-2*z[ 2],d11=x-2*z[ 1],
+               d12=x-2*z[ 0],d13=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -722,15 +753,17 @@ static const double gllz_15[ 6] = {
   0.21535395536379423822567944627291771265215790120304
 };
 
-static void gll_lag_15(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_15[15];
+
+static void gll_lag_15(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_15, *restrict w = gllw_15;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_15[ 0],d02=x+2*gllz_15[ 1],
-               d03=x+2*gllz_15[ 2],d04=x+2*gllz_15[ 3],d05=x+2*gllz_15[ 4],
-               d06=x+2*gllz_15[ 5],d07=x              ,d08=x-2*gllz_15[ 5],
-               d09=x-2*gllz_15[ 4],d10=x-2*gllz_15[ 3],d11=x-2*gllz_15[ 2],
-               d12=x-2*gllz_15[ 1],d13=x-2*gllz_15[ 0],d14=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x        ,
+               d08=x-2*z[ 5],d09=x-2*z[ 4],d10=x-2*z[ 3],d11=x-2*z[ 2],
+               d12=x-2*z[ 1],d13=x-2*z[ 0],d14=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -818,16 +851,17 @@ static const double gllz_16[ 7] = {
   0.10132627352194944784303300504591776253324091440019
 };
 
-static void gll_lag_16(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_16[16];
+
+static void gll_lag_16(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_16, *restrict w = gllw_16;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_16[ 0],d02=x+2*gllz_16[ 1],
-               d03=x+2*gllz_16[ 2],d04=x+2*gllz_16[ 3],d05=x+2*gllz_16[ 4],
-               d06=x+2*gllz_16[ 5],d07=x+2*gllz_16[ 6],d08=x-2*gllz_16[ 6],
-               d09=x-2*gllz_16[ 5],d10=x-2*gllz_16[ 4],d11=x-2*gllz_16[ 3],
-               d12=x-2*gllz_16[ 2],d13=x-2*gllz_16[ 1],d14=x-2*gllz_16[ 0],
-               d15=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x-2*z[ 6],d09=x-2*z[ 5],d10=x-2*z[ 4],d11=x-2*z[ 3],
+               d12=x-2*z[ 2],d13=x-2*z[ 1],d14=x-2*z[ 0],d15=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -920,16 +954,18 @@ static const double gllz_17[ 7] = {
   0.1895119735183173883042630147531139713449924229225
 };
 
-static void gll_lag_17(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_17[17];
+
+static void gll_lag_17(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_17, *restrict w = gllw_17;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_17[ 0],d02=x+2*gllz_17[ 1],
-               d03=x+2*gllz_17[ 2],d04=x+2*gllz_17[ 3],d05=x+2*gllz_17[ 4],
-               d06=x+2*gllz_17[ 5],d07=x+2*gllz_17[ 6],d08=x              ,
-               d09=x-2*gllz_17[ 6],d10=x-2*gllz_17[ 5],d11=x-2*gllz_17[ 4],
-               d12=x-2*gllz_17[ 3],d13=x-2*gllz_17[ 2],d14=x-2*gllz_17[ 1],
-               d15=x-2*gllz_17[ 0],d16=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x        ,d09=x-2*z[ 6],d10=x-2*z[ 5],d11=x-2*z[ 4],
+               d12=x-2*z[ 3],d13=x-2*z[ 2],d14=x-2*z[ 1],d15=x-2*z[ 0],
+               d16=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1029,16 +1065,18 @@ static const double gllz_18[ 8] = {
   0.089749093484652111022645010088561734960603901041125
 };
 
-static void gll_lag_18(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_18[18];
+
+static void gll_lag_18(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_18, *restrict w = gllw_18;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_18[ 0],d02=x+2*gllz_18[ 1],
-               d03=x+2*gllz_18[ 2],d04=x+2*gllz_18[ 3],d05=x+2*gllz_18[ 4],
-               d06=x+2*gllz_18[ 5],d07=x+2*gllz_18[ 6],d08=x+2*gllz_18[ 7],
-               d09=x-2*gllz_18[ 7],d10=x-2*gllz_18[ 6],d11=x-2*gllz_18[ 5],
-               d12=x-2*gllz_18[ 4],d13=x-2*gllz_18[ 3],d14=x-2*gllz_18[ 2],
-               d15=x-2*gllz_18[ 1],d16=x-2*gllz_18[ 0],d17=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x-2*z[ 7],d10=x-2*z[ 6],d11=x-2*z[ 5],
+               d12=x-2*z[ 4],d13=x-2*z[ 3],d14=x-2*z[ 2],d15=x-2*z[ 1],
+               d16=x-2*z[ 0],d17=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1142,17 +1180,18 @@ static const double gllz_19[ 8] = {
   0.16918602340928157137515415344488042375289555076585
 };
 
-static void gll_lag_19(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_19[19];
+
+static void gll_lag_19(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_19, *restrict w = gllw_19;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_19[ 0],d02=x+2*gllz_19[ 1],
-               d03=x+2*gllz_19[ 2],d04=x+2*gllz_19[ 3],d05=x+2*gllz_19[ 4],
-               d06=x+2*gllz_19[ 5],d07=x+2*gllz_19[ 6],d08=x+2*gllz_19[ 7],
-               d09=x              ,d10=x-2*gllz_19[ 7],d11=x-2*gllz_19[ 6],
-               d12=x-2*gllz_19[ 5],d13=x-2*gllz_19[ 4],d14=x-2*gllz_19[ 3],
-               d15=x-2*gllz_19[ 2],d16=x-2*gllz_19[ 1],d17=x-2*gllz_19[ 0],
-               d18=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x        ,d10=x-2*z[ 7],d11=x-2*z[ 6],
+               d12=x-2*z[ 5],d13=x-2*z[ 4],d14=x-2*z[ 3],d15=x-2*z[ 2],
+               d16=x-2*z[ 1],d17=x-2*z[ 0],d18=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1262,17 +1301,18 @@ static const double gllz_20[ 9] = {
   0.080545937238821837975944518159554463022392870092908
 };
 
-static void gll_lag_20(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_20[20];
+
+static void gll_lag_20(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_20, *restrict w = gllw_20;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_20[ 0],d02=x+2*gllz_20[ 1],
-               d03=x+2*gllz_20[ 2],d04=x+2*gllz_20[ 3],d05=x+2*gllz_20[ 4],
-               d06=x+2*gllz_20[ 5],d07=x+2*gllz_20[ 6],d08=x+2*gllz_20[ 7],
-               d09=x+2*gllz_20[ 8],d10=x-2*gllz_20[ 8],d11=x-2*gllz_20[ 7],
-               d12=x-2*gllz_20[ 6],d13=x-2*gllz_20[ 5],d14=x-2*gllz_20[ 4],
-               d15=x-2*gllz_20[ 3],d16=x-2*gllz_20[ 2],d17=x-2*gllz_20[ 1],
-               d18=x-2*gllz_20[ 0],d19=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x+2*z[ 8],d10=x-2*z[ 8],d11=x-2*z[ 7],
+               d12=x-2*z[ 6],d13=x-2*z[ 5],d14=x-2*z[ 4],d15=x-2*z[ 3],
+               d16=x-2*z[ 2],d17=x-2*z[ 1],d18=x-2*z[ 0],d19=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1388,17 +1428,19 @@ static const double gllz_21[ 9] = {
   0.15278551580218546600635832848566943551774899331328
 };
 
-static void gll_lag_21(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_21[21];
+
+static void gll_lag_21(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_21, *restrict w = gllw_21;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_21[ 0],d02=x+2*gllz_21[ 1],
-               d03=x+2*gllz_21[ 2],d04=x+2*gllz_21[ 3],d05=x+2*gllz_21[ 4],
-               d06=x+2*gllz_21[ 5],d07=x+2*gllz_21[ 6],d08=x+2*gllz_21[ 7],
-               d09=x+2*gllz_21[ 8],d10=x              ,d11=x-2*gllz_21[ 8],
-               d12=x-2*gllz_21[ 7],d13=x-2*gllz_21[ 6],d14=x-2*gllz_21[ 5],
-               d15=x-2*gllz_21[ 4],d16=x-2*gllz_21[ 3],d17=x-2*gllz_21[ 2],
-               d18=x-2*gllz_21[ 1],d19=x-2*gllz_21[ 0],d20=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x+2*z[ 8],d10=x        ,d11=x-2*z[ 8],
+               d12=x-2*z[ 7],d13=x-2*z[ 6],d14=x-2*z[ 5],d15=x-2*z[ 4],
+               d16=x-2*z[ 3],d17=x-2*z[ 2],d18=x-2*z[ 1],d19=x-2*z[ 0],
+               d20=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1519,18 +1561,19 @@ static const double gllz_22[10] = {
   0.073054540010898334761088790464107356192779236333516
 };
 
-static void gll_lag_22(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_22[22];
+
+static void gll_lag_22(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_22, *restrict w = gllw_22;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_22[ 0],d02=x+2*gllz_22[ 1],
-               d03=x+2*gllz_22[ 2],d04=x+2*gllz_22[ 3],d05=x+2*gllz_22[ 4],
-               d06=x+2*gllz_22[ 5],d07=x+2*gllz_22[ 6],d08=x+2*gllz_22[ 7],
-               d09=x+2*gllz_22[ 8],d10=x+2*gllz_22[ 9],d11=x-2*gllz_22[ 9],
-               d12=x-2*gllz_22[ 8],d13=x-2*gllz_22[ 7],d14=x-2*gllz_22[ 6],
-               d15=x-2*gllz_22[ 5],d16=x-2*gllz_22[ 4],d17=x-2*gllz_22[ 3],
-               d18=x-2*gllz_22[ 2],d19=x-2*gllz_22[ 1],d20=x-2*gllz_22[ 0],
-               d21=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x+2*z[ 8],d10=x+2*z[ 9],d11=x-2*z[ 9],
+               d12=x-2*z[ 8],d13=x-2*z[ 7],d14=x-2*z[ 6],d15=x-2*z[ 5],
+               d16=x-2*z[ 4],d17=x-2*z[ 3],d18=x-2*z[ 2],d19=x-2*z[ 1],
+               d20=x-2*z[ 0],d21=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1656,18 +1699,19 @@ static const double gllz_23[10] = {
   0.13927620404066839859186261298276693390854445717444
 };
 
-static void gll_lag_23(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_23[23];
+
+static void gll_lag_23(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_23, *restrict w = gllw_23;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_23[ 0],d02=x+2*gllz_23[ 1],
-               d03=x+2*gllz_23[ 2],d04=x+2*gllz_23[ 3],d05=x+2*gllz_23[ 4],
-               d06=x+2*gllz_23[ 5],d07=x+2*gllz_23[ 6],d08=x+2*gllz_23[ 7],
-               d09=x+2*gllz_23[ 8],d10=x+2*gllz_23[ 9],d11=x              ,
-               d12=x-2*gllz_23[ 9],d13=x-2*gllz_23[ 8],d14=x-2*gllz_23[ 7],
-               d15=x-2*gllz_23[ 6],d16=x-2*gllz_23[ 5],d17=x-2*gllz_23[ 4],
-               d18=x-2*gllz_23[ 3],d19=x-2*gllz_23[ 2],d20=x-2*gllz_23[ 1],
-               d21=x-2*gllz_23[ 0],d22=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x+2*z[ 8],d10=x+2*z[ 9],d11=x        ,
+               d12=x-2*z[ 9],d13=x-2*z[ 8],d14=x-2*z[ 7],d15=x-2*z[ 6],
+               d16=x-2*z[ 5],d17=x-2*z[ 4],d18=x-2*z[ 3],d19=x-2*z[ 2],
+               d20=x-2*z[ 1],d21=x-2*z[ 0],d22=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1800,18 +1844,19 @@ static const double gllz_24[11] = {
   0.066837993737228578113641808391677309796223208917628
 };
 
-static void gll_lag_24(double *restrict p, double *restrict w,
-                       unsigned n, int d, double xh)
+static double gllw_24[24];
+
+static void gll_lag_24(double *restrict const p, const unsigned n,
+                       const int d, const double xh)
 {
+  const double *restrict z = gllz_24, *restrict w = gllw_24;
   const double x = xh*2;
-  const double d00=x+2            ,d01=x+2*gllz_24[ 0],d02=x+2*gllz_24[ 1],
-               d03=x+2*gllz_24[ 2],d04=x+2*gllz_24[ 3],d05=x+2*gllz_24[ 4],
-               d06=x+2*gllz_24[ 5],d07=x+2*gllz_24[ 6],d08=x+2*gllz_24[ 7],
-               d09=x+2*gllz_24[ 8],d10=x+2*gllz_24[ 9],d11=x+2*gllz_24[10],
-               d12=x-2*gllz_24[10],d13=x-2*gllz_24[ 9],d14=x-2*gllz_24[ 8],
-               d15=x-2*gllz_24[ 7],d16=x-2*gllz_24[ 6],d17=x-2*gllz_24[ 5],
-               d18=x-2*gllz_24[ 4],d19=x-2*gllz_24[ 3],d20=x-2*gllz_24[ 2],
-               d21=x-2*gllz_24[ 1],d22=x-2*gllz_24[ 0],d23=x-2            ;
+  const double d00=x+2      ,d01=x+2*z[ 0],d02=x+2*z[ 1],d03=x+2*z[ 2],
+               d04=x+2*z[ 3],d05=x+2*z[ 4],d06=x+2*z[ 5],d07=x+2*z[ 6],
+               d08=x+2*z[ 7],d09=x+2*z[ 8],d10=x+2*z[ 9],d11=x+2*z[10],
+               d12=x-2*z[10],d13=x-2*z[ 9],d14=x-2*z[ 8],d15=x-2*z[ 7],
+               d16=x-2*z[ 6],d17=x-2*z[ 5],d18=x-2*z[ 4],d19=x-2*z[ 3],
+               d20=x-2*z[ 2],d21=x-2*z[ 1],d22=x-2*z[ 0],d23=x-2      ;
   const double u0_01=    1*d00,u0_02=u0_01*d01,u0_03=u0_02*d02,
                u0_04=u0_03*d03,u0_05=u0_04*d04,u0_06=u0_05*d05,
                u0_07=u0_06*d06,u0_08=u0_07*d07,u0_09=u0_08*d08,
@@ -1940,7 +1985,13 @@ static const double *const gllz_table[21] = {
   gllz_20, gllz_21, gllz_22, gllz_23, gllz_24
 };
 
-static lagrange_fun *const gll_lag_table[23] = {
+static double *const gllw_table[23] = {
+  gllw_02, gllw_03, gllw_04, gllw_05, gllw_06, gllw_07, gllw_08, gllw_09,
+  gllw_10, gllw_11, gllw_12, gllw_13, gllw_14, gllw_15, gllw_16, gllw_17,
+  gllw_18, gllw_19, gllw_20, gllw_21, gllw_22, gllw_23, gllw_24
+};
+
+static gll_lag_fun *const gll_lag_table[23] = {
   &gll_lag_02, &gll_lag_03, &gll_lag_04, &gll_lag_05, &gll_lag_06, &gll_lag_07,
   &gll_lag_08, &gll_lag_09, &gll_lag_10, &gll_lag_11, &gll_lag_12, &gll_lag_13,
   &gll_lag_14, &gll_lag_15, &gll_lag_16, &gll_lag_17, &gll_lag_18, &gll_lag_19,
