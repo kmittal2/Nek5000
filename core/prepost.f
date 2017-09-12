@@ -156,12 +156,12 @@ c
                endif
     5       continue
             if (ifflow) then
-               ntotm1 = nx1*ny1*nelt
-               ntotm2 = nx2*ny2*nelt
+               ntotm1 = nx1*ny1*nelv
+               ntotm2 = nx2*ny2*nelv
                call copy (vxax,vx,ntotm1)
                call copy (vyax,vy,ntotm1)
                call copy (prax,pr,ntotm2)
-               do 10 e=1,nelt
+               do 10 e=1,nelv
                   if (ifrzer(e)) then
                      call mxm  (vx(1,1,1,e),nx1,iatjl1,ny1,pb,ny1)
                      call copy (vx(1,1,1,e),pb,nx1*ny1)
@@ -191,7 +191,7 @@ c
 C        Map the pressure onto the velocity mesh
 C
          ntott = nx1*ny1*nz1*nelt
-         ntot1 = nx1*ny1*nz1*nelt
+         ntot1 = nx1*ny1*nz1*nelv
          nyz2  = ny2*nz2
          nxy1  = nx1*ny1
          nxyz  = nx1*ny1*nz1
@@ -203,11 +203,11 @@ C
             call copy(pm1,pr,ntot1)
          elseif (if_full_pres) then
             call rzero(pm1,ntot1)
-            do e=1,nelt
+            do e=1,nelv
                call copy(pm1(1,1,1,e),pr(1,1,1,e),nxyz2)
             enddo
          else
-            do 1000 e=1,nelt
+            do 1000 e=1,nelv
                call mxm (ixm21,nx1,pr(1,1,1,e),nx2,pa(1,1,1),nyz2)        
                do 100 iz=1,nz2
                   call mxm (pa(1,1,iz),nx1,iytm21,ny2,pb(1,1,iz),ny1)
@@ -222,8 +222,8 @@ C
             ntot1 = nx1*ny1*nelt
             call copy (ym1,yax,ntot1)
             if (ifflow) then
-               ntot1 = nx1*ny1*nelt
-               ntot2 = nx2*ny2*nelt
+               ntot1 = nx1*ny1*nelv
+               ntot2 = nx2*ny2*nelv
                call copy (vx,vxax,ntot1)
                call copy (vy,vyax,ntot1)
                call copy (pr,prax,ntot2)
@@ -266,6 +266,9 @@ c     note, this usage of CTMP1 will be less than elsewhere if NELT ~> 3.
       character*1    fhdfle1(132)
       character*132   fhdfle
       equivalence   (fhdfle,fhdfle1)
+      character*1    fldfile2(120)
+      integer        fldfilei( 60)
+      equivalence   (fldfilei,fldfile2)
 
       character*1 excode(30)
       character*10 frmat
@@ -309,7 +312,10 @@ c       Open new file for each dump on /cfs
         if (p66.lt.1.0) then
            open(unit=24,file=fldfle,form='formatted',status='unknown')
         else
-           call byte_open (fldfle,ierr)
+           call  izero    (fldfilei,33)
+           len = ltrunc   (fldfle,131)
+           call chcopy    (fldfile2,fldfle,len)
+           call byte_open (fldfile2,ierr)
 c          write header as character string
            call blank(fhdfle,132)
         endif
@@ -712,7 +718,7 @@ c
       ENDIF
 c
       IF(IFVO)then
-         IF (IE.LE.NELT) then
+         IF (IE.LE.NELV) then
             ID=ID+1
             CALL COPYx4(TDUMP(1,ID),VX(1,1,1,IE),NXYZ)
             ID=ID+1
@@ -733,7 +739,7 @@ c
          ENDIF
       ENDIF
       IF(IFPO)then
-         IF (IE.LE.NELT) then
+         IF (IE.LE.NELV) then
             ID=ID+1
             CALL COPYx4(TDUMP(1,ID),PM1(1,1,1,IE),NXYZ)
          ELSE
@@ -847,6 +853,12 @@ c-----------------------------------------------------------------------
      &              , ur3(lxo*lxo*lxo*lelt)
 
       tiostart=dnekclock_sync()
+
+      ifmpiio = .true.
+      if(param(65).gt.1) ifmpiio = .false.
+#ifdef NOMPIIO
+      ifmpiio = .false.
+#endif
 
       call io_init
 
@@ -1027,12 +1039,6 @@ c-----------------------------------------------------------------------
 
       ifdiro = .false.
 
-      ifmpiio = .false.
-      if(abs(param(65)).eq.1 .and. abs(param(66)).eq.6) ifmpiio=.true.
-#ifdef NOMPIIO
-      ifmpiio = .false.
-#endif
-
       if(ifmpiio) then
         nfileo  = np
         nproc_o = 1
@@ -1080,8 +1086,8 @@ c-----------------------------------------------------------------------
       character*3 prefx
 
       character*132  fname
-      character*1    fnam1(132)
-      equivalence   (fnam1,fname)
+      character*1   fnam1(132)
+      equivalence  (fnam1,fname)
 
       character*6  six,str
       save         six
@@ -1157,15 +1163,8 @@ c-----------------------------------------------------------------------
       call chcopy(fnam1(k),str,5)
       k = k + 5
 
-      call addfid(fname,fid0)
-
-      if(ifmpiio) then
-        if(nio.eq.0)    write(6,*) '      FILE:',fname 
-        call byte_open_mpi(fname,ifh_mbyte,.false.,ierr) 
-      else
-        if(nid.eq.pid0) write(6,*) '      FILE:',fname 
-        call byte_open(fname,ierr)
-      endif
+      call mbyte_open(fname,fid0,.FALSE.,ierr)          !  Open blah000.fnnnn
+c      write(6,*) nid,fid0,' FILE:',fname
  
       return
       end
@@ -1410,9 +1409,9 @@ c
       character*3 name3
       logical if_save(ldimt)
 c
-      ntot1  = nx1*ny1*nz1*nelt
+      ntot1  = nx1*ny1*nz1*nelv
       ntot1t = nx1*ny1*nz1*nelt
-      ntot2  = nx2*ny2*nz2*nelt
+      ntot2  = nx2*ny2*nz2*nelv
 
       if(nfldt.gt.ldimt) then
         write(6,*) 'ABORT: outpost data too large (nfldt>ldimt)!'

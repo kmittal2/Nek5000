@@ -9,25 +9,17 @@
       return
       end
 C--------------------------------------------------------------------------
-      subroutine byte_open_mpi(fnamei,mpi_fh,ifro,ierr)
+      subroutine byte_open_mpi(fname,mpi_fh,ifro,ierr)
+
+      include 'SIZE'
+      include 'RESTART'
+
+      common /nekmpi/ nidd,npp,nekcomm,nekgroup,nekreal
 
       include 'mpif.h'
 
-      common /nekmpi/ nid,np,nekcomm,nekgroup,nekreal
-
-      character fnamei*(*)
-      logical ifro
- 
-      character*132 fname
-      character*1   fname1(132)
-      equivalence  (fname1,fname)
-
-      l = ltrunc(fnamei,len(fnamei))
-      if(l+1.gt.len(fname))
-     $ call exitti('invalid string length$',l)
- 
-      call chcopy(fname1     ,fnamei ,l) 
-      call chcopy(fname1(l+1),char(0),1)
+      character fname*(*)
+      logical ifro 
 
       imode = MPI_MODE_WRONLY+MPI_MODE_CREATE
       if(ifro) then
@@ -46,6 +38,9 @@ C--------------------------------------------------------------------------
 C--------------------------------------------------------------------------
       subroutine byte_read_mpi(buf,icount,iorank,mpi_fh,ierr)
 
+      include 'SIZE'
+      include 'RESTART'
+
       include 'mpif.h'
 
       real*4 buf(1)          ! buffer
@@ -63,8 +58,10 @@ C--------------------------------------------------------------------------
 C--------------------------------------------------------------------------
       subroutine byte_write_mpi(buf,icount,iorank,mpi_fh,ierr)
 
+      include 'SIZE'
+      include 'RESTART'
+
       include 'mpif.h'
-      common /nekmpi/ nid,np,nekcomm,nekgroup,nekreal
 
       real*4 buf(1)          ! buffer
 
@@ -82,6 +79,9 @@ C--------------------------------------------------------------------------
 C--------------------------------------------------------------------------
       subroutine byte_close_mpi(mpi_fh,ierr)
 
+      include 'SIZE'
+      include 'RESTART'
+
       include 'mpif.h'
 
 #ifndef NOMPIIO
@@ -94,6 +94,9 @@ C--------------------------------------------------------------------------
       end
 C--------------------------------------------------------------------------
       subroutine byte_set_view(ioff_in,mpi_fh)
+
+      include 'SIZE'
+      include 'RESTART'
 
       include 'mpif.h'
       integer*8 ioff_in

@@ -258,13 +258,11 @@ c     if (ifmhd.and..not.ifdg) then   ! Current dg is for scalars only
          call dssum(t ,nx1,ny1,nz1)
          call col2 (t ,tmult,ntott)
          do ifield=3,nfield
-            if(gsh_fld(ifield).ge.0) then
-              call dssum(t(1,1,1,1,ifield-1),nx1,ny1,nz1)
-              if(iftmsh(ifield)) then
-                call col2 (t(1,1,1,1,ifield-1),tmult,ntott)
-              else
-                call col2 (t(1,1,1,1,ifield-1),vmult,ntotv)
-              endif
+            call dssum(t(1,1,1,1,i-1),nx1,ny1,nz1)
+            if(iftmsh(ifield)) then
+              call col2 (t(1,1,1,1,i-1),tmult,ntott)
+            else
+              call col2 (t(1,1,1,1,i-1),vmult,ntotv)
             endif
          enddo
       endif
@@ -275,18 +273,11 @@ c     if (ifpert.and..not.ifdg) then ! Still not DG
             ifield = 1
             call opdssum(vxp(1,jp),vyp(1,jp),vzp(1,jp))
             call opcolv (vxp(1,jp),vyp(1,jp),vzp(1,jp),vmult)
+            ifield = 2
 
 c           note... must be updated for addl pass. scal's. pff 4/26/04
-            if (.not.ifdg) then
-               do ifield=2,nfield
-                  call dssum(tp(1,ifield-1,jp),nx1,ny1,nz1)
-                  if(iftmsh(ifield)) then
-                     call col2 (tp(1,ifield-1,jp),tmult,ntott)
-                  else
-                     call col2 (tp(1,ifield-1,jp),vmult,ntotv)
-                  endif
-               enddo
-            endif
+            if (.not.ifdg) call dssum(tp(1,1,jp),nx1,ny1,nz1)
+            if (.not.ifdg) call col2 (tp(1,1,jp),tmult,ntotv)
 
             vxmax = glamax(vxp(1,jp),ntotv)
             vymax = glamax(vyp(1,jp),ntotv)
@@ -1911,7 +1902,7 @@ c-----------------------------------------------------------------------
  
       test2 = bytetest
       call byte_reverse(test2,1,ierr)
-      if (nid.eq.0 .and. loglevel.gt.2) 
+      if (nid.eq.0) 
      $   write(6,*) 'byte swap:',if_byte_swap_test,bytetest,test2
       return
       end
@@ -2027,9 +2018,8 @@ c-----------------------------------------------------------------------
 
       call nekgsync() ! clear outstanding message queues.
 
-      nxyzr  = nxr*nyr*nzr  
-      dnxyzr = nxyzr 
-      len    = nxyzr*wdsizr  ! message length
+      nxyzr = nxr*nyr*nzr   
+      len   = nxyzr*wdsizr  ! message length
       if (wdsizr.eq.8) nxyzr = 2*nxyzr
 
       ! check message buffer
@@ -2039,9 +2029,8 @@ c-----------------------------------------------------------------------
 
       ! setup read buffer
       if (nid.eq.pid0r) then
-         dtmp  = dnxyzr*nelr 
-         nread = dtmp/lrbs
-         if(mod(dtmp,1.0*lrbs).ne.0) nread = nread + 1
+         nread = nxyzr*nelr/lrbs
+         if(mod(nxyzr*nelr,lrbs).ne.0) nread = nread + 1
          if(ifmpiio) nread = iglmax(nread,1) ! needed because of collective read
          nelrr = nelr/nread
       endif
@@ -2171,9 +2160,8 @@ c-----------------------------------------------------------------------
 
       call nekgsync() ! clear outstanding message queues.
 
-      nxyzr  = ndim*nxr*nyr*nzr
-      dnxyzr = nxyzr
-      len    = nxyzr*wdsizr             ! message length in bytes
+      nxyzr = ndim*nxr*nyr*nzr
+      len   = nxyzr*wdsizr             ! message length in bytes
       if (wdsizr.eq.8) nxyzr = 2*nxyzr
 
       ! check message buffer
@@ -2183,9 +2171,8 @@ c-----------------------------------------------------------------------
 
       ! setup read buffer
       if(nid.eq.pid0r) then
-         dtmp  = dnxyzr*nelr
-         nread = dtmp/lrbs
-         if(mod(dtmp,1.0*lrbs).ne.0) nread = nread + 1
+         nread = nxyzr*nelr/lrbs
+         if(mod(nxyzr*nelr,lrbs).ne.0) nread = nread + 1
          if(ifmpiio) nread = iglmax(nread,1) ! needed because of collective read
          nelrr = nelr/nread
       endif
@@ -2595,19 +2582,30 @@ c               if(nid.eq.0) write(6,'(A,I2,A)') ' Reading ps',k,' field'
       return
       end
 c-----------------------------------------------------------------------
-      subroutine addfid(fname,fid)
+      subroutine mbyte_open(hname,fid,ifro,ierr) ! open  blah000.fldnn
       include 'SIZE'
       include 'TSTEP'
       include 'INPUT'
       include 'RESTART'
-
-
-      character*1 fname(132)
+ 
       integer fid
+      character*132 hname
+      logical ifro
 
       character*8  eight,fmt,s8
       save         eight
       data         eight / "????????" /
+
+      character*132 fname
+      character*1  fname1(132)
+      equivalence (fname1,fname)
+
+      integer      iname(33)
+      equivalence (iname,fname)
+
+      call izero  (iname,33)
+      len = ltrunc(hname,132)
+      call chcopy (fname,hname,len)
 
       do ipass=1,2      ! 2nd pass, in case 1 file/directory
          do k=8,1,-1
@@ -2616,13 +2614,23 @@ c-----------------------------------------------------------------------
                write(fmt,1) k,k
     1          format('(i',i1,'.',i1,')')
                write(s8,fmt) fid
-               call chcopy(fname(i1),s8,k)
+               call chcopy(fname1(i1),s8,k)
                goto 10
             endif
          enddo
    10    continue
       enddo
       
+      if(ifmpiio) then
+        call byte_open_mpi(fname,ifh_mbyte,ifro,ierr)
+        if(nio.eq.0) write(6,6) istep,(fname1(k),k=1,len)
+      else
+        call byte_open(fname,ierr)
+        if(nio.eq.0)write(6,7) nid,istep,(fname1(k),k=1,len)
+      endif
+
+   6  format(1i8,' OPEN: ',132a1)
+   7  format(2i8,' OPEN: ',132a1)
       return
       end
 c-----------------------------------------------------------------------
@@ -2635,19 +2643,21 @@ c-----------------------------------------------------------------------
       include 'INPUT'
 
       integer stride
-      character*132 hdr, hname_
+      character*132 hdr
       logical if_byte_swap_test
       real*4 bytetest
 
       integer*8 offs0,offs
 
+      integer sum
+
       ierr = 0
       ! rank0 (i/o master) will do a pre-read to get some infos 
       ! we need to have in advance
       if (nid.eq.0) then
-         call chcopy(hname_,hname,132)
-         call addfid(hname_,0)
-         call byte_open(hname_,ierr)
+         ifmpiio = .false.
+         call mbyte_open(hname,0,.TRUE.,ierr) ! open  blah000.fldnn
+c         call byte_open(hdname,ierr)
 
          if(ierr.ne.0) goto 101
          call blank     (hdr,iHeaderSize)
@@ -2668,8 +2678,8 @@ c-----------------------------------------------------------------------
       call bcast(hdr,iHeaderSize)  
       call mfi_parse_hdr(hdr,ierr)
 
-      ifmpiio = .false.
-      if (nfiler.eq.1 .and. abs(param(67)).eq.6) ifmpiio = .true.
+      ifmpiio = .true.
+      if (nfiler.gt.1) ifmpiio = .false.
 #ifdef NOMPIIO
       ifmpiio = .false.
 #endif
@@ -2687,11 +2697,7 @@ c-----------------------------------------------------------------------
            pid1r = nid + stride
            fid0r = nid / stride
            call blank     (hdr,iHeaderSize)
-
-           call addfid(hname,fid0r)
-           if(nid.eq.pid0r) write(6,*) '      FILE:',hname
-           call byte_open(hname,ierr)
-
+           call mbyte_open(hname,fid0r,.TRUE.,ierr) ! open  blah000.fldnn
            if(ierr.ne.0) goto 102
            call byte_read (hdr, iHeaderSize/4,ierr)  
            if(ierr.ne.0) goto 102
@@ -2717,10 +2723,7 @@ c-----------------------------------------------------------------------
         nelBr = igl_running_sum(nelr) - nelr 
         offs = offs0 + nelBr*isize
 
-        call addfid(hname,fid0r)
-        if(nio.eq.0) write(6,*) '      FILE:',hname
-        call byte_open_mpi(hname,ifh_mbyte,.true.,ierr)
-
+        call mbyte_open(hname,0,.TRUE.,ierr) 
         if(ierr.ne.0) goto 102
         call byte_set_view(offs,ifh_mbyte)
         call byte_read_mpi(er,nelr,-1,ifh_mbyte,ierr)

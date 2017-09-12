@@ -152,8 +152,9 @@ c-----------------------------------------------------------------------
       call rzero(vdiff ,ltott*ldimt1)
       call rzero(u,ntotcv)
       call cmtuic
-      if(ifrestart) call my_full_restart !  Check restart files. soon...
-
+!     call nekgsync()
+!     call restart(nfiles) !  Check restart files. soon...
+!     call nekgsync()
 C print min values
       xxmax = glmin(xm1,ntott)
       yymax = glmin(ym1,ntott)
@@ -169,11 +170,11 @@ C print min values
 
       if (nio.eq.0) then
          write(6,19) xxmax,yymax,zzmax
-   19    format('Cxyz min  ',5g25.18)
+   19    format('Cxyz min  ',5g13.5)
       endif
       if (nio.eq.0) then
          write(6,20) vxmax,vymax,vzmax,prmax,ttmax
-   20    format('Cuvwpt min',5g25.18)
+   20    format('Cuvwpt min',5g13.5)
       endif
 
 c print max values
@@ -191,12 +192,12 @@ c print max values
 
       if (nio.eq.0) then
          write(6,16) xxmax,yymax,zzmax
-   16    format('Cxyz max  ',5g25.18)
+   16    format('Cxyz max  ',5g13.5)
       endif
 
       if (nio.eq.0) then
          write(6,17) vxmax,vymax,vzmax,prmax,ttmax
-   17    format('Cuvwpt max',5g25.18)
+   17    format('Cuvwpt max',5g13.5)
       endif
 
 c     ! save velocity on fine mesh for dealiasing

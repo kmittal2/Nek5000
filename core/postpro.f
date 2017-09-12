@@ -1512,7 +1512,8 @@ c-----------------------------------------------------------------------
       subroutine hpts
 c
 c     evaluate velocity, temperature, pressure and ps-scalars 
-c     for list of points and dump results
+c     for list of points (read from hpts.in) and dump results
+c     into a file (hpts.out).
 c     note: read/write on rank0 only 
 c
 c     ASSUMING LHIS IS MAX NUMBER OF POINTS TO READ IN ON ONE PROCESSOR
@@ -1522,7 +1523,6 @@ c     ASSUMING LHIS IS MAX NUMBER OF POINTS TO READ IN ON ONE PROCESSOR
 
       parameter(nfldm=ldim+ldimt+1)
 
-      real pts, fieldout, dist, rst
       common /c_hptsr/ pts      (ldim,lhis)
      $               , fieldout (nfldm,lhis)
      $               , dist     (lhis)
@@ -1530,7 +1530,6 @@ c     ASSUMING LHIS IS MAX NUMBER OF POINTS TO READ IN ON ONE PROCESSOR
 
       common /nekmpi/ nidd,npp,nekcomm,nekgroup,nekreal
 
-      integer rcode, elid, proc
       common /c_hptsi/ rcode(lhis),elid(lhis),proc(lhis)
 
       common /scrcg/  pm1 (lx1,ly1,lz1,lelv) ! mapped pressure
@@ -1605,8 +1604,7 @@ c     ASSUMING LHIS IS MAX NUMBER OF POINTS TO READ IN ON ONE PROCESSOR
      &                 pts(1,1),ndim,
      &                 pts(2,1),ndim,
      &                 pts(3,1),ndim,npts)
-     
-        nfail = 0 
+      
         do i=1,npts
            ! check return code 
            if(rcode(i).eq.1) then
@@ -1625,7 +1623,6 @@ c     ASSUMING LHIS IS MAX NUMBER OF POINTS TO READ IN ON ONE PROCESSOR
         enddo
         icalld = 1
       endif
-
 
       ! evaluate input field at given points
       do ifld = 1,nflds
@@ -1654,8 +1651,8 @@ c-----------------------------------------------------------------------
 
       ierr = 0
       if(nid.eq.0) then
-        write(6,*) 'reading history points'
-        open(50,file=hisfle,status='old',err=100)
+        write(6,*) 'reading his.in'
+        open(50,file='his.in',status='old',err=100)
         read(50,*,err=100) npoints
         goto 101
  100    ierr = 1
@@ -1664,13 +1661,13 @@ c-----------------------------------------------------------------------
       ierr=iglsum(ierr,1)
       if(ierr.gt.0) then
         if(nio.eq.0) 
-     &   write(6,*) 'Cannot open history file in subroutine hpts()'
+     &   write(6,*) 'Cannot open his.in in subroutine hpts()'
         call exitt
       endif
       
       call bcast(npoints,isize)
       if(npoints.gt.lhis*np) then
-        if(nid.eq.0) write(6,*) 'ABORT: Increase lhis in SIZE!'
+        if(nid.eq.0) write(6,*) 'ABORT: Too many pts to read in hpts()!'
         call exitt
       endif
       if(nid.eq.0) write(6,*) 'found ', npoints, ' points'
@@ -1697,7 +1694,11 @@ c-----------------------------------------------------------------------
            enddo
            if(ipass.lt.npass)call csend(ipass,buffer,len,ipass,0)
         enddo
+        close(50)
         npp = n0
+        open(50,file=hisfle)
+        write(50,'(A)') 
+     &      '# time  vx  vy  [vz]  pr  T  S01  S02  ...'
       elseif (nid.lt.npass)  then !processors receiving data
         call msgwait(msg_id)
         npp=nbuf

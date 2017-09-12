@@ -1,5 +1,4 @@
 C> @file bc.f Boundary condition routines
-
 C> \ingroup bcond
 C> @{
 C> Determining rind state for Dirichlet boundary conditions
@@ -117,16 +116,12 @@ C> Determining rind state for Dirichlet boundary conditions
       enddo
       enddo
 
-C> @}
       return
       end
 
 !-----------------------------------------------------------------------
 
-C> \ingroup bcond
-C> @{
-C> Determining IGU contribution to boundary flux. 0 for artificial
-C> viscosity, and strictly interior for physical viscosity.
+C> @file bc.f Routines for boundary conditions
       subroutine bcflux(flux,agradu,qminus)
 ! Need proper indexing and nekasgn & cmtasgn calls
       include 'SIZE'
@@ -171,9 +166,7 @@ C> viscosity, and strictly interior for physical viscosity.
 !                 do eq=1,toteq
 !                    call userflux(flux(1,f,e,eq)) ! replace this with userbc
 !                 enddo
-               else  ! if (cb .eq. 'SYM') then ! NEED PHYSICAL VISC TEST
-! JH031617 But this code block basically guarantees that artificial viscosity
-!          does not contribute to viscous fluxes at boundaries.
+               elseif (cb .eq. 'SYM') then
                   do eq=1,toteq
                      call rzero(flux(1,f,e,eq),nxz)
                   enddo
@@ -182,7 +175,6 @@ C> viscosity, and strictly interior for physical viscosity.
          enddo
       enddo
 
-C> @}
       return
       end
 

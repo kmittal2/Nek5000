@@ -15,4 +15,8 @@ mv $2.his $2.his1 2>/dev/null
 NP1=$3
 NP2=$4
 NP=$(($NP1+$NP2))
-mpiexec -np $NP ./nek5000
+mpiexec -np $NP ./nek5000 > $1.log 
+##nohup mpiexec -l -np $NP nek5000 > $1.log &
+sleep 1
+rm logfile
+ln $1.log logfile

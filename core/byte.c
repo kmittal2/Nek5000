@@ -112,23 +112,29 @@ void byte_reverse8(float *buf, int *nn,int *ierr)
 }
 
 
-void byte_open(char *n,int *ierr,int nlen)
+void byte_open(char *n,int *ierr)
 {
   int  i,len,istat;
   char slash;
   char dirname[MAX_NAME+1];
 
-  if (nlen>MAX_NAME)
+  len = strlen(n);
+  
+  if (len<=0)
   {
-    printf("byte_open() :: invalid string length\n"); 
+    printf("byte_open() :: file name has invalid length!\n"); 
     *ierr=1;
     return;
   }
 
-  for (i=nlen-1; i>=0; i--) if (n[i] != ' ') break;
-  n[i+1] = '\0';
+  if (len>MAX_NAME)
+  {
+    printf("byte_open() :: file name too long!\n"); 
+    *ierr=1;
+    return;
+  }
 
-  strcpy(name   ,n);
+  strcpy(name,n);
   strcpy(dirname,n);
 
   for (i=1;dirname[i]!='\0';i++)

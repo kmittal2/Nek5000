@@ -1,5 +1,5 @@
 c-----------------------------------------------------------------------
-      subroutine read_re2_data(ifbswap)  ! .re2 reader
+      subroutine bin_rd1(ifbswap)  ! .re2 reader
 
       include 'SIZE'
       include 'TOTAL'
@@ -7,12 +7,11 @@ c-----------------------------------------------------------------------
       include 'CTIMER'
 
       logical ifbswap
-      integer idummy(100)
 
       common /nekmpi/ nidd,npp,nekcomm,nekgroup,nekreal
  
  
-      etime0 = dnekclock_sync()
+      etime1 = dnekclock_sync()
 
                   ibc = 2
       if (ifflow) ibc = 1
@@ -30,6 +29,7 @@ c
       call blank(cbc,lcbc)
 
 #ifndef NOMPIIO
+      call byte_close(ierr)
       call crystal_setup(cr_re2,nekcomm,np)
 
       call byte_open_mpi(re2fle,fh_re2,.TRUE.,ierr)
@@ -44,9 +44,6 @@ c
       call crystal_free  (cr_re2)
       call byte_close_mpi(fh_re2,ierr)
 #else
-      call byte_open(re2fle,ierr)
-      call byte_read(idummy,21,ierr) ! skip hdr+endian code 
-
       call bin_rd1_mesh (ifbswap)
       call bin_rd1_curve(ifbswap)
       do ifield = ibc,nfldt
@@ -56,9 +53,9 @@ c
       call byte_close(ierr)
 #endif
 
-      etime_t = dnekclock_sync() - etime0
-      if(nio.eq.0) write(6,'(A,1(1g8.2),A,/)')
-     &                   ' done :: read .re2 file   ',
+      etime_t = dnekclock_sync() - etime1
+      if(nio.eq.0) write(6,'(A,1(1g8.2),A)')
+     &                   'done :: read .re2 file   ',
      &                   etime_t, ' sec'
 
       return
@@ -84,7 +81,7 @@ c-----------------------------------------------------------------------
       integer*8       lre2off_b,dtmp8
       integer*8       nrg
 
-      if (nio.eq.0) write(6,*) ' preading mesh '
+      if (nio.eq.0) write(6,*) '  preading mesh '
 
       nrg       = nelgt
       nr        = nelt
@@ -172,7 +169,7 @@ c-----------------------------------------------------------------------
       re2off_b = re2off_b + 4*nwds4r
 
       if(nrg.eq.0) return
-      if(nio.eq.0) write(6,*) ' preading curved sides '
+      if(nio.eq.0) write(6,*) '  preading curved sides '
 
       ! read data from file
       nr = nrg/np
@@ -278,7 +275,7 @@ c-----------------------------------------------------------------------
       re2off_b = re2off_b + 4*nwds4r
 
       if(nrg.eq.0) return
-      if(nio.eq.0) write(6,*) ' preading bc for ifld',ifield
+      if(nio.eq.0) write(6,*) '  preading bc for ifld',ifield
 
       ! read data from file
       nr = nrg/np
@@ -748,75 +745,6 @@ c     len  = 4
             if(wdsizi.eq.4)call csend(mid, zero,len,mid,0)
          enddo
       endif
-
-      return
-      end
-c-----------------------------------------------------------------------
-      subroutine read_re2_hdr(ifbswap) ! open file & chk for byteswap
-
-      include 'SIZE'
-      include 'TOTAL'
-
-      logical ifbswap,if_byte_swap_test
-
-      integer fnami (33)
-      character*132 fname
-      equivalence (fname,fnami)
-
-      character*132 hdr
-      character*5 version
-      real*4      test
-
-      logical iffound
-
-      ierr=0
-
-      if (nid.eq.0) then
-         write(6,'(A,A)') ' Reading ', re2fle
-         call izero(fnami,33)
-         m = indx2(re2fle,132,' ',1)-1
-         call chcopy(fname,re2fle,m)
-
-         inquire(file=fname, exist=iffound)
-         if(.not.iffound) ierr = 1
-      endif
-      call err_chk(ierr,' Cannot find re2 file!$')
-
-      if (nid.eq.0) then
-         call byte_open(fname,ierr)
-         if(ierr.ne.0) goto 100
-         call byte_read(hdr,20,ierr)
-         if(ierr.ne.0) goto 100
-
-         read (hdr,1) version,nelgt,ndim,nelgv
-    1    format(a5,i9,i3,i9)
- 
-         wdsizi = 4
-         if(version.eq.'#v002') wdsizi = 8
-         if(version.eq.'#v003') then
-           wdsizi = 8
-           param(32) = 1
-         endif
-
-         call byte_read(test,1,ierr)
-         if(ierr.ne.0) goto 100
-         ifbswap = if_byte_swap_test(test,ierr)
-         if(ierr.ne.0) goto 100
-        
-         call byte_close(ierr)
-      endif
- 
- 100  call err_chk(ierr,'Error reading re2 header$')
-
-      call bcast(wdsizi, ISIZE)
-      call bcast(ifbswap,LSIZE)
-      call bcast(nelgv  ,ISIZE)
-      call bcast(ndim   ,ISIZE)
-      call bcast(nelgt  ,ISIZE)
-      call bcast(param(32),WDSIZE)
-
-      if(wdsize.eq.4.and.wdsizi.eq.8) 
-     $   call exitti('wdsize=4 & wdsizi(re2)=8 not compatible$',wdsizi)
 
       return
       end

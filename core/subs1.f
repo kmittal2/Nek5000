@@ -47,7 +47,7 @@ c     ifcrsl = .true.
 
       tol=tin
       if (param(22).ne.0) tol=abs(param(22))
-c     if (matmod.lt.0) tol = 1.e-4
+      if (matmod.lt.0) tol = 1.e-4
 c     if (matmod.lt.0) tol = tin
 c     tol = 1.e-10
 
@@ -1428,8 +1428,6 @@ c     icase = 3 --- 3 separate axhelm calls
       icase = 1                ! Fast mode for stress
       if (ifaxis)      icase=2 ! Slow for stress, but supports axisymmetry
       if (matmod.lt.0) icase=2 ! Elasticity case
-c     if (matmod.lt.0) icase=3 ! Block-diagonal Axhelm
-      if (matmod.lt.0) icase=1 ! Elasticity case (faster, 7/28/17,pff)
       if (.not.ifstrs) icase=3 ! Block-diagonal Axhelm
 
       if (icase.eq.1) then
@@ -1763,7 +1761,7 @@ c-----------------------------------------------------------------------
       asum = 0
 
       nface = 2*ndim
-      do e=1,nelfld(ifld)
+      do e=1,nelv
       do f=1,nface
          if (cbc(f,e,ifld).eq.bc_in) then
             call fcsum2(usum_f,asum_f,u,e,f)
@@ -2173,12 +2171,7 @@ c     Setup local SEM-based Neumann operators (for now, just full...)
    44 format(2i9,1pe22.13)
 c     stop
 
-      imode = param(40)
-
-      if (imode.eq.0 .and. nelgt.gt.350000) call exitti(
-     $ 'Problem size requires AMG solver$',1)
-
-      call crs_setup(xxth_strs,imode,nekcomm,mp,n,se_to_gcrs,
+      call crs_setup(xxth_strs,nekcomm,mp,n,se_to_gcrs,
      $               nnz,ia,ja,a,null_space)
 
       t0 = dnekclock()-t0

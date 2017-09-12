@@ -1,13 +1,14 @@
 C> @file outflow_bc.f Dirichlet states for outflow boundary conditions
-      subroutine outflow(nvar,f,e,facew,wbc) ! don't really need nvar anymore
+      subroutine outflow(nvar,f,e,facew,wbc,flux) ! don't really need nvar anymore
       INCLUDE 'SIZE'
       INCLUDE 'INPUT'
 
       integer  nvar,f,e
       real facew(nx1,nz1,2*ldim,nelt,nvar)
       real wbc(nx1,nz1,2*ldim,nelt,nvar)
+      real flux(nx1*nz1,2*ldim,nelt,*)
 
-      call outflow_rflu(nvar,f,e,facew,wbc)
+      call outflow_rflu(nvar,f,e,facew,wbc,flux)
 
       return
       end
@@ -41,7 +42,6 @@ C> @file outflow_bc.f Dirichlet states for outflow boundary conditions
       do iy=j0,j1
       do ix=i0,i1
          call nekasgn(ix,iy,iz,e)     ! gives us phi- and rho-
-         call cmtasgn(ix,iy,iz,e)
          call userbc (ix,iy,iz,f,ieg) ! just for molarmass, and
                                       ! pres
          l=l+1

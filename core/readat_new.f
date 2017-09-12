@@ -13,18 +13,18 @@ c
       logical ifbswap
 
       call setDefaultParam
+
+      call open_bin_file(ifbswap) ! this will also read the header
+
       if(nid.eq.0) call par_read(ierr)
       call bcast(ierr,isize)
       if(ierr .ne. 0) call exitt
+
       call bcastParam
-
-      call read_re2_hdr(ifbswap)
-
       call chkParam
-
       if (.not.ifgtp) call mapelpr  ! read .map file, est. gllnid, etc.
 
-      call read_re2_data(ifbswap)
+      call bin_rd1(ifbswap) ! read .re2 data 
 
       call nekgsync()
 
@@ -54,8 +54,6 @@ C
       param(27) = 2    ! 2nd order in time
 
       param(32) = 0    ! all BC are defined in .re2
-
-      param(40) = 0    ! XXT 
 
       param(42) = 0    ! GMRES 
       param(43) = 0    ! SEMG preconitioner
@@ -157,8 +155,6 @@ c
       call izero (lochis, 4*lhis)
 
       call blank (initc,15*132)
-
-      nhis = 0
 
       return
       end
@@ -304,10 +300,6 @@ c set parameters
 
       call finiparser_getDbl(d_out,'mesh:numberOfBCFields',ifnd)
       if(ifnd .eq. 1) param(32) = int(d_out)
-
-      call finiparser_getString(c_out,'pressure:preconditioner',ifnd)
-      call capit(c_out,132)
-      if (index(c_out,'AMG') .gt. 0) param(40) = 1
 
       call finiparser_getString(c_out,'pressure:preconditioner',ifnd)
       call capit(c_out,132)
@@ -469,15 +461,6 @@ c set mesh-field mapping
         if(i_out .eq. 1) iftmsh(2) = .true.
       endif
 
-      do i = 1,ldimt-1
-         write(txt,"('scalar',i2.2,a)") i,':conjugateHeatTransfer'
-         call finiparser_getBool(i_out,txt,ifnd)
-         if(ifnd .eq. 1) then
-           iftmsh(i+2) = .false.
-           if(i_out .eq. 1) iftmsh(i+2) = .true.
-         endif
-      enddo
-
 c set output flags
       call finiparser_getBool(i_out,'mesh:writeToFieldFile',ifnd) 
       if(ifnd .eq. 1) then
@@ -530,7 +513,7 @@ c set properties
          call finiparser_getDbl(d_out,txt,ifnd)
          if(ifnd .eq. 1) cpfld(2+i,1) = d_out 
          if(cpfld(2+i,1) .lt.0.0) cpfld(2+i,1)  = -1.0/cpfld(2+i,1)
-         write(txt,"('scalar',i2.2,a)") i,':density'
+         write(txt,"('scalar',i2.2,a)") i,':rho'
          call finiparser_getDbl(d_out,txt,ifnd)
          if(ifnd .eq. 1) cpfld(2+i,2) = d_out 
       enddo
@@ -785,12 +768,6 @@ c           write(6,*)'help:',lelt,lelv,lelgv
    44    format('ERROR: lx1,lx2:',2i4,' lx2 must be lx-2 for IFSPLIT=F')
            call exitt
          endif
-      endif
-
-      if (ifsplit .and. ifuservp) then
-         if(nid.eq.0) write(6,*) 
-     $   'Switch on stress formulation to support PN/PN and IFUSERVP=T' 
-         ifstrs = .true.
       endif
 
       ktest = (lx1-lx1m) + (ly1-ly1m) + (lz1-lz1m)

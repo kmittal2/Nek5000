@@ -767,12 +767,8 @@ c                - Incompressibe or Weakly compressible (div u .ne. 0).
 
 c        call plan1 (igeom)       !  Orig. NEKTON time stepper
 
-         if (ifrich) then
-            call plan5(igeom)
-         else
-            call plan3 (igeom)    !  Same as PLAN 1 w/o nested iteration
+         call plan3 (igeom)       !  Same as PLAN 1 w/o nested iteration
                                   !  Std. NEKTON time stepper  !
-         endif
 
          if (ifmodel)    call twalluz (igeom) ! Turbulence model
          if (igeom.ge.2) call chkptol         ! check pressure tolerance
@@ -1174,7 +1170,6 @@ c
       tadvc=0.0
       ttime=0.0
       tcvf =0.0
-      tproj=0.0
 C
       return
       end
@@ -1352,17 +1347,9 @@ c        Helmholz solver timings
          phmhz=thmhz/tttstp
          write(6,*) 'hmhz time',nhmhz,thmhz,phmhz
 
-c        Resiual projection timings
-         pproj=tproj/tttstp
-         write(6,*) 'proj time',0,tproj,pproj
-
-c        Variable properties timings
+c        Properties timings
          pspro=tspro/tttstp
-         write(6,*) 'usvp time',nspro,tspro,pspro
-
-c        User q and f timings
-         pusfq=tusfq/tttstp
-         write(6,*) 'usfq time',0,tusfq,pusfq
+         write(6,*) 'spro time',nspro,tspro,pspro
 
 c        CVODE solver timings
          pcvf=tcvf/tttstp

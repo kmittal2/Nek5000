@@ -24,7 +24,9 @@ c     intype = -1  (implicit)
       common /cgmres1/ y(lgmres)
 
       real alpha, l, temp
-      integer j,m
+      integer j,m,i,k
+      real condv,maxev,minev,maxeig,mineig,maxcond
+      real hc(lgmres,lgmres)
 c
       logical iflag
       save    iflag
@@ -34,6 +36,9 @@ c
 c
       real*8 etime1,dnekclock
 c
+      condv = -1.e7
+      maxev = -1.e7
+      minev = 1.e7
       if(.not.iflag) then
          iflag=.true.
          call uzawa_gmres_split0(ml_gmres,mu_gmres,bm2,bm2inv,
@@ -58,8 +63,9 @@ c
 c
       iconv = 0
       call rzero(x_gmres,ntot2)
-
+c      do while(iconv.eq.0.and.iter.lt.50000)
       do while(iconv.eq.0.and.iter.lt.100)
+         call rzero(hc,lgmres**2)
 
          if(iter.eq.0) then
                                                         !      -1
@@ -97,8 +103,13 @@ c           call copy(r_gmres,res,ntot2)
             if(param(43).eq.1) then
                call uzprec(z_gmres(1,j),w_gmres,h1,h2,intype,wp)
             else                                        !       -1
+c              if (istep.lt.100) then 
                call hsmg_solve(z_gmres(1,j),w_gmres)    ! z  = M   w
+           if (nid.eq.0.and.iter.eq.1) write(6,*) 'usual preconditioner' 
+c              else 
 c              call copy(z_gmres(1,j),w_gmres,ntot2)    ! z  = M   w
+c            if (nid.eq.0.and.iter.eq.1) write(6,*) 'no preconditioner'
+c              endif
             endif     
             etime_p = etime_p + dnekclock()-etime2
      
@@ -120,14 +131,17 @@ c           2-PASS GS, 1st pass:
 
             do i=1,j
                h_gmres(i,j)=vlsc2(w_gmres,v_gmres(1,i),ntot2) ! h    = (w,v )
+               hc(i,j) = h_gmres(i,j)
             enddo                                             !  i,j       i
 
             call gop(h_gmres(1,j),wk1,'+  ',j)          ! sum over P procs
+            call gop(hc(1,j),wk1,'+  ',j)
 
             do i=1,j
                call add2s2(w_gmres,v_gmres(1,i),-h_gmres(i,j),ntot2) ! w = w - h    v
             enddo                                                    !          i,j  i
-
+            if (j.ne.m) hc(j+1,j) = sqrt(glsc2(w_gmres,w_gmres,ntot2))
+c            if (j.ne.m) call gop(hc(j+1,j),wk1,'+  ',1)
 
 c           2-PASS GS, 2nd pass:
 c
@@ -183,7 +197,12 @@ c            call outmat(h,m,j,' h    ',j)
                                                            !  j+1            
          enddo
   900    iconv = 1
- 1000    continue
+ 1000    call getcondmax(hc,lgmres,j,'I',maxcond,maxeig,mineig)
+         if (maxeig.gt.maxev) maxev = maxeig
+         if (mineig.lt.minev) minev = mineig
+         if (maxcond.gt.condv) condv = maxcond
+         if (maxcond.lt.1e-12) condv = 0.
+         continue
          !back substitution
          !     -1
          !c = H   gamma
@@ -203,6 +222,15 @@ c            call outmat(h,m,j,' h    ',j)
 c        if(iconv.eq.1) call dbg_write(x,nx2,ny2,nz2,nelv,'esol',3)
       enddo
  9000 continue
+
+      maxeig = glmax(maxev,1)
+      mineig = glmin(minev,1)
+      if (condv.lt.1e-12) condv = 1e+50
+      maxcond = glmax(condv,1)
+      if (nid.eq.0) then
+      write(6,9998) istep,iter,maxeig,mineig,maxcond
+ 9998 format(I10,' ',I8,' ',1p3e12.5,' k10cond')
+      endif
 c
       divex = rnorm
 c     iter = iter - 1
@@ -325,6 +353,9 @@ c     GMRES iteration.
       common /ctmp0/   wk1(lgmres),wk2(lgmres)
       real alpha, l, temp
       integer outer
+      integer j,m,i,k
+      real condv,maxev,minev,maxeig,mineig,maxcond
+      real hc(lgmres,lgmres)
 
       logical iflag,if_hyb
       save    iflag,if_hyb
@@ -334,7 +365,10 @@ c     data    iflag,if_hyb  /.false. , .true. /
       save    norm_fac
 
       real*8 etime1,dnekclock
-
+c
+      condv = -1.e7
+      maxev = -1.e7
+      minev = 1.e7
 
       n = nx1*ny1*nz1*nelv
 
@@ -344,12 +378,15 @@ c     data    iflag,if_hyb  /.false. , .true. /
       iter  = 0
       m     = lgmres
 
+      if (istep.lt.10.and.nid.eq.0) write(6,*) 'PNPN gmmres prec hmh'
+
       if(.not.iflag) then
          iflag=.true.
          call uzawa_gmres_split(ml_gmres,mu_gmres,bm1,binvm1,
      $                          nx1*ny1*nz1*nelv)
          norm_fac = 1./sqrt(volvm1)
       endif
+      if (istep.lt.10.and.nid.eq.0) write(6,*) 'gmres split'
 
       if (param(100).ne.2) call set_fdm_prec_h1b(d,h1,h2,nelv)
 
@@ -363,8 +400,10 @@ c
       call rzero(x_gmres,n)
 
       outer = 0
+      if (istep.lt.10.and.nid.eq.0) write(6,*) 'starting outer loop'
       do while (iconv.eq.0.and.iter.lt.500)
          outer = outer+1
+         call rzero(hc,lgmres**2)
 
          if(iter.eq.0) then                   !      -1
             call col3(r_gmres,ml_gmres,res,n) ! r = L  res
@@ -442,13 +481,18 @@ c           2-PASS GS, 1st pass:
 
             do i=1,j
                h_gmres(i,j)=vlsc3(w_gmres,v_gmres(1,i),wt,n) ! h    = (w,v )
+               hc(i,j) = h_gmres(i,j)
             enddo                                            !  i,j       i
 
             call gop(h_gmres(1,j),wk1,'+  ',j)          ! sum over P procs
+            call gop(hc(1,j),wk1,'+  ',j)
 
             do i=1,j
                call add2s2(w_gmres,v_gmres(1,i),-h_gmres(i,j),n) ! w = w - h    v
             enddo                                                !          i,j  i
+
+            if (j.ne.m) hc(j+1,j) = sqrt(glsc3(w_gmres,w_gmres,wt,n))
+c            if (j.ne.m) call gop(hc(j+1,j),wk1,'+  ',1)
 
 
 c           2-PASS GS, 2nd pass:
@@ -520,6 +564,7 @@ c           enddo
 c        if(iconv.eq.1) call dbg_write(x,nx1,ny1,nz1,nelv,'esol',3)
       enddo
  9000 continue
+
 
       divex = rnorm
       call copy(res,x_gmres,n)

@@ -1,4 +1,4 @@
-      subroutine nek_mflops(flops,mflops)
+      subroutine nek_flops(flops,mflops)
       real*4 rtime,ptime,mflops
       integer*8 flops
 

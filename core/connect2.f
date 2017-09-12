@@ -7,7 +7,6 @@ C
       INCLUDE 'INPUT'
       INCLUDE 'PARALLEL'
       INCLUDE 'ZPER'
-      INCLUDE 'CTIMER'
  
       logical ifbswap,ifre2,parfound
       character*132 string
@@ -25,15 +24,13 @@ C
          return
       endif  
 
-      etime0 = dnekclock_sync()
-
       if(nid.eq.0) then
         write(6,'(A,A)') ' Reading ', reafle
         open (unit=9,file=reafle,status='old', iostat=ierr)
       endif
 
       call bcast(ierr,isize)
-      if (ierr .gt. 0) call exitti('Cannot open rea file!$',1)
+      if (ierr .gt. 0) call exitti('Cannot open .rea file!$',1)
 
 C     Read parameters and logical flags
       call rdparam
@@ -50,18 +47,17 @@ C     Read Mesh Info
       call bcast(nelgv,ISIZE)
       call bcast(nelgt,ISIZE)
       ifre2 = .false.
-      if(nelgs.lt.0) ifre2 = .true.
+      if(nelgs.lt.0) ifre2 = .true.     ! use new .re2 reader
 
       ifgtp = .false.
-      if (ndim.lt.0) ifgtp = .true.
+      if (ndim.lt.0) ifgtp = .true.     ! domain is a global tensor product
 
-      if (ifre2) call read_re2_hdr(ifbswap) ! rank0 will open and read
+      if (ifre2) call open_bin_file(ifbswap) ! rank0 will open and read
       call chk_nel  ! make certain sufficient array sizes
 
       if (.not.ifgtp) call mapelpr  ! read .map file, est. gllnid, etc.
-
       if (ifre2) then
-        call read_re2_data(ifbswap)
+        call bin_rd1(ifbswap) ! rank0 will read mesh data + distribute
       else
         maxrd = 32               ! max # procs to read at once
         mread = (np-1)/maxrd+1   ! mod param
@@ -105,8 +101,6 @@ C     End of input data, close read file.
       if(nid.eq.0) then
         close(unit=9)
         call echopar
-        write(6,'(A,g13.5,A,/)')  ' done :: read .rea file ',
-     $                             dnekclock()-etime0,' sec'
       endif
 
 c     This is not an excellent place for this check, but will
@@ -251,8 +245,6 @@ c     IFSPLIT   = .false.
       ifpert = .false.
 
       ifreguo = .false.   ! by default we dump the data based on the GLL mesh
-
-      ifrich = .false.
 
       IF(NID.EQ.0) READ(9,*,ERR=500) NLOGIC
       call bcast(NLOGIC,ISIZE)
@@ -493,12 +485,6 @@ C
          if(nid.eq.0) write(6,*) 
      $   'ABORT: Using CVODE requires .par file!'
          call exitt
-      endif
-
-      if (ifsplit .and. ifuservp) then
-         if(nid.eq.0) write(6,*)
-     $   'Switch on stress formulation to support PN/PN and IFUSERVP=T'
-         ifstrs = .true.
       endif
 
       ktest = (lx1-lx1m) + (ly1-ly1m) + (lz1-lz1m)
@@ -2091,6 +2077,65 @@ c-----------------------------------------------------------------------
       do i=1,n
          write(6,*) buf(i), ' whhhh'
       enddo
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine open_bin_file(ifbswap) ! open file & chk for byteswap
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      logical ifbswap,if_byte_swap_test
+
+      integer fnami (33)
+      character*132 fname
+      equivalence (fname,fnami)
+
+      character*132 hdr
+      character*5 version
+      real*4      test
+
+      ierr=0
+      if (nid.eq.0) then
+         write(6,'(A,A)') ' Reading ', re2fle
+         call izero(fnami,33)
+         m = indx2(re2fle,132,' ',1)-1
+         call chcopy(fname,re2fle,m)
+   
+         call byte_open(fname,ierr)
+         if(ierr.ne.0) goto 100
+         call byte_read(hdr,20,ierr)
+         if(ierr.ne.0) goto 100
+
+         read (hdr,1) version,nelgt,ndim,nelgv
+    1    format(a5,i9,i3,i9)
+ 
+         wdsizi = 4
+         if(version.eq.'#v002') wdsizi = 8
+         if(version.eq.'#v003') then
+           wdsizi = 8
+           param(32) = 1
+         endif
+
+         call byte_read(test,1,ierr)
+         if(ierr.ne.0) goto 100
+         ifbswap = if_byte_swap_test(test,ierr)
+         if(ierr.ne.0) goto 100
+
+      endif
+ 
+ 100  call err_chk(ierr,'Error opening or reading .re2 header. Abort.$')
+
+      call bcast(wdsizi, ISIZE)
+      call bcast(ifbswap,LSIZE)
+      call bcast(nelgv  ,ISIZE)
+      call bcast(ndim   ,ISIZE)
+      call bcast(nelgt  ,ISIZE)
+      call bcast(param(32),WDSIZE)
+
+      if(wdsize.eq.4.and.wdsizi.eq.8) 
+     $   call exitti('wdsize=4 & wdsizi(re2)=8 not compatible$',wdsizi)
+
       return
       end
 c-----------------------------------------------------------------------

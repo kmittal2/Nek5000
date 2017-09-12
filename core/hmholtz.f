@@ -634,7 +634,8 @@ C------------------------------------------------------------------------
       COMMON /SCRCG/ d (lg) , scalar(2)
       common /SCRMG/ r (lg) , w (lg) , p (lg) , z (lg)
 c
-      parameter (maxcg=900)
+c      parameter (maxcg=900)
+      parameter (maxcg=5000)
       common /tdarray/ diagt(maxcg),upper(maxcg)
       common /iterhm/ niterhm
       character*4 name
@@ -672,24 +673,18 @@ c     set tolerance for temp+scalars
 c     p20<0: use toli tolin 
 c     p20=0: use same tol as for vel
 c     p20>0: use specified tol for temp
-      if (ifield.gt.1) then
-         if (abs(param(20)).le.1e-1) then ! to avoid confusion with NORDER in historical .rea
-            if (param(20).lt.0.0) then
-               tol=abs(tin)
-            elseif (param(20).gt.0.0) then
-               tol=abs(param(20))
-            endif
-         endif
-      endif
+      if (ifield.gt.1 .and. param(20).gt.0) tol=abs(param(20))
+      if (ifield.gt.1 .and. param(20).lt.0) tol=abs(tin)
 
 c     overrule tolerance for velocity
       if (name.eq.'PRES'.and.param(21).ne.0) tol=abs(param(21))
 
       if (tin.lt.0)       tol=abs(tin)
-      niter = min(maxit,maxcg)
+c      niter = min(maxit,maxcg)
+      niter = maxcg
 
       if (.not.ifsolv) then
-         call setfast(h1,h2,imsh)
+         call setfast(h1,h2,imesh)
          ifsolv = .true.
       endif
 C
@@ -698,7 +693,8 @@ C
       if (kfldfdm.lt.0) then
          call setprec(D,h1,h2,imsh,isd)
       elseif(param(100).ne.2) then
-         call set_fdm_prec_h1b(d,h1,h2,nel)
+         call setprec(D,h1,h2,imsh,isd)
+c         call set_fdm_prec_h1b(d,h1,h2,nel)
       endif
 
       call copy (r,f,n)
@@ -742,11 +738,12 @@ c           call copy(z,r,n)
                call crs_solve_h1 (w,r)  ! Currently, crs grd only for P
                call add2         (z,w,n)
             else   
-               call fdm_h1(z,r,d,mask,mult,nel,ktype(1,1,kfldfdm),w)
-               if (name.eq.'PRES') then 
-                 call crs_solve_h1 (w,r)  ! Currently, crs grd only for P
-                 call add2         (z,w,n)
-               endif
+            call col3(z,r,d,n)
+c               call fdm_h1(z,r,d,mask,mult,nel,ktype(1,1,kfldfdm),w)
+c               if (name.eq.'PRES') then 
+c                 call crs_solve_h1 (w,r)  ! Currently, crs grd only for P
+c                 call add2         (z,w,n)
+c               endif
             endif
          endif
 c
@@ -835,13 +832,15 @@ c
 c     Call eigenvalue routine for Lanczos scheme:
 c          two work arrays are req'd if you want to save "diag & upper"
 c
-c     if (iter.ge.3) then
-c        niter = iter-1
-c        call calc (diagt,upper,w,z,krylov,dmax,dmin)
-c        cond = dmax/dmin
-c        if (nid.eq.0) write(6,6) istep,cond,dmin,dmax,' lambda'
-c     endif
-c   6 format(i9,1p3e12.4,4x,a7)
+      if (iter.ge.3) then
+      if (name.eq.'PRES') then
+        niter = iter-1
+        call calc (diagt,upper,w,z,krylov,dmax,dmin)
+        cond = dmax/dmin
+      if (nid.eq.0) write(6,6) istep,iter,dmin,dmax,cond,'k10condlambda'
+      endif
+      endif
+   6  format(i9,i9,1p3e12.4,4x,a9)
 c
 c     if (n.gt.0) write(6,*) 'quit in cggo'
 c     if (n.gt.0) call exitt
@@ -1399,7 +1398,11 @@ c
       call copy(aa,a,100)
       call copy(bb,b,100)
 c
-      call dsygv(1,'V','U',n,a,n,b,n,lam,bw,lbw,info)
+      if (ifdblas) then
+         call dsygv(1,'V','U',n,a,n,b,n,lam,bw,lbw,info)
+      else
+         call ssygv(1,'V','U',n,a,n,b,n,lam,bw,lbw,info)
+      endif
 c
 c     call outmat2(a,n,n,n,'Aeig')
 c     call outmat2(lam,1,n,n,'Deig')

@@ -57,6 +57,9 @@ c      if (nval.lt.(10000+max(lp,lelg))) then
       nekreal = mpi_real
       if (wdsize.eq.8) nekreal = mpi_double_precision
 
+      ifdblas = .false.
+      if (wdsize.eq.8) ifdblas = .true.
+
       ! set word size for INTEGER
       ! HARDCODED since there is no secure way to detect an int overflow
       isize = 4
@@ -86,7 +89,6 @@ C     Test timer accuracy
          WRITE(6,*) 'REAL    wdsize      :',WDSIZE
          WRITE(6,*) 'INTEGER wdsize      :',ISIZE
          WRITE(6,'(A,1pE8.2)') ' Timer accuracy      : ',edif
-         WRITE(6,*) ' '
       endif
 
       call crystal_setup(cr_h,nekcomm,np)  ! set cr handle to new instance
@@ -496,9 +498,12 @@ c-----------------------------------------------------------------------
       include 'CTIMER'
       include 'mpif.h'
 
+      real*4 papi_mflops
+      integer*8 papi_flops
+
       write(6,*) 'Emergency exit'
 
-c      call print_stack()
+      call print_stack()
       call flush_io
 
       call mpi_finalize (ierr)
@@ -531,7 +536,7 @@ c     Communicate unhappiness to the other session
 
 
 #ifdef PAPI
-      call nek_mflops(papi_flops,papi_mflops)
+      call nek_flops(papi_flops,papi_mflops)
 #endif
 
       tstop  = dnekclock()
@@ -547,20 +552,20 @@ c     Communicate unhappiness to the other session
          if(istep.gt.0) then
            dgp   = nvtot
            dgp   = max(dgp,1.)
-           dtmp1 = dgp/(ttime/max(istep,1))/np
+           dtmp1 = np*ttime/(dgp*max(istep,1))
            dtmp2 = ttime/max(istep,1)
            dtmp3 = 1.*papi_flops/1e6
          endif 
          write(6,*) ' '
          write(6,'(A)') 'call exitt: dying ...'
          write(6,*) ' '
-c         call print_stack()
+         call print_stack()
          write(6,*) ' '
          write(6,'(5(A,1p1e13.5,A,/))') 
      &       'total elapsed time             : ',ttotal, ' sec'
      &      ,'total solver time incl. I/O    : ',ttime , ' sec'
      &      ,'time/timestep                  : ',dtmp2 , ' sec'
-     &      ,'avg throughput per timestep    : ',dtmp1 , ' gridpts/CPUs'
+     &      ,'CPU seconds/timestep/gridpt    : ',dtmp1 , ' sec'
      &      ,'max resident memory            : ',dtmp4 , ' MB'
 #ifdef PAPI
          write(6,'(2(A,1g13.5,/))') 
