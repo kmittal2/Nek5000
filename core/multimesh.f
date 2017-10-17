@@ -218,6 +218,11 @@ c     nfld_neknek = ndim+2 for velocities+pressure+temperature
       which_field(3)='vz'
       which_field(ndim+1)='pr'
       if (nfld_neknek.gt.ndim+1) which_field(ndim+2)='t'
+      if (ldimt.gt.1) then
+        do i=2,ldimt
+          if (nfld_neknek.gt.ndim+i) which_field(ndim+i+1)='t'
+        enddo
+      endif
 c
 c     Special conditions set for flow-poro coupling
       if(nfld_neknek.eq.1) then
@@ -619,11 +624,13 @@ c     Move mesh 1 back to its original position
       ierror=0
 
 c     Make sure rcode_all is fine
+      nptnf = 0
       do 200 i=1,nbp
 
       if (rcode_all(i).lt.2) then
 
         if (rcode_all(i).eq.1.and.dist_all(i).gt.1e-02) then
+           nptnf = nptnf+1
            if (ndim.eq.2) write(6,*)
      &     'WARNING: point on boundary or outside the mesh xy[z]d^2: '
            if (ndim.eq.3) write(6,*)
@@ -639,9 +646,19 @@ c     Make sure rcode_all is fine
          enddo
          iList(1,ip) = jsend(i)
 
+      else
+       nptnf = nptnf+1
       endif  !  rcode_all
 
  200  continue
+      write(6,*) idsess,nid,nptnf,nbp,ip,'k10points'
+
+      tchk = 0
+      if (nptnf.gt.0) tchk = 1
+      tchk = uglmax(tchk,1)
+      if (tchk.eq.1) call findmrpts_nn(nbp,ip,rcode_all,dist_all,jsend)
+      if (tchk.eq.0) write(6,*) 'all points have been found'
+      write(6,*) idsess,nid,nbp,ip,'k10pointsafter2ndpass'
 
       npoints_nn = ip
 
@@ -683,7 +700,8 @@ c     Interpolate using findpts_eval
         if (which_field(ifld).eq.'vy') call copy(field,vy ,nt)
         if (which_field(ifld).eq.'vz') call copy(field,vz ,nt)
         if (which_field(ifld).eq.'pr') call copy(field,pm1,nt)
-        if (which_field(ifld).eq.'t' ) call copy(field,t  ,nt)
+        if (which_field(ifld).eq.'t' ) 
+     $    call copy(field,t(1,1,1,1,ifld-(ldim+1)),nt)
 
         call field_eval(fieldout(1,ifld),1,field)
       enddo
@@ -787,6 +805,147 @@ c     Some sanity checks for neknek
 c     idsess - session number
 c     nfld_neknek - fields to interpolate
       if (nid.eq.0) write(6,*) ngeom,ninter,'Neknek log ngeom ninter' 
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine findmrpts_nn(nbp,ip,rcode_all,dist_all,jsend)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      include 'NEKNEK'
+      include 'mpif.h'
+      integer e,f,i,j,k,nbp,ip
+      real dx1,dz1,mx_glob,mn_glob,dxf,dzf
+      common /exchr/ rsend(ldim*nmaxl_nn)
+      real rsend2(ldim*nmaxl_nn)
+      integer rcode_all(nmaxl_nn)
+      real    dist_all(nmaxl_nn)
+      real    rst_all2(nmaxl_nn*ldim)
+      integer rcode_all2(nmaxl_nn),elid_all2(nmaxl_nn)
+      integer proc_all2(nmaxl_nn)
+      real    dist_all2(nmaxl_nn)
+      integer inth_multi_new
+      integer jsend(nmaxl_nn)
+      integer jsend2(nmaxl_nn)
+c  HERE we try to find points that were not found earlier
+c     Get total number of processors and number of p
+      npall = 0
+      call neknekgsync()
+      do i=1,nsessions
+       npall = npall+npsess(i-1)
+      enddo
+c     Get diamter of the domain
+      call neknekgsync()
+      mx_glob=uglmax(xm1,lx1*ly1*lz1*nelt)
+      mn_glob=uglmin(xm1,lx1*ly1*lz1*nelt)
+      dx1 = mx_glob-mn_glob
+      mx_glob=uglmax(zm1,lx1*ly1*lz1*nelt)
+      mn_glob=uglmin(zm1,lx1*ly1*lz1*nelt)
+      dz1 = mx_glob-mn_glob
+cc
+      dxf = 10.+dx1
+      dzf = dz1/2.
+      write(6,*) dzf,'k10dzfval'
+ccccc
+      if (nbp.eq.ip) npt = 0
+ccccc
+c     Displace MESH 1
+      ntot = lx1*ly1*lz1*nelt
+      if (idsess.eq.0) then
+         call cadd(xm1,-dxf,ntot)
+      endif
+      call neknekgsync()
+
+ccccc
+c     Setup findpts    
+      tol     = 1e-13
+      npt_max = 256
+      nxf     = 2*nx1 ! fine mesh for bb-test
+      nyf     = 2*ny1
+      nzf     = 2*nz1
+      bb_t    = 0.1 ! relative size to expand bounding boxes by
+
+      call fgslib_findpts_setup(inth_multi_new,mpi_comm_world,npall,
+     &                   ndim,xm1,ym1,zm1,nx1,ny1,nz1,
+     &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
+     &                   npt_max,tol)
+
+cccc   now put aside points which were not found
+
+      npt = 0
+      do i=1,nbp
+      tchk = 0
+
+      if (rcode_all(i).lt.2) then
+
+        if (rcode_all(i).eq.1.and.dist_all(i).gt.1e-02) then
+           npt = npt+1
+           tchk = 1
+        endif
+      else
+       npt = npt+1
+       tchk = 1
+      endif  !  rcode_all
+      if (tchk.eq.1) then
+        jsend2(npt) = jsend(i)
+        rsend2(ndim*(npt-1)+1)   = rsend(ndim*(i-1)+1)
+        rsend2(ndim*(npt-1)+2)   = rsend(ndim*(i-1)+2)
+        if (rsend(ndim*(i-1)+3).gt.dzf) then
+           rsend2(ndim*(npt-1)+3) = rsend(ndim*(i-1)+3) - dzf
+        else
+           rsend2(ndim*(npt-1)+3) = rsend(ndim*(i-1)+3) + dzf
+        endif
+      endif 
+
+      enddo
+
+c     JL's routine to find which points these procs are on
+      call fgslib_findpts(inth_multi2,rcode_all2,1,
+     &             proc_all2,1,
+     &             elid_all2,1,
+     &             rst_all2,ndim,
+     &             dist_all2,1,
+     &             rsend2(1),ndim,
+     &             rsend2(2),ndim,
+     &             rsend2(3),ndim,npt)
+
+c      write(6,*) idsess,nid,nbp,ip,npt,'findptcheckinfo' 
+      nptnf = 0
+      do i=1,npt
+      tchk = 0
+
+      if (rcode_all2(i).lt.2) then
+
+        if (rcode_all2(i).eq.1.and.dist_all2(i).gt.1e-02) then
+           nptnf = nptnf+1
+           tchk = 1
+        else
+         ip=ip+1
+         rcode(ip) = rcode_all2(i)
+         elid(ip)  = elid_all2(i)
+         proc(ip)  = proc_all2(i)
+         do j=1,ndim
+           rst(ndim*(ip-1)+j)   = rst_all2(ndim*(i-1)+j)
+         enddo
+         iList(1,ip) = jsend2(i)
+        endif
+      else
+       nptnf = nptnf+1
+       tchk = 1
+      endif  !  rcode_all
+
+      enddo
+
+      write(6,*) idsess,nid,npt,nptnf,'findptpass2' 
+
+c     Displace MESH 1 back
+      ntot = lx1*ly1*lz1*nelt
+      if (idsess.eq.0) then
+         call cadd(xm1,dxf,ntot)
+      endif
+      call neknekgsync()
+     
+     
       return
       end
 C--------------------------------------------------------------------------
