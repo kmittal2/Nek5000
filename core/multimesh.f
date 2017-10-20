@@ -144,6 +144,7 @@ C     Boundary conditions are changed back to 'v' or 't'.
          call set_intflag
          call neknekmv()
          icalld = icalld + 1
+         call bcmask_nn
       endif 
       call neknekgsync()
 
@@ -790,3 +791,172 @@ c     nfld_neknek - fields to interpolate
       return
       end
 C--------------------------------------------------------------------------
+      subroutine userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real l2,linf
+      character*3 which_field(nfldmax_nn)
+      real vxc(1),vyc(1),vzc(1),prc(1)
+
+c     nfld_neknek is the number of fields to interpolate.
+c     nfld_neknek = ndim+1 for velocities+pressure 
+c     nfld_neknek = ndim+2 for velocities+pressure+temperature
+
+      which_field(1)='vx'
+      which_field(2)='vy'
+      which_field(3)='vz'
+c
+      if (nsessions.gt.1) 
+     $     call get_values_temp(which_field,vxc,vyc,vzc,prc)
+
+      return
+      end
+c------------------------------------------------------------------------
+      subroutine get_values_temp(which_field,vxc,vyc,vzc,prc)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+
+      character*3 which_field(nfld_neknek)
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real field(lx1*ly1*lz1*lelt)
+      integer nv,nt,i,j,k,n,ie,ix,iy,iz,idx,ifld
+      real vxc(1),vyc(1),vzc(1),prc(1)
+
+c      call mappr(pm1,pr,wk1,wk2)  ! Map pressure to pm1 
+      nv = nx1*ny1*nz1*nelv
+      nt = nx1*ny1*nz1*nelt
+
+
+cccc
+c     Interpolate using findpts_eval
+      do ifld=1,ldim
+        if (which_field(ifld).eq.'vx') call copy(field,vxc ,nt)
+        if (which_field(ifld).eq.'vy') call copy(field,vyc ,nt)
+        if (which_field(ifld).eq.'vz') call copy(field,vzc ,nt)
+        call field_eval(fieldout(1,ifld),1,field)
+      enddo
+      call neknekgsync()
+
+cccc
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        do ifld=1,ldim
+          valint(idx,1,1,1,ifld)=fieldout(i,ifld)
+        enddo
+       enddo
+
+      call neknekgsync()
+      return
+      end
+C--------------------------------------------------------------------------
+      SUBROUTINE BCMASK_NN
+C
+C     Zero out masks corresponding to Dirichlet boundary points.
+C
+      INCLUDE 'SIZE'
+      INCLUDE 'TSTEP'
+      INCLUDE 'INPUT'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'SOLN'
+      INCLUDE 'TOPOL'
+      INCLUDE 'NEKNEK'
+      common  /nekcb/ cb
+      character*3 cb
+      character*1 cb1(3)
+      equivalence (cb1,cb)
+      logical ifalgn,ifnorx,ifnory,ifnorz
+      integer e,f
+
+      NFACES=2*NDIM
+      NXYZ  =NX1*NY1*NZ1
+
+C     Masks for flow variables
+C
+      IF (IFFLOW) THEN
+         IFIELD = 1
+         NEL    = NELFLD(IFIELD)
+         NTOT   = NXYZ*NEL
+C        Velocity masks
+C
+c        write(6,*) 'MASK ifstrs',ifstrs,ifield
+c        call exitt
+         IF (IFSTRS) THEN
+           CALL STSMASK (v1mask_nn,v2mask_nn,v3mask_nn)
+         ELSE
+C
+           CALL RONE(v1mask_nn,NTOT)
+           CALL RONE(v2mask_nn,NTOT)
+           CALL RONE(v3mask_nn,NTOT)
+C
+           DO 100 IEL=1,NELV
+           DO 100 IFACE=1,NFACES
+              CB =CBC(IFACE,IEL,IFIELD)
+              CALL CHKNORD (IFALGN,IFNORX,IFNORY,IFNORZ,IFACE,IEL)
+C
+C            All-Dirichlet boundary conditions
+C
+           IF (CB.EQ.'V  ' .OR. CB.EQ.'vl ' .OR.
+     $         cb.eq.'MV ' .or. cb.eq.'mv '                  .or.
+     $         CB.EQ.'VL ' .OR. CB.EQ.'W  ') THEN
+             CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+
+           IF (CB.EQ.'v  ' .and.intflag(IFACE,IEL).eq.0) THEN
+             CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+
+C
+C        Mixed-Dirichlet-Neumann boundary conditions
+C
+         IF (CB.EQ.'SYM') THEN
+             IF ( .NOT.IFALGN .OR. IFNORX )
+     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( IFNORY )
+     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( IFNORZ )
+     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+
+         IF (CB.EQ.'ON ' .OR. CB.EQ.'on ') THEN
+             IF ( IFNORY .OR. IFNORZ )
+     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORZ )
+     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORY )
+     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+         IF (CB.EQ.'A  ') THEN
+             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+         ENDIF
+  100    CONTINUE
+
+         CALL DSOP  ( OMASK,'MUL',NX1,NY1,NZ1)
+         call opdsop(v1mask_nn,v2mask_nn,v3mask_nn,'MUL') ! no rotation for mul
+
+       ENDIF
+C
+      ENDIF
+C
+C     Masks for passive scalars +
+C     k and e if k-e turbulence modem:
+C     k = nfield-1
+C     e = nfield
+C
+      RETURN
+      END
+c-----------------------------------------------------------------------

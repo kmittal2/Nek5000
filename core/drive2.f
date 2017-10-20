@@ -1637,6 +1637,7 @@ c     pff 6/28/98
 c
       include 'SIZE'
       include 'TOTAL'
+      include 'NEKNEK'
 c
 c     Swap the comments on these two lines if you don't want to fix the
 c     flow rate for periodic-in-X (or Z) flow problems.
@@ -1706,7 +1707,35 @@ c     then recompute base flow solution corresponding to unit forcing:
       dt_vflow = dt
       bd_vflow = bd(1)
 
-      if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+      if (nsessions.gt.1) then
+      do i=1,3
+        call neknekgsync()
+        do ie=1,nelv
+        do ifac=1,2*ldim
+         if (cbc(ifac,ie,1).eq.'v  '.and.intflag(ifac,ie).eq.1) then
+           CALL FACIND (Kr1,Kr2,Ks1,Ks2,Kt1,Kt2,lx1,ly,lz1,ifac)
+           do IZ=Kt1,Kt2
+           do IY=Ks1,Ks2
+           do IX=Kr1,Kr2
+              vxc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,1)
+              vyc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,2)
+           if (ldim.eq.3) vzc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,ldim) 
+           enddo
+           enddo
+           enddo
+         endif
+        enddo 
+        enddo
+        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+        call neknekgsync()
+        call outpost(vxc,vyc,vzc,prc,t,'   ')
+        call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+      enddo
+        call neknekgsync()
+        call exitti('quit in drive2',nelt)
+      else
+       if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+      endif
 
       if (icvflow.eq.1) current_flow=glsc2(vx,bm1,ntot1)/domain_length  ! for X
       if (icvflow.eq.2) current_flow=glsc2(vy,bm1,ntot1)/domain_length  ! for Y
@@ -1733,6 +1762,7 @@ c     in userf then the true FFX is given by ffx_userf + scale.
       call add2s2(vy,vyc,scale,ntot1)
       call add2s2(vz,vzc,scale,ntot1)
       call add2s2(pr,prc,scale,ntot2)
+
 
       return
       end
