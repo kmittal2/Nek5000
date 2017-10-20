@@ -17,6 +17,7 @@ c
       INCLUDE 'TSTEP'
       INCLUDE 'ORTHOP'
       INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
 C
       COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
      $ ,             RES2  (LX1,LY1,LZ1,LELV)
@@ -69,18 +70,42 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         call crespsp  (respr)
-         call invers2  (h1,vtrans,ntot1)
-         call rzero    (h2,ntot1)
-         call ctolspl  (tolspl,respr)
-         napproxp(1) = laxtp
-         call hsolve   ('PRES',dpr,respr,h1,h2 
+         ngeomp = 3
+         call modpresint('v  ','o  ')
+         do i=1,ngeomp
+          call userchk_set_xfer_pr
+          if (idsess.eq.0) then
+           call bcopy_pr
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2 
      $                        ,pmask,vmult
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
-         call add2    (pr,dpr,ntot1)
-         call ortho   (pr)
-
+           call add2    (pr,dpr,ntot1)
+c           call ortho   (pr)
+          endif
+          call neknekgsync()
+          call userchk_set_xfer_pr
+          if (idsess.eq.1) then
+           call bcopy_pr
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+          endif
+         call ortho_univ   (pr)
+         enddo
+         call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
@@ -299,7 +324,7 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
-      CALL ORTHO (RESPR)
+c modpresint should be uncommented      CALL ORTHO (RESPR)
 
       return
       END

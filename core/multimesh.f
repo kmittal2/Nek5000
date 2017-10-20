@@ -790,3 +790,150 @@ c     nfld_neknek - fields to interpolate
       return
       end
 C--------------------------------------------------------------------------
+      subroutine modpresint(curbc,newbc)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      character*3 curbc,newbc
+c Modify 'int' boundary conditions to 'o' temporarily
+c curbc is current bc and newbc is the newbc
+       
+      nsurf = 0
+      do ie=1,nelv
+      do ief=1,2*ndim
+        if (cbc(ief,ie,1).eq.curbc.and.intflag(ief,ie).eq.1) then
+          nsurf = nsurf+1
+          cbc(ief,ie,1) = newbc
+        endif
+      enddo
+      enddo
+c      write(6,*) istep,idsess,nsurf,curbc,newbc,'k10nsurf'
+
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine userchk_set_xfer_pr
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real l2,linf
+      character*3 which_field(nfldmax_nn)
+
+c     nfld_neknek is the number of fields to interpolate.
+c     nfld_neknek = ndim+1 for velocities+pressure 
+c     nfld_neknek = ndim+2 for velocities+pressure+temperature
+
+      which_field(1)='pr'
+      if (nsessions.gt.1) call get_values2_pr(which_field)
+
+      return
+      end
+c------------------------------------------------------------------------
+      subroutine get_values2_pr(which_field)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+
+      character*3 which_field(nfld_neknek)
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real field(lx1*ly1*lz1*lelt)
+      integer nv,nt,i,j,k,n,ie,ix,iy,iz,idx,ifld
+
+      call mappr(pm1,pr,wk1,wk2)  ! Map pressure to pm1 
+      nv = nx1*ny1*nz1*nelv
+      nt = nx1*ny1*nz1*nelt
+
+
+cccc
+c     Interpolate using findpts_eval
+      ifld = ldim+1
+      call copy(field,pm1,nt)
+      call field_eval(fieldout(1,ifld),1,field)
+
+cccc
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        valint(idx,1,1,1,ifld)=fieldout(i,ifld)
+       enddo
+
+      call neknekgsync()
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine bcopy_pr
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+
+      n    = nx1*ny1*nz1*nelt
+      k = ldim+1
+      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+      do i=1,n
+         ubc(i,1,1,1,k) = valint(i,1,1,1,k)
+      enddo
+
+      return
+      end
+C---------------------------------------------------------------------
+      subroutine ortho_univ(respr)
+
+C     Orthogonalize the residual in the pressure solver with respect 
+C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real respr (lx2,ly2,lz2,lelv)
+      integer*8 ntotg,nxyz2
+
+      nxyz2 = nx2*ny2*nz2
+      ntot  = nxyz2*nelv
+      nelgv_univ = iglsum_univ(nelv,1)
+      ntotg = nxyz2*nelgv_univ
+
+      if (ifield.eq.1) then
+         if (ifvcor) then
+            rlam  = glsum_univ(respr,ntot)/ntotg
+            call cadd (respr,-rlam,ntot)
+         endif
+       elseif (ifield.eq.ifldmhd) then
+         if (ifbcor) then
+            rlam = glsum_univ(respr,ntot)/ntotg
+            call cadd (respr,-rlam,ntot)
+         endif
+       else
+         call exitti('ortho: unaccounted ifield = $',ifield)
+      endif
+      ntotg = nxyz2*nelgv
+
+      return
+      end
+c------------------------------------------------------------------------
+      function glsum_univ(a,n)
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsum_univ = glsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function iglsum_univ(a,n)
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      iglsum_univ = iglsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------

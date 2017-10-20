@@ -70,6 +70,7 @@ c
       if (ifaxis) ifmgrid = .false.
       if (param(43).ne.0) ifmgrid = .false.
 
+      call modpresint('v  ','o  ')
       npass = 1
       if (ifmhd) npass = 2
       do ipass=1,npass
@@ -108,6 +109,7 @@ c
          call set_up_h1_crs
 
       enddo
+      call modpresint('o  ','v  ')
  
       return
       end
