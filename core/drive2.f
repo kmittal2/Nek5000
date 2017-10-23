@@ -1637,7 +1637,7 @@ c     pff 6/28/98
 c
       include 'SIZE'
       include 'TOTAL'
-      include 'NEKNEK'
+      include 'GLOBALCOM'
 c
 c     Swap the comments on these two lines if you don't want to fix the
 c     flow rate for periodic-in-X (or Z) flow problems.
@@ -1661,6 +1661,10 @@ c
       data bd_vflow,dt_vflow /-99.,-99./
 
       logical ifcomp
+      real vxcbc(lx1,ly1,lz1,lelv)
+      real vycbc(lx1,ly1,lz1,lelv)
+      real vzcbc(lx1,ly1,lz1,lelv)
+      common /cvflow_nn/ vxcbc,vycbc,vzcbc
 
 c     Check list:
 
@@ -1708,31 +1712,17 @@ c     then recompute base flow solution corresponding to unit forcing:
       bd_vflow = bd(1)
 
       if (nsessions.gt.1) then
-      do i=1,3
-        call neknekgsync()
-        do ie=1,nelv
-        do ifac=1,2*ldim
-         if (cbc(ifac,ie,1).eq.'v  '.and.intflag(ifac,ie).eq.1) then
-           CALL FACIND (Kr1,Kr2,Ks1,Ks2,Kt1,Kt2,lx1,ly,lz1,ifac)
-           do IZ=Kt1,Kt2
-           do IY=Ks1,Ks2
-           do IX=Kr1,Kr2
-              vxc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,1)
-              vyc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,2)
-           if (ldim.eq.3) vzc(ix,iy,iz,ie) = valint(ix,iy,iz,ie,ldim) 
-           enddo
-           enddo
-           enddo
-         endif
-        enddo 
-        enddo
+      call rzero(vxcbc,lx1*ly1*lz1*nelv)
+      call rzero(vycbc,lx1*ly1*lz1*nelv)
+      call rzero(vzcbc,lx1*ly1*lz1*nelv)
+      do ictr=1,5
+        call userchk_set_xfer_temp(vx,vy,vz,pr)
+        call transfer_values_temp(vxcbc,vycbc,vzcbc)
         if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+c        call outpost(vxc,vyc,vzc,prc,t,'   ')
         call neknekgsync()
-        call outpost(vxc,vyc,vzc,prc,t,'   ')
-        call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
       enddo
-        call neknekgsync()
-        call exitti('quit in drive2',nelt)
+c        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       else
        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
@@ -1896,6 +1886,7 @@ c
 c
       include 'SIZE'
       include 'TOTAL'
+      include 'NEKNEK'
 c
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1913,6 +1904,12 @@ C
      $ ,             H2    (LX1,LY1,LZ1,LELV)
       COMMON /SCRHI/ H2INV (LX1,LY1,LZ1,LELV)
       common /cvflow_i/ icvflow,iavflow
+
+      real vxcbc(lx1,ly1,lz1,lelv)
+      real vycbc(lx1,ly1,lz1,lelv)
+      real vzcbc(lx1,ly1,lz1,lelv)
+      common /cvflow_nn/ vxcbc,vycbc,vzcbc
+      real resbc(lx1*ly1*lz1*lelv,3)
 c
 c
 c     Compute velocity, 1st part 
@@ -1936,7 +1933,20 @@ c
       endif
       intype = -1
       call sethlm   (h1,h2,intype)
+      if (nsessions.gt.1) then 
+        !modify 
+        call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
+     $             vxcbc,vycbc,vzcbc,h1,h2)
+       call sub2(rw1,resbc(1,1),ntot1)
+       call sub2(rw2,resbc(1,2),ntot1)
+       call sub2(rw3,resbc(1,3),ntot1)
+      endif
       call ophinv   (vxc,vyc,vzc,rw1,rw2,rw3,h1,h2,tolhv,nmxh)
+      if (nsessions.gt.1) then
+       call add2(vxc,vxcbc,ntot1)
+       call add2(vyc,vycbc,ntot1)
+       call add2(vzc,vzcbc,ntot1)
+      endif
       call ssnormd  (vxc,vyc,vzc)
 c
 c     Compute pressure  (from "incompr")

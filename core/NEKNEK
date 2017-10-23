@@ -34,7 +34,5 @@ c
       integer inth_multi2
       common /intp_h_nn/ inth_multi2
 
-      real v1mask_nn(lx1*ly1*lz1*lelt)
-      real v2mask_nn(lx1*ly1*lz1*lelt)
-      real v3mask_nn(lx1*ly1*lz1*lelt)
-      common /myvxyzmask/ v1mask_nn,v2mask_nn,v3mask_nn
+      real             valint_t(lx1,ly1,lz1,lelt,3)
+      common /valmask_t/ valint_t

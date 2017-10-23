@@ -144,7 +144,6 @@ C     Boundary conditions are changed back to 'v' or 't'.
          call set_intflag
          call neknekmv()
          icalld = icalld + 1
-         call bcmask_nn
       endif 
       call neknekgsync()
 
@@ -830,8 +829,6 @@ c------------------------------------------------------------------------
 c      call mappr(pm1,pr,wk1,wk2)  ! Map pressure to pm1 
       nv = nx1*ny1*nz1*nelv
       nt = nx1*ny1*nz1*nelt
-
-
 cccc
 c     Interpolate using findpts_eval
       do ifld=1,ldim
@@ -848,7 +845,7 @@ c     the information will go to the boundary points
        do i=1,npoints_nn
         idx = iList(1,i)
         do ifld=1,ldim
-          valint(idx,1,1,1,ifld)=fieldout(i,ifld)
+          valint_t(idx,1,1,1,ifld)=fieldout(i,ifld)
         enddo
        enddo
 
@@ -856,107 +853,32 @@ c     the information will go to the boundary points
       return
       end
 C--------------------------------------------------------------------------
-      SUBROUTINE BCMASK_NN
-C
-C     Zero out masks corresponding to Dirichlet boundary points.
-C
-      INCLUDE 'SIZE'
-      INCLUDE 'TSTEP'
-      INCLUDE 'INPUT'
-      INCLUDE 'MVGEOM'
-      INCLUDE 'SOLN'
-      INCLUDE 'TOPOL'
-      INCLUDE 'NEKNEK'
-      common  /nekcb/ cb
-      character*3 cb
-      character*1 cb1(3)
-      equivalence (cb1,cb)
-      logical ifalgn,ifnorx,ifnory,ifnorz
-      integer e,f
+      subroutine transfer_values_temp(t1,t2,t3)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
 
-      NFACES=2*NDIM
-      NXYZ  =NX1*NY1*NZ1
+      real t1(lx1,ly1,lz1,lelv)
+      real t2(lx1,ly1,lz1,lelv)
+      real t3(lx1,ly1,lz1,lelv)
 
-C     Masks for flow variables
-C
-      IF (IFFLOW) THEN
-         IFIELD = 1
-         NEL    = NELFLD(IFIELD)
-         NTOT   = NXYZ*NEL
-C        Velocity masks
-C
-c        write(6,*) 'MASK ifstrs',ifstrs,ifield
-c        call exitt
-         IF (IFSTRS) THEN
-           CALL STSMASK (v1mask_nn,v2mask_nn,v3mask_nn)
-         ELSE
-C
-           CALL RONE(v1mask_nn,NTOT)
-           CALL RONE(v2mask_nn,NTOT)
-           CALL RONE(v3mask_nn,NTOT)
-C
-           DO 100 IEL=1,NELV
-           DO 100 IFACE=1,NFACES
-              CB =CBC(IFACE,IEL,IFIELD)
-              CALL CHKNORD (IFALGN,IFNORX,IFNORY,IFNORZ,IFACE,IEL)
-C
-C            All-Dirichlet boundary conditions
-C
-           IF (CB.EQ.'V  ' .OR. CB.EQ.'vl ' .OR.
-     $         cb.eq.'MV ' .or. cb.eq.'mv '                  .or.
-     $         CB.EQ.'VL ' .OR. CB.EQ.'W  ') THEN
-             CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             GOTO 100
-         ENDIF
-
-           IF (CB.EQ.'v  ' .and.intflag(IFACE,IEL).eq.0) THEN
-             CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             GOTO 100
-         ENDIF
-
-C
-C        Mixed-Dirichlet-Neumann boundary conditions
-C
-         IF (CB.EQ.'SYM') THEN
-             IF ( .NOT.IFALGN .OR. IFNORX )
-     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             IF ( IFNORY )
-     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             IF ( IFNORZ )
-     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             GOTO 100
-         ENDIF
-
-         IF (CB.EQ.'ON ' .OR. CB.EQ.'on ') THEN
-             IF ( IFNORY .OR. IFNORZ )
-     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORZ )
-     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORY )
-     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-             GOTO 100
-         ENDIF
-         IF (CB.EQ.'A  ') THEN
-             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
-         ENDIF
-  100    CONTINUE
-
-         CALL DSOP  ( OMASK,'MUL',NX1,NY1,NZ1)
-         call opdsop(v1mask_nn,v2mask_nn,v3mask_nn,'MUL') ! no rotation for mul
-
-       ENDIF
-C
-      ENDIF
-C
-C     Masks for passive scalars +
-C     k and e if k-e turbulence modem:
-C     k = nfield-1
-C     e = nfield
-C
-      RETURN
-      END
-c-----------------------------------------------------------------------
+        do ie=1,nelv
+        do ifac=1,2*ldim
+         if (cbc(ifac,ie,1).eq.'v  '.and.intflag(ifac,ie).eq.1) then
+           CALL FACIND (Kr1,Kr2,Ks1,Ks2,Kt1,Kt2,lx1,ly1,lz1,ifac)
+           do IZ=Kt1,Kt2
+           do IY=Ks1,Ks2
+           do IX=Kr1,Kr2
+              t1(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,1)
+              t2(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,2)
+              t3(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,ldim)
+           enddo
+           enddo
+           enddo
+         endif
+        enddo
+        enddo
+      
+      return
+      end
+C--------------------------------------------------------------------------
