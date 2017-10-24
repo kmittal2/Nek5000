@@ -882,3 +882,31 @@ C--------------------------------------------------------------------------
       return
       end
 C--------------------------------------------------------------------------
+      function glsc2_univ(a,b,n)
+      include 'SIZE'
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      real a(1),b(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsc2_univ = glsc2(a,b,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function glsum_univ(a,n)
+      include 'SIZE'
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsum_univ = glsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------

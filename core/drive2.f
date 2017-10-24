@@ -1666,6 +1666,9 @@ c
       real vzcbc(lx1,ly1,lz1,lelv)
       common /cvflow_nn/ vxcbc,vycbc,vzcbc
 
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+
 c     Check list:
 
 c     param (55) -- volume flow rate, if nonzero
@@ -1718,21 +1721,37 @@ c     then recompute base flow solution corresponding to unit forcing:
       do ictr=1,5
         call userchk_set_xfer_temp(vx,vy,vz,pr)
         call transfer_values_temp(vxcbc,vycbc,vzcbc)
+        call neknekgsync()
         if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
-c        call outpost(vxc,vyc,vzc,prc,t,'   ')
+        call outpost(vxc,vyc,vzc,prc,t,'   ')
         call neknekgsync()
       enddo
+        call exitt
 c        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       else
        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
+        call outpost(vxc,vyc,vzc,prc,t,'   ')
+        call exitt
 
-      if (icvflow.eq.1) current_flow=glsc2(vx,bm1,ntot1)/domain_length  ! for X
-      if (icvflow.eq.2) current_flow=glsc2(vy,bm1,ntot1)/domain_length  ! for Y
-      if (icvflow.eq.3) current_flow=glsc2(vz,bm1,ntot1)/domain_length  ! for Z
+      if (nsessions.gt.1) then 
+       if (icvflow.eq.1)  
+     $              current_flow=glsc2_univ(vx,bmg,ntot1)/domain_length  ! for X
+       if (icvflow.eq.2)  
+     $              current_flow=glsc2_univ(vy,bmg,ntot1)/domain_length  ! for X
+       if (icvflow.eq.3)  
+     $              current_flow=glsc2_univ(vz,bmg,ntot1)/domain_length  ! for X
+       volvm1_univ = glsum_univ(bmg,ntot1)
+      else
+       if (icvflow.eq.1) current_flow=glsc2(vx,bm1,ntot1)/domain_length  ! for X
+       if (icvflow.eq.2) current_flow=glsc2(vy,bm1,ntot1)/domain_length  ! for Y
+       if (icvflow.eq.3) current_flow=glsc2(vz,bm1,ntot1)/domain_length  ! for Z
+       volvm1_univ = volvm1
+      endif
+
 
       if (iavflow.eq.1) then
-         xsec = volvm1 / domain_length
+         xsec = volvm1_univ / domain_length
          flow_rate = param(55)*xsec
       endif
 
@@ -1766,6 +1785,7 @@ c     pff 2/28/98
 c
       include 'SIZE'
       include 'TOTAL'
+      include 'GLOBALCOM'
 c
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1781,17 +1801,29 @@ c
       integer icalld
       save    icalld
       data    icalld/0/
+
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
 c
 c
       ntot1 = nx1*ny1*nz1*nelv
       if (icalld.eq.0) then
          icalld=icalld+1
+       if (nsessions.gt.1) then
+         xlmin = uglmin(xm1,ntot1)
+         xlmax = uglmax(xm1,ntot1)
+         ylmin = uglmin(ym1,ntot1)          !  for Y!
+         ylmax = uglmax(ym1,ntot1)
+         zlmin = uglmin(zm1,ntot1)          !  for Z!
+         zlmax = uglmax(zm1,ntot1)
+       else
          xlmin = glmin(xm1,ntot1)
          xlmax = glmax(xm1,ntot1)
          ylmin = glmin(ym1,ntot1)          !  for Y!
          ylmax = glmax(ym1,ntot1)
          zlmin = glmin(zm1,ntot1)          !  for Z!
          zlmax = glmax(zm1,ntot1)
+       endif
 c
          if (icvflow.eq.1) domain_length = xlmax - xlmin
          if (icvflow.eq.2) domain_length = ylmax - ylmin
@@ -1808,9 +1840,18 @@ c        call plan2_vol(vxc,vyc,vzc,prc)
 c
 c     Compute base flow rate
 c 
-      if (icvflow.eq.1) base_flow = glsc2(vxc,bm1,ntot1)/domain_length
-      if (icvflow.eq.2) base_flow = glsc2(vyc,bm1,ntot1)/domain_length
-      if (icvflow.eq.3) base_flow = glsc2(vzc,bm1,ntot1)/domain_length
+      if (nsessions.gt.1) then
+       if (icvflow.eq.1) 
+     $       base_flow = glsc2_univ(vxc,bmg,ntot1)/domain_length
+       if (icvflow.eq.2) 
+     $       base_flow = glsc2_univ(vyc,bmg,ntot1)/domain_length
+       if (icvflow.eq.3) 
+     $       base_flow = glsc2_univ(vzc,bmg,ntot1)/domain_length
+      else
+       if (icvflow.eq.1) base_flow = glsc2(vxc,bm1,ntot1)/domain_length
+       if (icvflow.eq.2) base_flow = glsc2(vyc,bm1,ntot1)/domain_length
+       if (icvflow.eq.3) base_flow = glsc2(vzc,bm1,ntot1)/domain_length
+      endif
 c
       if (nio.eq.0) write(6,1) 
      $   istep,base_flow,domain_length,flow_rate,chv(icvflow)
