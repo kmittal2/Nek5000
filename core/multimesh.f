@@ -140,6 +140,7 @@ C     Set interpolation flag: points with bc = 'int' get intflag=1.
 C     Boundary conditions are changed back to 'v' or 't'.
 
       if (icalld.eq.0) then
+         call bcmask_nn
          call nekneksanchk(1)
          call set_intflag
          call neknekmv()
@@ -871,7 +872,7 @@ C--------------------------------------------------------------------------
            do IX=Kr1,Kr2
               t1(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,1)
               t2(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,2)
-              t3(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,ldim)
+           if (ldim.eq.3) t3(ix,iy,iz,ie)=valint_t(ix,iy,iz,ie,ldim)
            enddo
            enddo
            enddo
@@ -879,6 +880,37 @@ C--------------------------------------------------------------------------
         enddo
         enddo
       
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine nhvalues_nn(t1,t2,t3,u1,u2,u3)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real t1(lx1,ly1,lz1,lelv)
+      real t2(lx1,ly1,lz1,lelv)
+      real t3(lx1,ly1,lz1,lelv)
+      real u1(lx1,ly1,lz1,lelv)
+      real u2(lx1,ly1,lz1,lelv)
+      real u3(lx1,ly1,lz1,lelv)
+
+        do ie=1,nelv
+        do ifac=1,2*ldim
+         if (cbc(ifac,ie,1).eq.'v  '.and.intflag(ifac,ie).eq.1) then
+           CALL FACIND (Kr1,Kr2,Ks1,Ks2,Kt1,Kt2,lx1,ly1,lz1,ifac)
+           do IZ=Kt1,Kt2
+           do IY=Ks1,Ks2
+           do IX=Kr1,Kr2
+              t1(ix,iy,iz,ie)=u1(ix,iy,iz,ie)
+              t2(ix,iy,iz,ie)=u2(ix,iy,iz,ie)
+           if (ldim.eq.3) t3(ix,iy,iz,ie)=u3(ix,iy,iz,ie)
+           enddo
+           enddo
+           enddo
+         endif
+        enddo
+        enddo
+
       return
       end
 C--------------------------------------------------------------------------
@@ -906,6 +938,112 @@ c-----------------------------------------------------------------------
       call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
       glsum_univ = glsum(a,n)
       call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      SUBROUTINE bcmask_nn
+C
+C     Zero out masks corresponding to Dirichlet boundary points.
+C
+      INCLUDE 'SIZE'
+      INCLUDE 'TSTEP'
+      INCLUDE 'INPUT'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'SOLN'
+      INCLUDE 'TOPOL'
+      INCLUDE 'NEKNEK'
+
+      common  /nekcb/ cb
+      character*3 cb
+      character*1 cb1(3)
+      equivalence (cb1,cb)
+
+      logical ifalgn,ifnorx,ifnory,ifnorz
+      integer e,f
+
+      NFACES=2*NDIM
+      NXYZ  =NX1*NY1*NZ1
+      IFIELD = 1
+      NEL    = NELFLD(IFIELD)
+      NTOT   = NXYZ*NEL
+
+
+      CALL RONE(v1mask_nn,NTOT)
+      CALL RONE(v2mask_nn,NTOT)
+      CALL RONE(v3mask_nn,NTOT)
+C
+      DO 100 IEL=1,NELV
+      DO 100 IFACE=1,NFACES
+         CB =CBC(IFACE,IEL,IFIELD)
+         CALL CHKNORD (IFALGN,IFNORX,IFNORY,IFNORZ,IFACE,IEL)
+C
+C            All-Dirichlet boundary conditions
+C
+         IF (CB.EQ.'v  ' .OR. CB.EQ.'V  ' .OR. CB.EQ.'vl ' .OR.
+     $       cb.eq.'MV ' .or. cb.eq.'mv '                  .or.
+     $       CB.EQ.'VL ' .OR. CB.EQ.'W  ') THEN
+             CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+C
+C        Mixed-Dirichlet-Neumann boundary conditions
+C
+         IF (CB.EQ.'SYM') THEN
+             IF ( .NOT.IFALGN .OR. IFNORX )
+     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( IFNORY )
+     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( IFNORZ )
+     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+
+         IF (CB.EQ.'ON ' .OR. CB.EQ.'on ') THEN
+             IF ( IFNORY .OR. IFNORZ )
+     $            CALL FACEV (v1mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORZ )
+     $            CALL FACEV (v2mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             IF ( .NOT.IFALGN .OR. IFNORX .OR. IFNORY )
+     $            CALL FACEV (v3mask_nn,IEL,IFACE,0.0,NX1,NY1,NZ1)
+             GOTO 100
+         ENDIF
+
+         
+c         IF (CB.EQ.'int') THEN
+c           write(6,*) IFACE,IEL,idsess,nid,'k10v1mask_nn'
+c         ENDIF
+  100    CONTINUE
+
+      call opdsop(v1mask_nn,v2mask_nn,v3mask_nn,'MUL') ! no rotation for mul
+      return
+      end
+c-----------------------------------------------------------------------
+      SUBROUTINE swapmasks_nn
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+      INCLUDE 'NEKNEK'
+      real temp(lx1,ly1,lz1,nelv)
+      integer flag
+
+      ntot1 = lx1*ly1*lz1*nelv
+      call copy(temp,v1mask,ntot1)
+      call copy(v1mask,v1mask_nn,ntot1)
+      call copy(v1mask_nn,temp,ntot1)
+
+      call copy(temp,v2mask,ntot1)
+      call copy(v2mask,v2mask_nn,ntot1)
+      call copy(v2mask_nn,temp,ntot1)
+      
+      if (ldim.eq.3) then
+       call copy(temp,v3mask,ntot1)
+       call copy(v3mask,v3mask_nn,ntot1)
+       call copy(v3mask_nn,temp,ntot1)
+      endif
+ 
+      
 
       return
       end

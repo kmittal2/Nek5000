@@ -776,6 +776,7 @@ c        call plan1 (igeom)       !  Orig. NEKTON time stepper
 
          if (ifmodel)    call twalluz (igeom) ! Turbulence model
          if (igeom.ge.2) call chkptol         ! check pressure tolerance
+
          if (igeom.ge.2) call vol_flow        ! check for fixed flow rate
 
       else   !  steady Stokes, non-split
@@ -1661,13 +1662,14 @@ c
       data bd_vflow,dt_vflow /-99.,-99./
 
       logical ifcomp
+
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+
       real vxcbc(lx1,ly1,lz1,lelv)
       real vycbc(lx1,ly1,lz1,lelv)
       real vzcbc(lx1,ly1,lz1,lelv)
       common /cvflow_nn/ vxcbc,vycbc,vzcbc
-
-      real bmg(lx1*ly1*lz1*lelt)
-      common /globbm / bmg
 
 c     Check list:
 
@@ -1714,21 +1716,23 @@ c     then recompute base flow solution corresponding to unit forcing:
       dt_vflow = dt
       bd_vflow = bd(1)
 
+      call swapmasks_nn
+      if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+      call swapmasks_nn
+c      call outpost(vxc,vyc,vzc,prc,t,'   ')
+      if (ifcomp) then
       if (nsessions.gt.1) then
-      call rzero(vxcbc,lx1*ly1*lz1*nelv)
-      call rzero(vycbc,lx1*ly1*lz1*nelv)
-      call rzero(vzcbc,lx1*ly1*lz1*nelv)
-      call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
-      call transfer_values_temp(vxcbc,vycbc,vzcbc)
-      do ictr=1,20
-        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
-c        call outpost(vxc,vyc,vzc,prc,t,'   ')
-        call neknekgsync()
-      enddo
-c        call exitt
-c        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
-      else
-       if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+        call rzero(vxcbc,lx1*ly1*lz1*nelv)
+        call rzero(vycbc,lx1*ly1*lz1*nelv)
+        call rzero(vzcbc,lx1*ly1*lz1*nelv)
+        do ictr=1,20
+          call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+          call transfer_values_temp(vxcbc,vycbc,vzcbc)
+          call compute_vol_soln(vxc,vyc,vzc,prc)
+          call outpost(vxc,vyc,vzc,prc,t,'   ')
+        enddo
+        call exitt
+      endif
       endif
 
       if (nsessions.gt.1) then 
@@ -1971,26 +1975,29 @@ c
       intype = -1
       call sethlm   (h1,h2,intype)
       if (nsessions.gt.1) then 
-        !modify 
-        call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
+       !modify 
+       call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
      $             vxcbc,vycbc,vzcbc,h1,h2)
        call sub2(rw1,resbc(1,1),ntot1)
        call sub2(rw2,resbc(1,2),ntot1)
        call sub2(rw3,resbc(1,3),ntot1)
+c     
+c       call swapmasks_nn
       endif
       call ophinv   (vxc,vyc,vzc,rw1,rw2,rw3,h1,h2,tolhv,nmxh)
       if (nsessions.gt.1) then
+c       call swapmasks_nn
        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
      
-      if (nsessions.gt.1) then
-       i_tmp = istep
-       istep = 0
-       call incomprn(vxc,vyc,vzc,prc)
+c      if (nsessions.gt.1) then
+c       i_tmp = istep
+c       istep = 0
+c       call incomprn(vxc,vyc,vzc,prc)
 c       call cmult(prc,dt/bd(1),ntot2)
-       istep = i_tmp
-      else
+c       istep = i_tmp
+c      else
 
 c
 c     Compute pressure  (from "incompr")
@@ -2018,7 +2025,7 @@ c
       call opadd2  (vxc,vyc,vzc,dv1,dv2,dv3)
 c
       call cmult2  (prc,respr,bd(1),ntot2)
-      endif
+c      endif
 c
       return
       end
