@@ -1984,9 +1984,7 @@ c
       endif
       call ophinv   (vxc,vyc,vzc,rw1,rw2,rw3,h1,h2,tolhv,nmxh)
       if (nsessions.gt.1) then
-       call add2(vxc,vxcbc,ntot1)
-       call add2(vyc,vycbc,ntot1)
-       call add2(vzc,vzcbc,ntot1)
+       call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
 c
