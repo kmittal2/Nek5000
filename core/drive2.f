@@ -1718,21 +1718,18 @@ c     then recompute base flow solution corresponding to unit forcing:
       call rzero(vxcbc,lx1*ly1*lz1*nelv)
       call rzero(vycbc,lx1*ly1*lz1*nelv)
       call rzero(vzcbc,lx1*ly1*lz1*nelv)
-      do ictr=1,5
-        call userchk_set_xfer_temp(vx,vy,vz,pr)
-        call transfer_values_temp(vxcbc,vycbc,vzcbc)
-        call neknekgsync()
+      call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+      call transfer_values_temp(vxcbc,vycbc,vzcbc)
+      do ictr=1,20
         if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
-        call outpost(vxc,vyc,vzc,prc,t,'   ')
+c        call outpost(vxc,vyc,vzc,prc,t,'   ')
         call neknekgsync()
       enddo
-        call exitt
+c        call exitt
 c        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       else
        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
-        call outpost(vxc,vyc,vzc,prc,t,'   ')
-        call exitt
 
       if (nsessions.gt.1) then 
        if (icvflow.eq.1)  
@@ -1748,7 +1745,6 @@ c        if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
        if (icvflow.eq.3) current_flow=glsc2(vz,bm1,ntot1)/domain_length  ! for Z
        volvm1_univ = volvm1
       endif
-
 
       if (iavflow.eq.1) then
          xsec = volvm1_univ / domain_length
@@ -1927,7 +1923,7 @@ c
 c
       include 'SIZE'
       include 'TOTAL'
-      include 'NEKNEK'
+      include 'GLOBALCOM'
 c
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1987,6 +1983,15 @@ c
        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
+     
+      if (nsessions.gt.1) then
+       i_tmp = istep
+       istep = 0
+       call incomprn(vxc,vyc,vzc,prc)
+c       call cmult(prc,dt/bd(1),ntot2)
+       istep = i_tmp
+      else
+
 c
 c     Compute pressure  (from "incompr")
 c
@@ -2013,6 +2018,7 @@ c
       call opadd2  (vxc,vyc,vzc,dv1,dv2,dv3)
 c
       call cmult2  (prc,respr,bd(1),ntot2)
+      endif
 c
       return
       end
