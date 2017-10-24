@@ -1716,16 +1716,23 @@ c     then recompute base flow solution corresponding to unit forcing:
       dt_vflow = dt
       bd_vflow = bd(1)
 
+c  this part above just for comparing what would happen by default 
+      call rzero(vxc,ntot1)
+      call rzero(vyc,ntot1)
+      call rzero(vzc,ntot1)
+      call rzero(vxcbc,ntot1)
+      call rzero(vycbc,ntot1)
+      call rzero(vzcbc,ntot1)
       call swapmasks_nn
       if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
       call swapmasks_nn
-c      call outpost(vxc,vyc,vzc,prc,t,'   ')
+      call outpost(vxc,vyc,vzc,prc,t,'   ')
       if (ifcomp) then
       if (nsessions.gt.1) then
         call rzero(vxcbc,lx1*ly1*lz1*nelv)
         call rzero(vycbc,lx1*ly1*lz1*nelv)
         call rzero(vzcbc,lx1*ly1*lz1*nelv)
-        do ictr=1,20
+        do ictr=1,40
           call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
           call transfer_values_temp(vxcbc,vycbc,vzcbc)
           call compute_vol_soln(vxc,vyc,vzc,prc)
@@ -1990,6 +1997,8 @@ c       call swapmasks_nn
        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
+      call outpost(vxc,vyc,vzc,prc,t,'   ')
+      
      
 c      if (nsessions.gt.1) then
 c       i_tmp = istep

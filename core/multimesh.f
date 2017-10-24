@@ -645,6 +645,7 @@ c     Make sure rcode_all is fine
  200  continue
 
       npoints_nn = ip
+      write(6,*) idsess,nid,nbp,ip,'pointsinputandfound'
 
 c     zero out valint
       do i=1,nfld_neknek
@@ -1048,3 +1049,57 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
+      function iglsum_univ(a,n)
+      include 'SIZE'
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      iglsum_univ = iglsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine ortho_univ (respr)
+
+C     Orthogonalize the residual in the pressure solver with respect 
+C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
+
+      include 'SIZE'
+      include 'GEOM'
+      include 'INPUT'
+      include 'PARALLEL'
+      include 'SOLN'
+      include 'TSTEP'
+      include 'GLOBALCOM'
+      real respr (lx2,ly2,lz2,lelv)
+      integer*8 ntotg,nxyz2
+
+      nxyz2 = nx2*ny2*nz2
+      ntot  = nxyz2*nelv
+      ntotg = nxyz2*nelgv
+      nelgvu = iglsum_univ(nelv,1)
+      ntotgu = nxyz2*nelgvu
+
+      if (ifield.eq.1) then
+         if (ifvcor) then
+            rlam  = glsum (respr,ntot)/ntotg
+       if (nsessions.gt.1) rlam = glsum_univ(respr,ntot)/ntotgu
+            call cadd (respr,-rlam,ntot)
+         endif
+       elseif (ifield.eq.ifldmhd) then
+         if (ifbcor) then
+            rlam = glsum (respr,ntot)/ntotg
+       if (nsessions.gt.1) rlam = glsum_univ(respr,ntot)/ntotgu
+            call cadd (respr,-rlam,ntot)
+         endif
+       else
+         call exitti('ortho: unaccounted ifield = $',ifield)
+      endif
+
+      return
+      end
+c------------------------------------------------------------------------
