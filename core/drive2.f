@@ -1651,7 +1651,6 @@ c
      $                , vzc(kx1,ky1,kz1,lelv)
      $                , prc(kx2,ky2,kz2,lelv)
      $                , vdc(kx1*ky1*kz1*lelv,2)
-      real prc2(kx2,ky2,kz2,lelv)
       common /cvflow_r/ flow_rate,base_flow,domain_length,xsec
      $                , scale_vf(3)
       common /cvflow_i/ icvflow,iavflow
@@ -1717,25 +1716,19 @@ c     then recompute base flow solution corresponding to unit forcing:
       dt_vflow = dt
       bd_vflow = bd(1)
 
-c  this part above just for comparing what would happen by default 
-      call rzero(vxc,ntot1)
-      call rzero(vyc,ntot1)
-      call rzero(vzc,ntot1)
       if (ifcomp) then
       if (nsessions.gt.1) then
-        call rzero(vxcbc,lx1*ly1*lz1*nelv)
-        call rzero(vycbc,lx1*ly1*lz1*nelv)
-        call rzero(vzcbc,lx1*ly1*lz1*nelv)
-        do ictr=1,20
-          call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+        do ictr=1,15
+          call userchk_set_xfer_temp(vxc,vyc,vzc)
           call transfer_values_temp(vxcbc,vycbc,vzcbc)
-          call rzero(prc,lx2*ly2*lz2*nelv)
           call compute_vol_soln(vxc,vyc,vzc,prc)
-c          call outpost(vxc,vyc,vzc,prc,t,'   ')
+c          if (mod(ictr,1).eq.0) call outpost(vxc,vyc,vzc,prc,t,'   ')
         enddo
+      else
+c        call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
       endif
-c      call exitt
+c      iexitf = 1
 
       if (nsessions.gt.1) then 
        if (icvflow.eq.1)  
@@ -1773,6 +1766,8 @@ c     in userf then the true FFX is given by ffx_userf + scale.
       call add2s2(vy,vyc,scale,ntot1)
       call add2s2(vz,vzc,scale,ntot1)
       call add2s2(pr,prc,scale,ntot2)
+c      call outpost(vxc,vyc,vzc,prc,t,'   ')
+c      if (iexitf.eq.1) call exitt
 
 
       return
@@ -1991,15 +1986,16 @@ c
       endif
       call ssnormd  (vxc,vyc,vzc)
 c      call outpost(vxc,vyc,vzc,prc,t,'   ')
+
       
      
-c      if (nsessions.gt.1) then
-c       i_tmp = istep
-c       istep = 0
-c       call incomprn(vxc,vyc,vzc,prc)
-c       call cmult(prc,dt/bd(1),ntot2)
-c       istep = i_tmp
-c      else
+      if (nsessions.gt.1) then
+       i_tmp = istep
+       istep = 0
+       call incomprn(vxc,vyc,vzc,prc)
+       call cmult(prc,dt/bd(1),ntot2)
+       istep = i_tmp
+      else
 
 c
 c     Compute pressure  (from "incompr")
@@ -2027,7 +2023,7 @@ c
       call opadd2  (vxc,vyc,vzc,dv1,dv2,dv3)
 c
       call cmult2  (prc,respr,bd(1),ntot2)
-c      endif
+      endif
 c
       return
       end

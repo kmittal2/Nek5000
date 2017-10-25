@@ -792,13 +792,13 @@ c     nfld_neknek - fields to interpolate
       return
       end
 C--------------------------------------------------------------------------
-      subroutine userchk_set_xfer_temp(vxc,vyc,vzc,prc)
+      subroutine userchk_set_xfer_temp(vxc,vyc,vzc)
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
       real l2,linf
       character*3 which_field(nfldmax_nn)
-      real vxc(1),vyc(1),vzc(1),prc(1)
+      real vxc(1),vyc(1),vzc(1)
 
 c     nfld_neknek is the number of fields to interpolate.
 c     nfld_neknek = ndim+1 for velocities+pressure 
@@ -809,12 +809,12 @@ c     nfld_neknek = ndim+2 for velocities+pressure+temperature
       which_field(3)='vz'
 c
       if (nsessions.gt.1) 
-     $     call get_values_temp(which_field,vxc,vyc,vzc,prc)
+     $     call get_values_temp(which_field,vxc,vyc,vzc)
 
       return
       end
 c------------------------------------------------------------------------
-      subroutine get_values_temp(which_field,vxc,vyc,vzc,prc)
+      subroutine get_values_temp(which_field,vxc,vyc,vzc)
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
@@ -826,7 +826,7 @@ c------------------------------------------------------------------------
       real fieldout(nmaxl_nn,nfldmax_nn)
       real field(lx1*ly1*lz1*lelt)
       integer nv,nt,i,j,k,n,ie,ix,iy,iz,idx,ifld
-      real vxc(1),vyc(1),vzc(1),prc(1)
+      real vxc(1),vyc(1),vzc(1)
 
 c      call mappr(pm1,pr,wk1,wk2)  ! Map pressure to pm1 
       nv = nx1*ny1*nz1*nelv
