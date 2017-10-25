@@ -777,7 +777,7 @@ c        call plan1 (igeom)       !  Orig. NEKTON time stepper
          if (ifmodel)    call twalluz (igeom) ! Turbulence model
          if (igeom.ge.2) call chkptol         ! check pressure tolerance
 
-         if (igeom.ge.2) call vol_flow        ! check for fixed flow rate
+         if (igeom.eq.2) call vol_flow        ! check for fixed flow rate
 
       else   !  steady Stokes, non-split
 
@@ -1651,6 +1651,7 @@ c
      $                , vzc(kx1,ky1,kz1,lelv)
      $                , prc(kx2,ky2,kz2,lelv)
      $                , vdc(kx1*ky1*kz1*lelv,2)
+      real prc2(kx2,ky2,kz2,lelv)
       common /cvflow_r/ flow_rate,base_flow,domain_length,xsec
      $                , scale_vf(3)
       common /cvflow_i/ icvflow,iavflow
@@ -1720,27 +1721,21 @@ c  this part above just for comparing what would happen by default
       call rzero(vxc,ntot1)
       call rzero(vyc,ntot1)
       call rzero(vzc,ntot1)
-      call rzero(vxcbc,ntot1)
-      call rzero(vycbc,ntot1)
-      call rzero(vzcbc,ntot1)
-      call swapmasks_nn
-      if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
-      call swapmasks_nn
-      call outpost(vxc,vyc,vzc,prc,t,'   ')
       if (ifcomp) then
       if (nsessions.gt.1) then
         call rzero(vxcbc,lx1*ly1*lz1*nelv)
         call rzero(vycbc,lx1*ly1*lz1*nelv)
         call rzero(vzcbc,lx1*ly1*lz1*nelv)
-        do ictr=1,40
+        do ictr=1,20
           call userchk_set_xfer_temp(vxc,vyc,vzc,prc)
           call transfer_values_temp(vxcbc,vycbc,vzcbc)
+          call rzero(prc,lx2*ly2*lz2*nelv)
           call compute_vol_soln(vxc,vyc,vzc,prc)
-          call outpost(vxc,vyc,vzc,prc,t,'   ')
+c          call outpost(vxc,vyc,vzc,prc,t,'   ')
         enddo
-        call exitt
       endif
       endif
+c      call exitt
 
       if (nsessions.gt.1) then 
        if (icvflow.eq.1)  
@@ -1989,15 +1984,13 @@ c
        call sub2(rw2,resbc(1,2),ntot1)
        call sub2(rw3,resbc(1,3),ntot1)
 c     
-c       call swapmasks_nn
       endif
       call ophinv   (vxc,vyc,vzc,rw1,rw2,rw3,h1,h2,tolhv,nmxh)
       if (nsessions.gt.1) then
-c       call swapmasks_nn
        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
-      call outpost(vxc,vyc,vzc,prc,t,'   ')
+c      call outpost(vxc,vyc,vzc,prc,t,'   ')
       
      
 c      if (nsessions.gt.1) then
