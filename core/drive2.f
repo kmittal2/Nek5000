@@ -777,7 +777,7 @@ c        call plan1 (igeom)       !  Orig. NEKTON time stepper
          if (ifmodel)    call twalluz (igeom) ! Turbulence model
          if (igeom.ge.2) call chkptol         ! check pressure tolerance
 
-         if (igeom.eq.2) call vol_flow        ! check for fixed flow rate
+         if (igeom.ge.2) call vol_flow        ! check for fixed flow rate
 
       else   !  steady Stokes, non-split
 
@@ -1638,7 +1638,6 @@ c     pff 6/28/98
 c
       include 'SIZE'
       include 'TOTAL'
-      include 'GLOBALCOM'
 c
 c     Swap the comments on these two lines if you don't want to fix the
 c     flow rate for periodic-in-X (or Z) flow problems.
@@ -1717,20 +1716,20 @@ c     then recompute base flow solution corresponding to unit forcing:
       bd_vflow = bd(1)
 
       if (ifcomp) then
-      if (nsessions.gt.1) then
-        do ictr=1,15
+      if (ifneknek) then
+        do ictr=1,4
           call userchk_set_xfer_temp(vxc,vyc,vzc)
           call transfer_values_temp(vxcbc,vycbc,vzcbc)
           call compute_vol_soln(vxc,vyc,vzc,prc)
 c          if (mod(ictr,1).eq.0) call outpost(vxc,vyc,vzc,prc,t,'   ')
         enddo
       else
-c        call compute_vol_soln(vxc,vyc,vzc,prc)
+          call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
       endif
 c      iexitf = 1
 
-      if (nsessions.gt.1) then 
+      if (ifneknek) then
        if (icvflow.eq.1)  
      $              current_flow=glsc2_univ(vx,bmg,ntot1)/domain_length  ! for X
        if (icvflow.eq.2)  
@@ -1766,7 +1765,6 @@ c     in userf then the true FFX is given by ffx_userf + scale.
       call add2s2(vy,vyc,scale,ntot1)
       call add2s2(vz,vzc,scale,ntot1)
       call add2s2(pr,prc,scale,ntot2)
-c      call outpost(vxc,vyc,vzc,prc,t,'   ')
 c      if (iexitf.eq.1) call exitt
 
 
@@ -1782,7 +1780,6 @@ c     pff 2/28/98
 c
       include 'SIZE'
       include 'TOTAL'
-      include 'GLOBALCOM'
 c
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1806,7 +1803,7 @@ c
       ntot1 = nx1*ny1*nz1*nelv
       if (icalld.eq.0) then
          icalld=icalld+1
-       if (nsessions.gt.1) then
+       if (ifneknek) then
          xlmin = uglmin(xm1,ntot1)
          xlmax = uglmax(xm1,ntot1)
          ylmin = uglmin(ym1,ntot1)          !  for Y!
@@ -1837,7 +1834,7 @@ c        call plan2_vol(vxc,vyc,vzc,prc)
 c
 c     Compute base flow rate
 c 
-      if (nsessions.gt.1) then
+      if (ifneknek) then
        if (icvflow.eq.1) 
      $       base_flow = glsc2_univ(vxc,bmg,ntot1)/domain_length
        if (icvflow.eq.2) 
@@ -1924,7 +1921,6 @@ c
 c
       include 'SIZE'
       include 'TOTAL'
-      include 'GLOBALCOM'
 c
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1971,32 +1967,27 @@ c
       endif
       intype = -1
       call sethlm   (h1,h2,intype)
-      if (nsessions.gt.1) then 
-       !modify 
-       call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
+      if (ifneknek) then
+        call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
      $             vxcbc,vycbc,vzcbc,h1,h2)
-       call sub2(rw1,resbc(1,1),ntot1)
-       call sub2(rw2,resbc(1,2),ntot1)
-       call sub2(rw3,resbc(1,3),ntot1)
-c     
+        call sub2(rw1,resbc(1,1),ntot1)
+        call sub2(rw2,resbc(1,2),ntot1)
+        call sub2(rw3,resbc(1,3),ntot1)
       endif
       call ophinv   (vxc,vyc,vzc,rw1,rw2,rw3,h1,h2,tolhv,nmxh)
-      if (nsessions.gt.1) then
-       call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
+      if (ifneknek) then
+        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
       endif
       call ssnormd  (vxc,vyc,vzc)
 c      call outpost(vxc,vyc,vzc,prc,t,'   ')
 
-      
-     
-      if (nsessions.gt.1) then
+      if (ifneknek) then
        i_tmp = istep
        istep = 0
        call incomprn(vxc,vyc,vzc,prc)
        call cmult(prc,dt/bd(1),ntot2)
        istep = i_tmp
       else
-
 c
 c     Compute pressure  (from "incompr")
 c
