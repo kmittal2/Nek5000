@@ -70,42 +70,34 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
+c        compute pressure
          ngeomp = 3
          call modpresint('v  ','o  ')
+         ipval = param(95) 
+         iflag = 0
          do i=1,ngeomp
-          call userchk_set_xfer_pr
-          if (idsess.eq.0) then
+           if (i.gt.1) param(95) = 0 
+           if (i.eq.ngeomp) iflag = 1
+           call userchk_set_xfer_pr
            call bcopy_pr
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
            call ctolspl  (tolspl,respr)
            napproxp(1) = laxtp
+c           call hsolve_nn   ('PRES',dpr,respr,h1,h2 
            call hsolve   ('PRES',dpr,respr,h1,h2 
      $                        ,pmask,vmult
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
+c     $                        ,approxp,napproxp,binvm1,iflag)
            call add2    (pr,dpr,ntot1)
-c           call ortho   (pr)
-          endif
-          call neknekgsync()
-          call userchk_set_xfer_pr
-          if (idsess.eq.1) then
-           call bcopy_pr
-           call crespsp  (respr)
-           call invers2  (h1,vtrans,ntot1)
-           call rzero    (h2,ntot1)
-           call ctolspl  (tolspl,respr)
-           napproxp(1) = laxtp
-           call hsolve   ('PRES',dpr,respr,h1,h2
-     $                        ,pmask,vmult
-     $                        ,imesh,tolspl,nmxh,1
-     $                        ,approxp,napproxp,binvm1)
-           call add2    (pr,dpr,ntot1)
-          endif
-         call ortho_univ   (pr)
+           call ortho   (pr)
+           call neknekgsync()
+c           call ortho_univ   (pr)
          enddo
          call modpresint('o  ','v  ')
+         param(95) = ipval
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
@@ -324,7 +316,7 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
-c modpresint should be uncommented      CALL ORTHO (RESPR)
+      CALL ORTHO (RESPR)
 
       return
       END

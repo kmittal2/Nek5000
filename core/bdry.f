@@ -381,16 +381,17 @@ C
 C
 C        Pressure mask
 C 
-      call modpresint('v  ','o  ')
+         call modpresint('v  ','o  ')
          call rone(pmask,ntot)
          do 50 iel=1,nelt
          do 50 iface=1,nfaces
             cb=cbc(iface,iel,ifield)
             if ((cb.eq.'o  ' .and. IFSPLIT) .or.
      $          (cb.eq.'on ' .and. IFSPLIT)) then
-               if (nid.eq.0) write(6,*)
-     $              "Error: BC 'o' and 'on' not supported for PN-PN."
+c               if (nid.eq.0) write(6,*)
+c     $              "Error: BC 'o' and 'on' not supported for PN-PN."
 c               call exitt
+              call facev(pmask,iel,iface,0.0,nx1,ny1,nz1)
             endif
             if (cb.eq.'O  ' .or. cb.eq.'ON ' .or.
      $          cb.eq.'o  ' .or. cb.eq.'on ')
@@ -400,7 +401,7 @@ c               call exitt
             nn=nx1*ny1*nz1*(nelt-nelv)
             call rzero(pmask(1,1,1,nelv+1),nn)
          endif
-      call modpresint('o  ','v  ')
+         call modpresint('o  ','v  ')
 C
 C        Zero out mask at Neumann-Dirichlet interfaces
 C
