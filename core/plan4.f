@@ -71,12 +71,10 @@ C        first, compute pressure
          etime1=dnekclock()
 
 c        compute pressure
-         ngeomp = 3
+         ngeomp = 2
          call modpresint('v  ','o  ')
-         ipval = param(95) 
          iflag = 0
          do i=1,ngeomp
-           if (i.gt.1) param(95) = 0 
            if (i.eq.ngeomp) iflag = 1
            call userchk_set_xfer_pr
            call bcopy_pr
@@ -92,12 +90,11 @@ c           call hsolve_nn   ('PRES',dpr,respr,h1,h2
      $                        ,approxp,napproxp,binvm1)
 c     $                        ,approxp,napproxp,binvm1,iflag)
            call add2    (pr,dpr,ntot1)
-           call ortho   (pr)
+c           call ortho   (pr)
+           call ortho_univ   (pr)
            call neknekgsync()
-c           call ortho_univ   (pr)
          enddo
          call modpresint('o  ','v  ')
-         param(95) = ipval
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
