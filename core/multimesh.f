@@ -1005,3 +1005,25 @@ c
       return
       end
 c-----------------------------------------------------------------------
+      function glsc3_univ(a,b,c,n)
+      real a(1),b(1),c(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsc3_univ = glsc3(a,b,c,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function glsc2_univ(a,b,n)
+      real a(1),b(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsc2_univ = glsc2(a,b,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
