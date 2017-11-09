@@ -1027,3 +1027,14 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
+      function glmax_univ(a,n)
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glmax_univ=glmax(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
