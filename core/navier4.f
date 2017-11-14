@@ -821,6 +821,7 @@ c
       integer        napprox(1)
       common /ctmp2/ w1   (lx1,ly1,lz1,lelt)
       common /ctmp3/ w2   (2+2*mxprev)
+      common /ctk/ rcopy
       real rcopy(lx1,ly1,lz1,lelv)
       real dru(lx1,ly1,lz1,lelv)
       real dru2(lx1,ly1,lz1,lelv)
@@ -849,6 +850,7 @@ c
       if (param(93).eq.0)     ifstdh = .true.
       if (p945.eq.0)          ifstdh = .true.
       if (istep.lt.p945)      ifstdh = .true.
+      write(6,*) name,ifstdh,'k10info'
 
       if (ifstdh) then
          call hmholtz(name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd)
@@ -864,22 +866,34 @@ c
          ifwt  = .true.
          ifvec = .false.
 
-         if (name.eq.'PRES') call copy(rcopy,r,n)
+         if (name.eq.'PRES') then
+         if (istep.eq.100) then 
+          call copy(rcopy,r,n)
+         endif
+         endif
+         if (name.eq.'PRES') then
+         if (istep.eq.101) then 
+          call copy(r,rcopy,n)
+         endif
+         endif
+          
          call project1
      $       (r,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
+c         if (name.eq.'PRES') then
+c         if (istep.eq.100) then
+c          call copy(rcopy,r,n)
+c         endif
+c         endif
+         call sub3(dru2,rcopy,r,n)
+         call printmax_nt(dru2,n,'asdasdas')
 
          call hmhzpf (name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd,bi)
-         if (istep.gt.100) then
-         if (name.eq.'PRES') then
-         call col3(rcopy,r,bm2inv,n)
-c          call outpost(rcopy,u,r,rcopy,r,'   ')
-         endif
-         endif
 
          call project2
      $       (u,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
 
       endif
+      if (istep.eq.101) call exitt
 
       return
       end
