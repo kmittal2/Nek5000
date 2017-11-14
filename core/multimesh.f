@@ -850,7 +850,7 @@ c------------------------------------------------------------------------
 cccc
 c     Interpolate using findpts_eval
       ifld = ldim+1
-      call copy(field,pm1,nt)
+      call copy(field,pm1,nv)
       call field_eval(fieldout(1,ifld),1,field)
 
 cccc
@@ -892,7 +892,6 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       real bmg(lx1*ly1*lz1*lelt)
       common /globbm / bmg
       real respr (lx2,ly2,lz2,lelv)
-      real br(lx1,ly1,lz1,lelv)
       integer*8 ntotg,nxyz2
       integer nelgv_univ
 
@@ -901,19 +900,18 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       nelgv_univ = iglsum_univ(nelv,1)
       ntotg = nxyz2*nelgv_univ
 
-      call col3(br,respr,bmg,ntot)
       if (ifield.eq.1) then
          if (ifvcor) then
 c            rlam  = glsum_univ(respr,ntot)/ntotg
 c            call cadd (respr,-rlam,ntot)
-            rlam  = glsum_univ(br,ntot)/ntotg
+            rlam  = glsc2_univ(respr,bmg,ntot)/ntotg
             call cadd (respr,-rlam,ntot)
          endif
        elseif (ifield.eq.ifldmhd) then
          if (ifbcor) then
 c            rlam = glsum_univ(respr,ntot)/ntotg
 c            call cadd (respr,-rlam,ntot)
-            rlam  = glsum_univ(br,ntot)/ntotg
+            rlam  = glsc2_univ(respr,bmg,ntot)/ntotg
             call cadd (respr,-rlam,ntot)
          endif
        else
@@ -941,74 +939,6 @@ c-----------------------------------------------------------------------
       call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
       iglsum_univ = iglsum(a,n)
       call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
-
-      return
-      end
-c-----------------------------------------------------------------------
-      subroutine hsolve_nn(name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd
-     $                 ,approx,napprox,bi,iflag)
-c
-c     Either std. Helmholtz solve, or a projection + Helmholtz solve
-c
-      include 'SIZE'
-      include 'TOTAL'
-      include 'CTIMER'
-c
-      CHARACTER*4    NAME
-      REAL           U    (LX1,LY1,LZ1,1)
-      REAL           R    (LX1,LY1,LZ1,1)
-      REAL           H1   (LX1,LY1,LZ1,1)
-      REAL           H2   (LX1,LY1,LZ1,1)
-      REAL           vmk  (LX1,LY1,LZ1,1)
-      REAL           vml  (LX1,LY1,LZ1,1)
-      REAL           bi   (LX1,LY1,LZ1,1)
-      REAL           approx (1)
-      integer        napprox(1)
-      common /ctmp2/ w1   (lx1,ly1,lz1,lelt)
-      common /ctmp3/ w2   (2+2*mxprev)
-
-      logical ifstdh
-      character*4  cname
-      character*6  name6
-
-      logical ifwt,ifvec
-
-      call chcopy(cname,name,4)
-      call capit (cname,4)
-
-
-      p945 = param(94)
-      if (cname.eq.'PRES') p945 = param(95)
-
-                          ifstdh = .false.
-      if (param(93).eq.0) ifstdh = .true.
-      if (p945.eq.0)      ifstdh = .true.
-      if (istep.lt.p945)  ifstdh = .true.
-
-      if (ifstdh) then
-         call hmholtz(name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd)
-      else
-
-         n = nx1*ny1*nz1*nelfld(ifield)
-
-         call col2   (r,vmk,n)
-         call dssum  (r,nx1,ny1,nz1)
-
-         call blank (name6,6)
-         call chcopy(name6,name,4)
-         ifwt  = .true.
-         ifvec = .false.
-
-         call project1
-     $       (r,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
-
-         call hmhzpf (name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd,bi)
-
-         if (iflag.eq.1) call project2
-     $       (u,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
-
-
-      endif
 
       return
       end
