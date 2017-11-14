@@ -873,7 +873,7 @@ C--------------------------------------------------------------------------
 
       n    = nx1*ny1*nz1*nelt
       k = ldim+1
-      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
       do i=1,n
          ubc(i,1,1,1,k) = valint(i,1,1,1,k)
       enddo
@@ -889,28 +889,36 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
       real respr (lx2,ly2,lz2,lelv)
+      real br(lx1,ly1,lz1,lelv)
       integer*8 ntotg,nxyz2
+      integer nelgv_univ
 
       nxyz2 = nx2*ny2*nz2
       ntot  = nxyz2*nelv
       nelgv_univ = iglsum_univ(nelv,1)
       ntotg = nxyz2*nelgv_univ
 
+      call col3(br,respr,bmg,ntot)
       if (ifield.eq.1) then
          if (ifvcor) then
-            rlam  = glsum_univ(respr,ntot)/ntotg
+c            rlam  = glsum_univ(respr,ntot)/ntotg
+c            call cadd (respr,-rlam,ntot)
+            rlam  = glsum_univ(br,ntot)/ntotg
             call cadd (respr,-rlam,ntot)
          endif
        elseif (ifield.eq.ifldmhd) then
          if (ifbcor) then
-            rlam = glsum_univ(respr,ntot)/ntotg
+c            rlam = glsum_univ(respr,ntot)/ntotg
+c            call cadd (respr,-rlam,ntot)
+            rlam  = glsum_univ(br,ntot)/ntotg
             call cadd (respr,-rlam,ntot)
          endif
        else
          call exitti('ortho: unaccounted ifield = $',ifield)
       endif
-      ntotg = nxyz2*nelgv
 
       return
       end
@@ -927,7 +935,7 @@ c------------------------------------------------------------------------
       end
 c-----------------------------------------------------------------------
       function iglsum_univ(a,n)
-      real a(1)
+      integer a(1),n
 
       call happy_check(1)
       call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
