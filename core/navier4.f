@@ -821,6 +821,9 @@ c
       integer        napprox(1)
       common /ctmp2/ w1   (lx1,ly1,lz1,lelt)
       common /ctmp3/ w2   (2+2*mxprev)
+      real rcopy(lx1,ly1,lz1,lelv)
+      real dru(lx1,ly1,lz1,lelv)
+      real dru2(lx1,ly1,lz1,lelv)
 
       logical ifstdh
       character*4  cname
@@ -861,10 +864,17 @@ c
          ifwt  = .true.
          ifvec = .false.
 
+         if (name.eq.'PRES') call copy(rcopy,r,n)
          call project1
      $       (r,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
 
          call hmhzpf (name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd,bi)
+         if (istep.gt.100) then
+         if (name.eq.'PRES') then
+         call col3(rcopy,r,bm2inv,n)
+          call outpost(rcopy,u,r,rcopy,r,'   ')
+         endif
+         endif
 
          call project2
      $       (u,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
