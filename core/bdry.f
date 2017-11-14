@@ -785,7 +785,8 @@ C
 C
 C     Copy temporary array to temperature array.
 C
-      CALL COL2(S,TMASK(1,1,1,1,IFIELD-1),NTOT)
+c      CALL COL2(S,TMASK(1,1,1,1,IFIELD-1),NTOT)
+      CALL COL2(S,PMASK,NTOT)
       CALL ADD2(S,TMP,NTOT)
 
       tusbc=tusbc+(dnekclock()-etime1)
