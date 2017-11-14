@@ -872,7 +872,7 @@ c
          if (istep.gt.100) then
          if (name.eq.'PRES') then
          call col3(rcopy,r,bm2inv,n)
-          call outpost(rcopy,u,r,rcopy,r,'   ')
+c          call outpost(rcopy,u,r,rcopy,r,'   ')
          endif
          endif
 
