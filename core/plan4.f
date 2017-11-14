@@ -85,13 +85,11 @@ c        compute pressure
      $                        ,pmask,vmult
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
-c          if (istep.gt.100) call outpost(pr,dpr,pr,pr,t,'   ')
            call add2    (pr,dpr,ntot1)
            call ortho_univ   (pr)
          enddo
          call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
-         if (istep.eq.150) call exitt
 
 C        Compute velocity
          call cresvsp (res1,res2,res3,h1,h2)
@@ -309,6 +307,7 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
+c      CALL ORTHO (RESPR)
       CALL ORTHO_univ (RESPR)
 
       return
