@@ -71,11 +71,9 @@ C        first, compute pressure
          etime1=dnekclock()
 
 c        compute pressure
-         ngeomp = 2
+         ngeomp = 4
          call modpresint('v  ','o  ')
-         iflag = 0
          do i=1,ngeomp
-           if (i.eq.ngeomp) iflag = 1
            call userchk_set_xfer_pr
            call bcopy_pr
            call crespsp  (respr)
@@ -83,19 +81,17 @@ c        compute pressure
            call rzero    (h2,ntot1)
            call ctolspl  (tolspl,respr)
            napproxp(1) = laxtp
-c           call hsolve_nn   ('PRES',dpr,respr,h1,h2 
            call hsolve   ('PRES',dpr,respr,h1,h2 
      $                        ,pmask,vmult
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
-c     $                        ,approxp,napproxp,binvm1,iflag)
+c          if (istep.gt.100) call outpost(pr,dpr,pr,pr,t,'   ')
            call add2    (pr,dpr,ntot1)
-c           call ortho   (pr)
            call ortho_univ   (pr)
-           call neknekgsync()
          enddo
          call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
+         if (istep.eq.150) call exitt
 
 C        Compute velocity
          call cresvsp (res1,res2,res3,h1,h2)
@@ -313,7 +309,7 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
-      CALL ORTHO (RESPR)
+      CALL ORTHO_univ (RESPR)
 
       return
       END
