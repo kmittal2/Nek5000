@@ -71,7 +71,8 @@ C        first, compute pressure
          etime1=dnekclock()
 
 c        compute pressure
-         ngeomp = 1
+c         param(95) = 0
+         ngeomp = 4
          call modpresint('v  ','o  ')
          do i=1,ngeomp
            call userchk_set_xfer_pr
@@ -81,7 +82,6 @@ c        compute pressure
            call rzero    (h2,ntot1)
            call ctolspl  (tolspl,respr)
            napproxp(1) = laxtp
-           call printmax_nt(respr,ntot1,'resprdas')
            call hsolve   ('PRES',dpr,respr,h1,h2 
      $                        ,pmask,vmult
      $                        ,imesh,tolspl,nmxh,1
