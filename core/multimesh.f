@@ -865,17 +865,16 @@ c     the information will go to the boundary points
       return
       end
 C--------------------------------------------------------------------------
-      subroutine bcopy_pr
+      subroutine neknek_bcopy(ifld)
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
-      integer k,i,n
+      integer k,i,n,ifld
 
       n    = nx1*ny1*nz1*nelt
-      k = ldim+1
 c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
       do i=1,n
-         ubc(i,1,1,1,k) = valint(i,1,1,1,k)
+         ubc(i,1,1,1,ifld) = valint(i,1,1,1,ifld)
       enddo
 
       return
@@ -989,3 +988,34 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
+      subroutine neknek_xfer_fld(u,ifld)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+      character*3 which_field(nfld_neknek)
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real field(lx1*ly1*lz1*lelt)
+      real u(1)
+      integer nv,nt
+!!!!  Exchanges field u between the two neknek sessions and saves it 
+!!!!  it in ifld index of valint
+      nv = nx1*ny1*nz1*nelv
+      nt = nx1*ny1*nz1*nelt
+cccc
+c     Interpolate using findpts_eval
+      call copy(field,u,nv)
+      call field_eval(fieldout(1,ifld),1,field)
+
+cccc
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        valint(idx,1,1,1,ifld)=fieldout(i,ifld)
+       enddo
+
+      return
+      end
+C--------------------------------------------------------------------------

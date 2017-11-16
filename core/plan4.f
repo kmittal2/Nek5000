@@ -74,12 +74,14 @@ C        first, compute pressure
 
 c        compute pressure
 c         param(95) = 0
-         ngeomp = 2
+         ngeomp = 3
          call modpresint('v  ','o  ')
          do i=1,ngeomp
-           call userchk_set_xfer_pr
-           call bcopy_pr
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+c      Solve for session 1
            if (idsess.eq.0) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
@@ -91,13 +93,12 @@ c         param(95) = 0
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-           call sub3(dprc,prcp,pr,ntot1)
-         write(6,'(i2,i8,i2,1p1e13.4,a11)') idsess,istep,i,
-     $         glamax(dprc,ntot1),' max-dp-nn'
            endif
            call neknekgsync()
-           call userchk_set_xfer_pr
-           call bcopy_pr
+c      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+c      Solve for session 2
            if (idsess.eq.1) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
@@ -109,17 +110,18 @@ c         param(95) = 0
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-           call sub3(dprc,prcp,pr,ntot1)
-         write(6,'(i2,i8,i2,1p1e13.4,a11)') idsess,istep,i,
-     $         glamax(dprc,ntot1),' max-dp-nn'
            endif
            call neknekgsync()
-           call ortho_univ   (pr)
-c           call outpost(vx,vy,vz,pr,t,'   ')
+c      See change in pressure from previous iteration
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = glamax(dprc,ntot1)
+         if (nid.eq.0) 
+     $      write(6,'(i2,i8,i2,1p1e13.4,a11)') idsess,istep,i,
+     $      dprmax,' max-dp-nn'
          enddo
+         call ortho_univ   (pr)
          call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
-c         if (istep.eq.15) call exitt
 
 C        Compute velocity
          call cresvsp (res1,res2,res3,h1,h2)
@@ -339,7 +341,7 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
-c      CALL ORTHO (RESPR)
+      CALL ORTHO (RESPR)
 c      CALL ORTHO_univ (RESPR)
 
       return
