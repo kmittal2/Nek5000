@@ -72,6 +72,7 @@ c
 
       npass = 1
       if (ifmhd) npass = 2
+      call modpresint('v  ','o  ')
       do ipass=1,npass
          ifield = 1
 
@@ -82,10 +83,8 @@ c
             call swap_lengths
             call gen_fast_spacing(x,y,z)
  
-      call modpresint('v  ','o  ')
             call hsmg_setup
             call h1mg_setup
-      call modpresint('o  ','v  ')
 
          elseif (.not.ifsplit) then ! Pn-Pn-2
 
@@ -110,6 +109,7 @@ c
          call set_up_h1_crs
 
       enddo
+      call modpresint('o  ','v  ')
  
       return
       end

@@ -865,14 +865,34 @@ c
          ifwt  = .true.
          ifvec = .false.
 
+         nps = 100
+         npsb = nps+1
+         if (name6.eq.'PRES') then
+         if (istep.eq.nps) then
+          call copy(rcopy,r,n)
+         endif
+         endif
+         if (name6.eq.'PRES') then
+         if (istep.eq.npsb) then
+          call copy(r,rcopy,n)
+         endif
+         endif
          call project1
      $       (r,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
+         if (name6.eq.'PRES') then
+         if (istep.eq.npsb) then
+           call printmax_nt(r,n,'asdasdsa')
+         endif
+         endif
 
          call hmhzpf (name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd,bi)
 
          call project2
      $       (u,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
 
+      endif
+      if (istep.eq.npsb) then
+       call exitt
       endif
 
       return
