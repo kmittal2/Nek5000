@@ -72,7 +72,7 @@ C        first, compute pressure
 
 c        compute pressure
 c         param(95) = 0
-         ngeomp = 1
+         ngeomp = 2
          call modpresint('v  ','o  ')
          do i=1,ngeomp
            call userchk_set_xfer_pr
