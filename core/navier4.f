@@ -821,10 +821,6 @@ c
       integer        napprox(1)
       common /ctmp2/ w1   (lx1,ly1,lz1,lelt)
       common /ctmp3/ w2   (2+2*mxprev)
-      common /ctk/ rcopy
-      real rcopy(lx1,ly1,lz1,lelv)
-      real dru(lx1,ly1,lz1,lelv)
-      real dru2(lx1,ly1,lz1,lelv)
 
       logical ifstdh
       character*4  cname
@@ -867,32 +863,14 @@ c
 
          nps = 100
          npsb = nps+1
-         if (name6.eq.'PRES') then
-         if (istep.eq.nps) then
-          call copy(rcopy,r,n)
-         endif
-         endif
-         if (name6.eq.'PRES') then
-         if (istep.eq.npsb) then
-          call copy(r,rcopy,n)
-         endif
-         endif
          call project1
      $       (r,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
-         if (name6.eq.'PRES') then
-         if (istep.eq.npsb) then
-           call printmax_nt(r,n,'asdasdsa')
-         endif
-         endif
 
          call hmhzpf (name,u,r,h1,h2,vmk,vml,imsh,tol,maxit,isd,bi)
 
          call project2
      $       (u,n,approx,napprox,h1,h2,vmk,vml,ifwt,ifvec,name6)
 
-      endif
-      if (istep.eq.npsb) then
-       call exitt
       endif
 
       return

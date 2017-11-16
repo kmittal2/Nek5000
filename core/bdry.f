@@ -74,6 +74,7 @@ csk         call check_cyclic  ! fow now; set in .rea file
             ENDIF
   100    CONTINUE
       ENDIF
+      ifvcor = .false.
 C
       IF (IFHEAT) THEN
 C
