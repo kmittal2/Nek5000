@@ -850,7 +850,7 @@ c------------------------------------------------------------------------
 cccc
 c     Interpolate using findpts_eval
       ifld = ldim+1
-      call copy(field,pm1,nv)
+      call copy(field,pr,nv)
       call field_eval(fieldout(1,ifld),1,field)
 
 cccc
@@ -898,6 +898,7 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       nxyz2 = nx2*ny2*nz2
       ntot  = nxyz2*nelv
       nelgv_univ = iglsum_univ(nelv,1)
+      ntotgl = nxyz2*nelgv
       ntotg = nxyz2*nelgv_univ
 
       if (ifield.eq.1) then

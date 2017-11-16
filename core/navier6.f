@@ -83,8 +83,10 @@ c
             call swap_lengths
             call gen_fast_spacing(x,y,z)
  
+c      call modpresint('v  ','o  ')
             call hsmg_setup
             call h1mg_setup
+c      call modpresint('o  ','v  ')
 
          elseif (.not.ifsplit) then ! Pn-Pn-2
 

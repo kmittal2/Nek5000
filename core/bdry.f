@@ -42,6 +42,7 @@ C
 
 csk         call check_cyclic  ! fow now; set in .rea file 
 
+         call modpresint('v  ','o  ')
          IFIELD = 1
          DO 100 IEL=1,NELV
          DO 100 IFC=1,NFACE
@@ -65,7 +66,7 @@ csk         call check_cyclic  ! fow now; set in .rea file
      $           CB.EQ.'MS ' .OR. CB.EQ.'ms ' .OR.
      $           CB.EQ.'O  ' .OR. CB.EQ.'o  ' .OR.
      $           CB.EQ.'ON ' .OR. CB.EQ.'on ')  THEN
-                                              IFQINP(IFC,IEL) = .TRUE.
+c                                              IFQINP(IFC,IEL) = .TRUE.
             ENDIF
             IF  (CB.EQ.'MS ' .OR. CB.EQ.'ms ' .OR.
      $           CB.EQ.'MM ' .OR. CB.EQ.'mm ' .OR.
@@ -74,7 +75,7 @@ csk         call check_cyclic  ! fow now; set in .rea file
             ENDIF
   100    CONTINUE
       ENDIF
-      ifvcor = .false.
+      call modpresint('o  ','v  ')
 C
       IF (IFHEAT) THEN
 C
@@ -786,8 +787,7 @@ C
 C
 C     Copy temporary array to temperature array.
 C
-c      CALL COL2(S,TMASK(1,1,1,1,IFIELD-1),NTOT)
-      CALL COL2(S,PMASK,NTOT)
+      CALL COL2(S,TMASK(1,1,1,1,IFIELD-1),NTOT)
       CALL ADD2(S,TMP,NTOT)
 
       tusbc=tusbc+(dnekclock()-etime1)
