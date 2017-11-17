@@ -1019,3 +1019,18 @@ c     the information will go to the boundary points
       return
       end
 C--------------------------------------------------------------------------
+      subroutine neknek_gen_copy(u,ifld,n)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n,ifld
+      real u(1)
+
+c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+      do i=1,n
+         u(i) = valint(i,1,1,1,ifld)
+      enddo
+
+      return
+      end
+C---------------------------------------------------------------------
