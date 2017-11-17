@@ -1607,6 +1607,14 @@ c
 
       logical ifcomp
 
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      real vxcbc(lx1,ly1,lz1,lelv)
+      real vycbc(lx1,ly1,lz1,lelv)
+      real vzcbc(lx1,ly1,lz1,lelv)
+      real prcbc(lx1,ly1,lz1,lelv)
+      common /cvflow_nn/ vxcbc,vycbc,vzcbc,prcbc
+
 c     Check list:
 
 c     param (55) -- volume flow rate, if nonzero
@@ -1652,14 +1660,48 @@ c     then recompute base flow solution corresponding to unit forcing:
       dt_vflow = dt
       bd_vflow = bd(1)
 
-      if (ifcomp) call compute_vol_soln(vxc,vyc,vzc,prc)
+      if (ifcomp) then
+      if (ifneknek) then
+        do ictr=1,2
+        do icd = 0,1
+          call neknek_xfer_fld(vxc,1)  !findpts_eval
+          call neknek_xfer_fld(vyc,2)
+         if (ldim.eq.3) call neknek_xfer_fld(vzc,3)
+          call neknek_xfer_fld(prc,ldim+1)
 
-      if (icvflow.eq.1) current_flow=glsc2(vx,bm1,ntot1)/domain_length  ! for X
-      if (icvflow.eq.2) current_flow=glsc2(vy,bm1,ntot1)/domain_length  ! for Y
-      if (icvflow.eq.3) current_flow=glsc2(vz,bm1,ntot1)/domain_length  ! for Z
+          call neknek_gen_copy(vxcbc,1,ntot1) !copy to vxcbc
+          call neknek_gen_copy(vycbc,2,ntot1)
+         if (ldim.eq.3) call neknek_gen_copy(vzcbc,3,ntot1)
+          call neknek_gen_copy(prcbc,ldim+1,ntot1)
+
+         if (idsess.eq.icd) call compute_vol_soln(vxc,vyc,vzc,prc)
+         call neknekgsync()         
+        enddo
+         call outpost(vxc,vyc,vzc,prc,t,'   ')
+        enddo
+      else
+          call compute_vol_soln(vxc,vyc,vzc,prc)
+      endif
+      endif
+      if (istep.eq.10) call exitt
+
+      if (ifneknek) then
+       if (icvflow.eq.1)  
+     $              current_flow=glsc2_univ(vx,bmg,ntot1)/domain_length  ! for X
+       if (icvflow.eq.2)  
+     $              current_flow=glsc2_univ(vy,bmg,ntot1)/domain_length  ! for X
+       if (icvflow.eq.3)  
+     $              current_flow=glsc2_univ(vz,bmg,ntot1)/domain_length  ! for X
+       volvm1_univ = glsum_univ(bmg,ntot1)
+      else
+       if (icvflow.eq.1) current_flow=glsc2(vx,bm1,ntot1)/domain_length  ! for X
+       if (icvflow.eq.2) current_flow=glsc2(vy,bm1,ntot1)/domain_length  ! for Y
+       if (icvflow.eq.3) current_flow=glsc2(vz,bm1,ntot1)/domain_length  ! for Z
+       volvm1_univ = volvm1
+      endif
 
       if (iavflow.eq.1) then
-         xsec = volvm1 / domain_length
+         xsec = volvm1_univ / domain_length
          flow_rate = param(55)*xsec
       endif
 
@@ -1707,17 +1749,29 @@ c
       integer icalld
       save    icalld
       data    icalld/0/
+
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
 c
 c
       ntot1 = lx1*ly1*lz1*nelv
       if (icalld.eq.0) then
          icalld=icalld+1
-         xlmin = glmin(xm1,ntot1)
-         xlmax = glmax(xm1,ntot1)
-         ylmin = glmin(ym1,ntot1)          !  for Y!
-         ylmax = glmax(ym1,ntot1)
-         zlmin = glmin(zm1,ntot1)          !  for Z!
-         zlmax = glmax(zm1,ntot1)
+       if (ifneknek) then
+         xlmin = uglmin(xm1,ntot1)
+         xlmax = uglmax(xm1,ntot1)
+         ylmin = uglmin(ym1,ntot1)          !  for Y!
+         ylmax = uglmax(ym1,ntot1)
+         zlmin = uglmin(zm1,ntot1)          !  for Z!
+         zlmax = uglmax(zm1,ntot1)
+       else
+          xlmin = glmin(xm1,ntot1)
+          xlmax = glmax(xm1,ntot1)
+          ylmin = glmin(ym1,ntot1)          !  for Y!
+          ylmax = glmax(ym1,ntot1)
+          zlmin = glmin(zm1,ntot1)          !  for Z!
+          zlmax = glmax(zm1,ntot1)
+       endif
 c
          if (icvflow.eq.1) domain_length = xlmax - xlmin
          if (icvflow.eq.2) domain_length = ylmax - ylmin
@@ -1734,9 +1788,18 @@ c        call plan2_vol(vxc,vyc,vzc,prc)
 c
 c     Compute base flow rate
 c 
-      if (icvflow.eq.1) base_flow = glsc2(vxc,bm1,ntot1)/domain_length
-      if (icvflow.eq.2) base_flow = glsc2(vyc,bm1,ntot1)/domain_length
-      if (icvflow.eq.3) base_flow = glsc2(vzc,bm1,ntot1)/domain_length
+      if (ifneknek) then
+        if (icvflow.eq.1) 
+     $       base_flow = glsc2_univ(vxc,bmg,ntot1)/domain_length
+        if (icvflow.eq.2) 
+     $       base_flow = glsc2_univ(vyc,bmg,ntot1)/domain_length
+        if (icvflow.eq.3) 
+     $       base_flow = glsc2_univ(vzc,bmg,ntot1)/domain_length
+      else
+        if (icvflow.eq.1) base_flow = glsc2(vxc,bm1,ntot1)/domain_length
+        if (icvflow.eq.2) base_flow = glsc2(vyc,bm1,ntot1)/domain_length
+        if (icvflow.eq.3) base_flow = glsc2(vzc,bm1,ntot1)/domain_length
+      endif
 c
       if (nio.eq.0) write(6,1) 
      $   istep,base_flow,domain_length,flow_rate,chv(icvflow)
@@ -1907,6 +1970,13 @@ c     (Tombo splitting scheme).
      $ ,             h2    (lx1,ly1,lz1,lelv)
 
       common /cvflow_i/ icvflow,iavflow
+      real vxcbc(lx1,ly1,lz1,lelv)
+      real vycbc(lx1,ly1,lz1,lelv)
+      real vzcbc(lx1,ly1,lz1,lelv)
+      real prcbc(lx1,ly1,lz1,lelv)
+c      real prtmp(lx1,ly1,lz1,lelv)
+      common /cvflow_nn/ vxcbc,vycbc,vzcbc,prcbc
+      real resbc(lx1*ly1*lz1*lelv,ldim+1)
 
       n = lx1*ly1*lz1*nelv
       call invers2  (h1,vtrans,n)
@@ -1918,11 +1988,25 @@ c     Compute pressure
       if (icvflow.eq.2) call cdtp(respr,h1,rym2,sym2,tym2,1)
       if (icvflow.eq.3) call cdtp(respr,h1,rzm2,szm2,tzm2,1)
 
+      if (ifneknek) then
+c        call col2(prc,pmask,n)
+c        call antimsk1(prcbc,pmask,n)
+c        call add3(prtmp,prc,prcbc,n)
+        call axhelm  (resbc(1,ldim+1),prcbc,h1,h2,1,1)
+        call sub2(respr,resbc(1,ldim+1),n)
+      endif
+
       call ortho    (respr)
       call ctolspl  (tolspl,respr)
 
       call hmholtz  ('PRES',prc,respr,h1,h2,pmask,vmult,
      $                             imesh,tolspl,nmxh,1)
+
+      if (ifneknek) then
+c        call add2(prc,prtmp,n)
+        call add2(prc,prcbc,n)
+      endif
+
       call ortho    (prc)
 
 C     Compute velocity
@@ -1935,12 +2019,24 @@ C     Compute velocity
       if (icvflow.eq.2) call add2col2(resv2,v2mask,bm1,n)
       if (icvflow.eq.3) call add2col2(resv3,v3mask,bm1,n)
 
-
       if (ifexplvis) call split_vis ! split viscosity into exp/imp part
 
       intype = -1
       call sethlm   (h1,h2,intype)
+
+      if (ifneknek) then
+        call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
+     $             vxcbc,vycbc,vzcbc,h1,h2)
+        call sub2(resv1,resbc(1,1),n)
+        call sub2(resv2,resbc(1,2),n)
+        call sub2(resv3,resbc(1,3),n)
+      endif
+
       call ophinv   (vxc,vyc,vzc,resv1,resv2,resv3,h1,h2,tolhv,nmxh)
+
+      if (ifneknek) then
+        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
+      endif
 
       if (ifexplvis) call redo_split_vis ! restore vdiff
 
