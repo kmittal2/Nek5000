@@ -1677,13 +1677,11 @@ c     then recompute base flow solution corresponding to unit forcing:
          if (idsess.eq.icd) call compute_vol_soln(vxc,vyc,vzc,prc)
          call neknekgsync()         
         enddo
-         call outpost(vxc,vyc,vzc,prc,t,'   ')
         enddo
       else
           call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
       endif
-      if (istep.eq.10) call exitt
 
       if (ifneknek) then
        if (icvflow.eq.1)  
