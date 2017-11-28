@@ -1034,3 +1034,30 @@ c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
       return
       end
 C---------------------------------------------------------------------
+      subroutine ortho_univ2(respr)
+
+C     Orthogonalize the residual in the pressure solver with respect 
+C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      real respr (lx2,ly2,lz2,lelv)
+      integer*8 ntotg,nxyz2
+      integer nelgv_univ
+
+      nxyz2 = nx2*ny2*nz2
+      ntot  = nxyz2*nelv
+      nelgv_univ = iglsum_univ(nelv,1)
+      ntotgl = nxyz2*nelgv
+      ntotg = nxyz2*nelgv_univ
+
+      rlam  = glsc2_univ(respr,bmg,ntot)/ntotg
+      call cadd (respr,-rlam,ntot)
+
+      return
+      end
+c------------------------------------------------------------------------
+

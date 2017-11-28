@@ -9,6 +9,7 @@ C
       INCLUDE 'TSTEP'
       INCLUDE 'CTIMER'
       INCLUDE 'ADJOINT'
+      INCLUDE 'NEKNEK'
       COMMON  /CPRINT/ IFPRINT
 C
       common  /nekcb/ cb
@@ -67,6 +68,7 @@ csk         call check_cyclic  ! fow now; set in .rea file
      $           CB.EQ.'O  ' .OR. CB.EQ.'o  ' .OR.
      $           CB.EQ.'ON ' .OR. CB.EQ.'on ')  THEN
 c                                              IFQINP(IFC,IEL) = .TRUE.
+            if (intflag(ifc,iel).eq.0) IFQINP(IFC,IEL) = .TRUE.
             ENDIF
             IF  (CB.EQ.'MS ' .OR. CB.EQ.'ms ' .OR.
      $           CB.EQ.'MM ' .OR. CB.EQ.'mm ' .OR.
@@ -2124,3 +2126,78 @@ C
 C
       RETURN
       END
+c-----------------------------------------------------------------------
+      SUBROUTINE BCDIRpC(S)
+C
+C     Apply Dirichlet boundary conditions to surface of scalar, S.
+C     Use IFIELD as a guide to which boundary conditions are to be applied.
+C
+      INCLUDE 'SIZE'
+      INCLUDE 'TSTEP'
+      INCLUDE 'INPUT'
+      INCLUDE 'SOLN'
+      INCLUDE 'TOPOL'
+      INCLUDE 'CTIMER'
+C
+      DIMENSION S(LX1,LY1,LZ1,LELT)
+      COMMON /SCRSF/ TMP(LX1,LY1,LZ1,LELT)
+     $             , TMA(LX1,LY1,LZ1,LELT)
+     $             , SMU(LX1,LY1,LZ1,LELT)
+      common  /nekcb/ cb
+      CHARACTER CB*3
+
+      if (icalld.eq.0) then
+         tusbc=0.0
+         nusbc=0
+         icalld=icalld+1
+      endif
+      nusbc=nusbc+1
+      etime1=dnekclock()
+C
+      IFLD   = 1
+      NFACES = 2*ldim
+      NXYZ   = lx1*ly1*lz1
+      NEL    = NELFLD(IFIELD)
+      NTOT   = NXYZ*NEL
+      NFLDT  = NFIELD - 1
+C
+      CALL RZERO(TMP,NTOT)
+
+C
+      DO 2100 ISWEEP=1,2
+C
+         DO 2010 IE=1,NEL
+         DO 2010 IFACE=1,NFACES
+            CB=CBC(IFACE,IE,IFIELD)
+            BC1=BC(1,IFACE,IE,IFIELD)
+            BC2=BC(2,IFACE,IE,IFIELD)
+            BC3=BC(3,IFACE,IE,IFIELD)
+            BC4=BC(4,IFACE,IE,IFIELD)
+            BCK=BC(4,IFACE,IE,IFLD)
+            BCE=BC(5,IFACE,IE,IFLD)
+            IF (CB.EQ.'T  ') CALL FACEV (TMP,IE,IFACE,BC1,lx1,ly1,lz1)
+            IF (CB.EQ.'MCI') CALL FACEV (TMP,IE,IFACE,BC4,lx1,ly1,lz1)
+            IF (CB.EQ.'MLI') CALL FACEV (TMP,IE,IFACE,BC4,lx1,ly1,lz1)
+            IF (CB.EQ.'KD ') CALL FACEV (TMP,IE,IFACE,BCK,lx1,ly1,lz1)
+            IF (CB.EQ.'ED ') CALL FACEV (TMP,IE,IFACE,BCE,lx1,ly1,lz1)
+            IF (CB.EQ.'t  ' .OR. CB.EQ.'kd ' .or.
+     $          CB.EQ.'ed ' .or. cb.eq.'o  ' .or. cb.eq.'on ')
+     $          CALL FACEIS (CB,TMP(1,1,1,IE),IE,IFACE,lx1,ly1,lz1)
+ 2010    CONTINUE
+C
+C        Take care of Neumann-Dirichlet shared edges...
+C
+         IF (ISWEEP.EQ.1) CALL DSOP(TMP,'MXA',lx1,ly1,lz1)
+         IF (ISWEEP.EQ.2) CALL DSOP(TMP,'MNA',lx1,ly1,lz1)
+ 2100 CONTINUE
+C
+C     Copy temporary array to temperature array.
+C
+      CALL COL2(S,pmask,ntot)
+      CALL ADD2(S,TMP,NTOT)
+
+      tusbc=tusbc+(dnekclock()-etime1)
+
+      RETURN
+      END
+c-----------------------------------------------------------------------

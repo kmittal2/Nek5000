@@ -1990,6 +1990,7 @@ c     Compute pressure
 c        call col2(prc,pmask,n)
 c        call antimsk1(prcbc,pmask,n)
 c        call add3(prtmp,prc,prcbc,n)
+        call antimsk1(prcbc,pmask,n)
         call axhelm  (resbc(1,ldim+1),prcbc,h1,h2,1,1)
         call sub2(respr,resbc(1,ldim+1),n)
       endif

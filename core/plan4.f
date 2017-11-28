@@ -74,14 +74,15 @@ C        first, compute pressure
 
 c        compute pressure
 c         param(95) = 0
-         ngeomp = 3
+         dprmaxo = 0.
+         ngeomp = 5
          call modpresint('v  ','o  ')
          do i=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
 
-c      Solve for session 1
+ccc      Solve for session 1
            if (idsess.eq.0) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
@@ -95,10 +96,11 @@ c      Solve for session 1
            call add2    (pr,dpr,ntot1)
            endif
            call neknekgsync()
-c      Exchange data
+c           goto 102
+ccc      Exchange data
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
-c      Solve for session 2
+ccc      Solve for session 2
            if (idsess.eq.1) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
@@ -113,13 +115,18 @@ c      Solve for session 2
            endif
            call neknekgsync()
 c      See change in pressure from previous iteration
+c  102    continue
            call sub3(dprc,prcp,pr,ntot1)
-           dprmax = glamax(dprc,ntot1)
-         if (nid.eq.0) 
-     $      write(6,'(i2,i8,i2,1p1e13.4,a11)') idsess,istep,i,
-     $      dprmax,' max-dp-nn'
+           dprmax = uglamax(dprc,ntot1)
+         if (dprmax.lt.1.e-5.and.i.gt.3) goto 101
+         dprmaxo = dprmax
          enddo
-         call ortho_univ   (pr)
+  101    continue
+         if (nid.eq.0) 
+     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
+     $      dprmax,' max-dp-nn'
+c         call ortho_univ2   (pr)
+         call ortho_univ (pr)
          call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
 
@@ -260,7 +267,7 @@ c     add old pressure term because we solve for delta p
       call invers2 (ta1,vtrans,ntot1)
       call rzero   (ta2,ntot1)
 
-      call bcdirsc (pr)
+      call bcdirpc (pr)
 c      call outpost(pr,pr,pr,pr,pr,'   ')
 c      call outpost(vx,vy,vz,pr,t,'   ')
 c     if (istep.eq.10) call exitt
