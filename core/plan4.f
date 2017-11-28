@@ -125,8 +125,8 @@ c  102    continue
          if (nid.eq.0) 
      $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
      $      dprmax,' max-dp-nn'
-c         call ortho_univ2   (pr)
-         call ortho_univ (pr)
+         call ortho_univ2   (pr)
+c         call ortho_univ (pr)
          call modpresint('o  ','v  ')
          tpres=tpres+(dnekclock()-etime1)
 
