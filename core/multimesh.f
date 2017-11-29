@@ -1007,6 +1007,7 @@ cccc
 c     Interpolate using findpts_eval
       call copy(field,u,nv)
       call field_eval(fieldout(1,ifld),1,field)
+      call neknekgsync()
 
 cccc
 c     Now we can transfer this information to valint array from which
@@ -1015,6 +1016,7 @@ c     the information will go to the boundary points
         idx = iList(1,i)
         valint(idx,1,1,1,ifld)=fieldout(i,ifld)
        enddo
+      call neknekgsync()
 
       return
       end
@@ -1030,6 +1032,7 @@ c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
       do i=1,n
          u(i) = valint(i,1,1,1,ifld)
       enddo
+      call neknekgsync()
 
       return
       end
@@ -1057,6 +1060,28 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       rlam  = glsc2_univ(respr,bmg,ntot)/ntotg
       call cadd (respr,-rlam,ntot)
 
+      return
+      end
+c------------------------------------------------------------------------
+      subroutine q_filter_pr(wght)
+      include 'SIZE'
+      include 'TOTAL'
+      real intt(lx1,lx1)
+      real intv(lx1,lx1)
+      common /filtqdata/ intv,intt
+      real wk1  (lx1,lx1,lx1,lelt)
+      real wk2  (lx1,lx1,lx1)
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      ncut = param(101)+1
+
+      if (icalld.eq.0) then
+         icalld = 1
+         call build_new_filter(intv,zgm1,lx1,ncut,wght,nio)
+      endif
+      call filterq(pr,intv,lx1,lz1,wk1,wk2,intt,if3d,pmax)
       return
       end
 c------------------------------------------------------------------------

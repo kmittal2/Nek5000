@@ -74,7 +74,8 @@ C        first, compute pressure
 
 c        compute pressure
 c         param(95) = 0
-         ngeomp = 3
+         if (istep.gt.5) call outpost(vx,vy,vz,pr,t,'   ')
+         ngeomp = 5
          call modpresint('v  ','o  ')
          do i=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
@@ -94,6 +95,7 @@ c           if (idsess.eq.0) then
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
 c           endif
+           call ortho_univ2   (pr)
            call neknekgsync()
            goto 102
 ccc      Exchange data
@@ -118,14 +120,17 @@ c      See change in pressure from previous iteration
            call sub3(dprc,prcp,pr,ntot1)
            dprmax = uglamax(dprc,ntot1)
          if (dprmax.lt.1.e-5.and.i.gt.3) goto 101
+         call neknekgsync()
+c         call q_filter_pr(param(103))
          enddo
   101    continue
          if (nid.eq.0) 
      $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
      $      dprmax,' max-dp-nn'
-         call ortho_univ2   (pr)
+c         call ortho_univ2   (pr)
 c         call ortho_univ (pr)
          call modpresint('o  ','v  ')
+           if (istep.gt.5) call outpost(vx,vy,vz,pr,t,'   ')
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
