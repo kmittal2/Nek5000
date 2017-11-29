@@ -74,8 +74,7 @@ C        first, compute pressure
 
 c        compute pressure
 c         param(95) = 0
-         dprmaxo = 0.
-         ngeomp = 5
+         ngeomp = 3
          call modpresint('v  ','o  ')
          do i=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
@@ -83,7 +82,7 @@ c         param(95) = 0
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
 
 ccc      Solve for session 1
-           if (idsess.eq.0) then
+c           if (idsess.eq.0) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -94,9 +93,9 @@ ccc      Solve for session 1
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-           endif
+c           endif
            call neknekgsync()
-c           goto 102
+           goto 102
 ccc      Exchange data
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
@@ -115,11 +114,10 @@ ccc      Solve for session 2
            endif
            call neknekgsync()
 c      See change in pressure from previous iteration
-c  102    continue
+  102    continue
            call sub3(dprc,prcp,pr,ntot1)
            dprmax = uglamax(dprc,ntot1)
          if (dprmax.lt.1.e-5.and.i.gt.3) goto 101
-         dprmaxo = dprmax
          enddo
   101    continue
          if (nid.eq.0) 
@@ -348,8 +346,8 @@ C     surface terms
 
 C     Assure that the residual is orthogonal to (1,1,...,1)T 
 C     (only if all Dirichlet b.c.)
-      CALL ORTHO (RESPR)
-c      CALL ORTHO_univ (RESPR)
+c      CALL ORTHO (RESPR)
+c      CALL ORTHO_univ2 (RESPR)
 
       return
       END

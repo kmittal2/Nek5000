@@ -56,7 +56,8 @@ csk         call check_cyclic  ! fow now; set in .rea file
      $           CB.EQ.'SL ' .OR. CB.EQ.'sl ' .OR.
      $           CB.EQ.'MM ' .OR. CB.EQ.'mm ' .OR.
      $           CB.EQ.'MS ' .OR. CB.EQ.'ms ')  THEN
-                                              IFVCOR          = .FALSE.
+c                                              IFVCOR          = .FALSE.
+            if(.not.ifneknek.or.intflag(ifc,iel).eq.1) IFVCOR = .FALSE.
                                               IFEPPM(IFC,IEL) = .TRUE.
             ENDIF
             IF  (CB.EQ.'VL ' .OR. CB.EQ.'vl ' .OR.
