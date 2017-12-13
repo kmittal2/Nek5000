@@ -1662,22 +1662,24 @@ c     then recompute base flow solution corresponding to unit forcing:
 
       if (ifcomp) then
       if (ifneknek) then
-        do ictr=1,2
-        do icd = 0,1
-          call neknek_xfer_fld(vxc,1)  !findpts_eval
-          call neknek_xfer_fld(vyc,2)
-         if (ldim.eq.3) call neknek_xfer_fld(vzc,3)
-          call neknek_xfer_fld(prc,ldim+1)
+c        do ictr=1,1
+c        do icd = 0,1
+c          call neknek_xfer_fld(vxc,1)  !findpts_eval
+c          call neknek_xfer_fld(vyc,2)
+c         if (ldim.eq.3) call neknek_xfer_fld(vzc,3)
+c          call neknek_xfer_fld(prc,ldim+1)
+c
+c          call neknek_gen_copy(vxcbc,1,ntot1) !copy to vxcbc
+c          call neknek_gen_copy(vycbc,2,ntot1)
+c         if (ldim.eq.3) call neknek_gen_copy(vzcbc,3,ntot1)
+c          call neknek_gen_copy(prcbc,ldim+1,ntot1)
+c
+c         if (idsess.eq.icd) call compute_vol_soln(vxc,vyc,vzc,prc)
+c         call neknekgsync()         
+c        enddo
+c        enddo
 
-          call neknek_gen_copy(vxcbc,1,ntot1) !copy to vxcbc
-          call neknek_gen_copy(vycbc,2,ntot1)
-         if (ldim.eq.3) call neknek_gen_copy(vzcbc,3,ntot1)
-          call neknek_gen_copy(prcbc,ldim+1,ntot1)
-
-         if (idsess.eq.icd) call compute_vol_soln(vxc,vyc,vzc,prc)
-         call neknekgsync()         
-        enddo
-        enddo
+          call compute_vol_soln(vxc,vyc,vzc,prc)
       else
           call compute_vol_soln(vxc,vyc,vzc,prc)
       endif
@@ -1954,6 +1956,7 @@ c     (Tombo splitting scheme).
 
       include 'SIZE'
       include 'TOTAL'
+      INCLUDE 'GLOBALCOM'
 
       real vxc(lx1,ly1,lz1,lelv)
      $   , vyc(lx1,ly1,lz1,lelv)
@@ -1972,7 +1975,14 @@ c     (Tombo splitting scheme).
       real vycbc(lx1,ly1,lz1,lelv)
       real vzcbc(lx1,ly1,lz1,lelv)
       real prcbc(lx1,ly1,lz1,lelv)
-c      real prtmp(lx1,ly1,lz1,lelv)
+
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+      REAL           vxcp   (LX2,LY2,LZ2,LELV)
+      REAL           dvxc   (LX2,LY2,LZ2,LELV)
+      REAL           vycp   (LX2,LY2,LZ2,LELV)
+      REAL           dvyc   (LX2,LY2,LZ2,LELV)
+
       common /cvflow_nn/ vxcbc,vycbc,vzcbc,prcbc
       real resbc(lx1*ly1*lz1*lelv,ldim+1)
 
@@ -1980,62 +1990,88 @@ c      real prtmp(lx1,ly1,lz1,lelv)
       call invers2  (h1,vtrans,n)
       call rzero    (h2,       n)
 
+      ngeomp = 3
+      ngeomv = 2
 c     Compute pressure 
+c      call modpresint('v  ','o  ')
+      if (istep.lt.10) ngeomp = 10
+      do ictr=1,ngeomp
+       if (icvflow.eq.1) call cdtp(respr,h1,rxm2,sxm2,txm2,1)
+       if (icvflow.eq.2) call cdtp(respr,h1,rym2,sym2,tym2,1)
+       if (icvflow.eq.3) call cdtp(respr,h1,rzm2,szm2,tzm2,1)
+       do icd=0,1
+        call neknek_xfer_fld(prc,ldim+1)
+        call neknek_gen_copy(prcbc,ldim+1,n)
+        call copy(prcp,prc,lx1*ly1*lz1*nelv)
+        if (idsess.eq.icd) then 
+         call axhelm  (resbc(1,ldim+1),prcbc,h1,h2,1,1)
+         call sub2(respr,resbc(1,ldim+1),n)
 
-      if (icvflow.eq.1) call cdtp(respr,h1,rxm2,sxm2,txm2,1)
-      if (icvflow.eq.2) call cdtp(respr,h1,rym2,sym2,tym2,1)
-      if (icvflow.eq.3) call cdtp(respr,h1,rzm2,szm2,tzm2,1)
-
-      if (ifneknek) then
-c        call col2(prc,pmask,n)
-c        call antimsk1(prcbc,pmask,n)
-c        call add3(prtmp,prc,prcbc,n)
-        call antimsk1(prcbc,pmask,n)
-        call axhelm  (resbc(1,ldim+1),prcbc,h1,h2,1,1)
-        call sub2(respr,resbc(1,ldim+1),n)
-      endif
-
-      call ortho    (respr)
-      call ctolspl  (tolspl,respr)
-
-      call hmholtz  ('PRES',prc,respr,h1,h2,pmask,vmult,
+c         call ortho    (respr)
+         call ctolspl  (tolspl,respr)
+         call hmholtz  ('PRES',prc,respr,h1,h2,pmask,vmult,
      $                             imesh,tolspl,nmxh,1)
-
-      if (ifneknek) then
-c        call add2(prc,prtmp,n)
-        call add2(prc,prcbc,n)
-      endif
-
-      call ortho    (prc)
+         call add2(prc,prcbc,n)
+c         call ortho    (prc)
+        endif
+        call neknekgsync()
+       enddo
+       call sub3(dprc,prcp,prc,n)
+       dprmax = uglamax(dprc,n)
+      enddo
+      if (nid.eq.0)
+     $    write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
+     $    dprmax,' max-ddd-prc'
+c      call modpresint('o  ','v  ')
+      call ortho_univ2(prc)
 
 C     Compute velocity
 
-      call opgrad   (resv1,resv2,resv3,prc)
-      if (ifaxis) call col2 (resv2,omask,n)
-      call opchsgn  (resv1,resv2,resv3)
+      do ictr = 1,ngeomv
+       call opgrad   (resv1,resv2,resv3,prc)
+       if (ifaxis) call col2 (resv2,omask,n)
+       call opchsgn  (resv1,resv2,resv3)
 
-      if (icvflow.eq.1) call add2col2(resv1,v1mask,bm1,n) ! add forcing
-      if (icvflow.eq.2) call add2col2(resv2,v2mask,bm1,n)
-      if (icvflow.eq.3) call add2col2(resv3,v3mask,bm1,n)
+       if (icvflow.eq.1) call add2col2(resv1,v1mask,bm1,n) ! add forcing
+       if (icvflow.eq.2) call add2col2(resv2,v2mask,bm1,n)
+       if (icvflow.eq.3) call add2col2(resv3,v3mask,bm1,n)
 
-      if (ifexplvis) call split_vis ! split viscosity into exp/imp part
+       if (ifexplvis) call split_vis ! split viscosity into exp/imp part
 
-      intype = -1
-      call sethlm   (h1,h2,intype)
+       call copy(vxcp,vxc,lx1*ly1*lz1*nelv)
+       call copy(vycp,vyc,lx1*ly1*lz1*nelv)
+       do icd=0,1
+        call neknek_xfer_fld(vxc,1)
+        call neknek_xfer_fld(vyc,2)
+        if (ldim.eq.3) call neknek_xfer_fld(vzc,ldim)
+        call neknek_gen_copy(vxcbc,1,n)
+        call neknek_gen_copy(vycbc,2,n)
+        if (ldim.eq.3) call neknek_gen_copy(vzcbc,ldim,n)
 
-      if (ifneknek) then
-        call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
+        intype = -1
+        call sethlm   (h1,h2,intype)
+
+        if (idsess.eq.icd) then
+         call ophx(resbc(1,1),resbc(1,2),resbc(1,3),
      $             vxcbc,vycbc,vzcbc,h1,h2)
-        call sub2(resv1,resbc(1,1),n)
-        call sub2(resv2,resbc(1,2),n)
-        call sub2(resv3,resbc(1,3),n)
-      endif
+         call sub2(resv1,resbc(1,1),n)
+         call sub2(resv2,resbc(1,2),n)
+         if (ldim.eq.3) call sub2(resv3,resbc(1,3),n)
 
-      call ophinv   (vxc,vyc,vzc,resv1,resv2,resv3,h1,h2,tolhv,nmxh)
+         call ophinv   (vxc,vyc,vzc,resv1,resv2,resv3,h1,h2,tolhv,nmxh)
+         call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
+        endif
+        call neknekgsync()
+       enddo
 
-      if (ifneknek) then
-        call opadd2(vxc,vyc,vzc,vxcbc,vycbc,vzcbc)
-      endif
+       call sub3(dvxc,vxcp,vxc,n)
+       call sub3(dvyc,vycp,vyc,n)
+       dvxmax = uglamax(dvxc,n)
+       dvymax = uglamax(dvyc,n)
+      enddo
+         if (nid.eq.0)
+     $      write(6,'(i2,i8,i4,1p3e13.4,a11)') idsess,istep,i,time,
+     $      dvxmax,dvymax,' max-ddd-vxy'
 
       if (ifexplvis) call redo_split_vis ! restore vdiff
 
