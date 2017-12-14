@@ -1045,8 +1045,8 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
-      real bmg(lx1*ly1*lz1*lelt)
-      common /globbm / bmg
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
       real respr (lx2,ly2,lz2,lelv)
       integer*8 ntotg,nxyz2
       integer nelgv_univ
@@ -1057,7 +1057,7 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       ntotgl = nxyz2*nelgv
       ntotg = nxyz2*nelgv_univ
 
-      rlam  = glsc2_univ(respr,bmg,ntot)/ntotg
+      rlam  = glsc2_univ(respr,wgt,ntot)/ntotg
       call cadd (respr,-rlam,ntot)
 
       return
