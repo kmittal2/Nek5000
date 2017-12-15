@@ -1992,6 +1992,11 @@ c     (Tombo splitting scheme).
       call invers2  (h1,vtrans,n)
       call rzero    (h2,       n)
 
+      call rzero(vxc,n)
+      call rzero(vyc,n)
+      call rzero(vzc,n)
+      call rzero(prc,n)
+
       ngeomp = 3
       ngeomv = 2
 c     Compute pressure 
