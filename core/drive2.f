@@ -1982,6 +1982,8 @@ c     (Tombo splitting scheme).
       REAL           dvxc   (LX2,LY2,LZ2,LELV)
       REAL           vycp   (LX2,LY2,LZ2,LELV)
       REAL           dvyc   (LX2,LY2,LZ2,LELV)
+      REAL           vzcp   (LX2,LY2,LZ2,LELV)
+      REAL           dvzc   (LX2,LY2,LZ2,LELV)
 
       common /cvflow_nn/ vxcbc,vycbc,vzcbc,prcbc
       real resbc(lx1*ly1*lz1*lelv,ldim+1)
@@ -1994,7 +1996,8 @@ c     (Tombo splitting scheme).
       ngeomv = 2
 c     Compute pressure 
 c      call modpresint('v  ','o  ')
-      if (istep.lt.10) ngeomp = 10
+      if (istep.lt.10) ngeomp = 200
+      if (istep.lt.10) ngeomv = 5
       do ictr=1,ngeomp
        if (icvflow.eq.1) call cdtp(respr,h1,rxm2,sxm2,txm2,1)
        if (icvflow.eq.2) call cdtp(respr,h1,rym2,sym2,tym2,1)
@@ -2040,6 +2043,7 @@ C     Compute velocity
 
        call copy(vxcp,vxc,lx1*ly1*lz1*nelv)
        call copy(vycp,vyc,lx1*ly1*lz1*nelv)
+       call copy(vzcp,vzc,lx1*ly1*lz1*nelv)
        do icd=0,1
         call neknek_xfer_fld(vxc,1)
         call neknek_xfer_fld(vyc,2)
@@ -2066,12 +2070,14 @@ C     Compute velocity
 
        call sub3(dvxc,vxcp,vxc,n)
        call sub3(dvyc,vycp,vyc,n)
+       call sub3(dvzc,vzcp,vzc,n)
        dvxmax = uglamax(dvxc,n)
        dvymax = uglamax(dvyc,n)
+       dvzmax = uglamax(dvzc,n)
       enddo
          if (nid.eq.0)
-     $      write(6,'(i2,i8,i4,1p3e13.4,a11)') idsess,istep,i,time,
-     $      dvxmax,dvymax,' max-ddd-vxy'
+     $      write(6,'(i2,i8,i4,1p4e13.4,a11)') idsess,istep,i,time,
+     $      dvxmax,dvymax,dvzmax,' max-ddd-vxy'
 
       if (ifexplvis) call redo_split_vis ! restore vdiff
 
