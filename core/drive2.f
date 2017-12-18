@@ -1997,11 +1997,11 @@ c     (Tombo splitting scheme).
       call rzero(vzc,n)
       call rzero(prc,n)
 
-      ngeomp = 3
-      ngeomv = 2
+      ngeomp = 5
+      ngeomv = 5
 c     Compute pressure 
 c      call modpresint('v  ','o  ')
-      if (istep.lt.10) ngeomp = 200
+      if (istep.lt.10) ngeomp = 20
       if (istep.lt.10) ngeomv = 5
       do ictr=1,ngeomp
        if (icvflow.eq.1) call cdtp(respr,h1,rxm2,sxm2,txm2,1)
