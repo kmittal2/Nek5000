@@ -34,6 +34,10 @@ C
       LOGICAL        IFSTSP
       REAL           prcp   (LX2,LY2,LZ2,LELV)
       REAL           dprc   (LX2,LY2,LZ2,LELV)
+      common /preschwari/ isctyp
+      common /preschwarr/ dprmax
+      integer isctyp !schwarz iteration type
+      real dprmax !max pressure difference between pressure
 
       REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
       REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
@@ -72,64 +76,15 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-c        compute pressure
-c         param(95) = 0
-c         if (istep.gt.5) call outpost(vx,vy,vz,pr,t,'   ')
          ngeomp = 5
-         call modpresint('v  ','o  ')
-         do i=1,ngeomp
-           call neknek_xfer_fld(pr,ldim+1)
-           call neknek_bcopy(ldim+1)
-           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+         isctyp = 2
+         if (istep.lt.20) isctyp = 1 !alternating
+         if (isctyp.eq.1) then
+           call doaltschwarz(ngeomp)
+         else
+           call multschwarz(ngeomp)
+         endif
 
-ccc      Solve for session 1
-           if (idsess.eq.0) then
-           call crespsp  (respr)
-           call invers2  (h1,vtrans,ntot1)
-           call rzero    (h2,ntot1)
-           call ctolspl  (tolspl,respr)
-           napproxp(1) = laxtp
-           call hsolve   ('PRES',dpr,respr,h1,h2 
-     $                        ,pmask,vmult
-     $                        ,imesh,tolspl,nmxh,1
-     $                        ,approxp,napproxp,binvm1)
-           call add2    (pr,dpr,ntot1)
-           endif
-c           call ortho_univ2   (pr)
-           call neknekgsync()
-c           goto 102
-ccc      Exchange data
-           call neknek_xfer_fld(pr,ldim+1)
-           call neknek_bcopy(ldim+1)
-ccc      Solve for session 2
-           if (idsess.eq.1) then
-           call crespsp  (respr)
-           call invers2  (h1,vtrans,ntot1)
-           call rzero    (h2,ntot1)
-           call ctolspl  (tolspl,respr)
-           napproxp(1) = laxtp
-           call hsolve   ('PRES',dpr,respr,h1,h2
-     $                        ,pmask,vmult
-     $                        ,imesh,tolspl,nmxh,1
-     $                        ,approxp,napproxp,binvm1)
-           call add2    (pr,dpr,ntot1)
-           endif
-           call neknekgsync()
-c      See change in pressure from previous iteration
-  102    continue
-           call sub3(dprc,prcp,pr,ntot1)
-           dprmax = uglamax(dprc,ntot1)
-         if (dprmax.lt.1.e-5.and.i.gt.3) goto 101
-         call neknekgsync()
-         enddo
-  101    continue
-         if (nid.eq.0) 
-     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
-     $      dprmax,' max-dp-nn'
-         call ortho_univ2   (pr)
-c         call ortho_univ (pr)
-         call modpresint('o  ','v  ')
-c           if (istep.gt.5) call outpost(vx,vy,vz,pr,t,'   ')
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
@@ -668,3 +623,146 @@ c
 
       return
       end
+c-----------------------------------------------------------------------
+      subroutine doaltschwarz(ngeomp)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+
+      ntot1 = lx1*ly1*lz1*nelv
+
+      call modpresint('v  ','o  ')
+      do i=1,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+ccc      Solve for session 1
+           if (idsess.eq.0) then
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+ccc      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+ccc      Solve for session 2
+           if (idsess.eq.1) then
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+         enddo
+         call sub3(dprc,prcp,pr,ntot1)
+         dprmax = uglamax(dprc,ntot1)
+         if (nid.eq.0)
+     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
+     $      dprmax,' max-dp-nn'
+c         call ortho_univ2   (pr)
+         call modpresint('o  ','v  ')
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine multschwarz(ngeomp)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+
+      ntot1 = lx1*ly1*lz1*nelv
+
+      call modpresint('v  ','o  ')
+      do i=1,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           call neknekgsync()
+         enddo
+
+         call sub3(dprc,prcp,pr,ntot1)
+         dprmax = uglamax(dprc,ntot1)
+         if (nid.eq.0)
+     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
+     $      dprmax,' max-dp-nn'
+c         call ortho_univ2   (pr)
+         call modpresint('o  ','v  ')
+
+      return
+      end
+c-----------------------------------------------------------------------
