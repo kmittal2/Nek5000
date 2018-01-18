@@ -698,7 +698,7 @@ ccc      Solve for session 2
          if (nid.eq.0)
      $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
      $      dprmax,' max-dp-nn'
-c         call ortho_univ2   (pr)
+         call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
 
 
@@ -760,7 +760,7 @@ c-----------------------------------------------------------------------
          if (nid.eq.0)
      $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
      $      dprmax,' max-dp-nn'
-c         call ortho_univ2   (pr)
+         call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
 
       return
