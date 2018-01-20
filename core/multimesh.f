@@ -71,9 +71,9 @@ C     and path (PATH_MULT(n-1))
 
       call bcast(nsessions,4)
 
-      if (nsessions.gt.2) 
-     &  call exitti('More than 2 sessions are currently 
-     &  not supported!$',1)
+c      if (nsessions.gt.2) 
+c     &  call exitti('More than 2 sessions are currently 
+c     &  not supported!$',1)
 
       do n=0,nsessions-1
          call bcast(npsess(n),4)
@@ -115,18 +115,19 @@ C     Intercommunications set up only for 2 sessions
          ifneknek   = .true.
          ifneknekm  = .false.
 
-         if (idsess.eq.0) idsess_neighbor=1
-         if (idsess.eq.1) idsess_neighbor=0
+c         if (idsess.eq.0) idsess_neighbor=1
+c         if (idsess.eq.1) idsess_neighbor=0
  
-         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
-     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
+c         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
+c     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
 
-         np_neighbor=npsess(idsess_neighbor)
+c         np_neighbor=npsess(idsess_neighbor)
       
          call iniproc(intracomm)
 
          ifhigh=.true.
-         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+c         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+         iglobalcomm = mpi_comm_world
 
          ninter = 1 ! Initialize NEKNEK interface extrapolation order to 1.
          icall = 0  ! Emergency exit call flag
@@ -205,6 +206,11 @@ C     Boundary conditions are changed back to 'v' or 't'.
 c           if (cb.eq.'inp') cbc(f,e,ifield)='on ' ! Pressure
 c            if (cb.eq.'inp') cbc(f,e,ifield)='o  ' ! Pressure
             if (cb.eq.'inp') cbc(f,e,j)='o  ' ! Pressure
+         endif
+         if (cb2.eq.'mn') then
+            intflag(f,e)=1
+            if (j.eq.2) cbc(f,e,j)='I  '
+            if (j.eq.1) cbc(f,e,j)='v  '
          endif
       enddo
       enddo
@@ -565,6 +571,8 @@ c-----------------------------------------------------------------------
       integer icalld
       save    icalld
       data    icalld /0/
+      common /myoutidx/ idxpt(lx1,ly1,lz1,lelt)
+      integer idxpt
 
 cccc
 c     Look for boundary points with Diriclet b.c. (candidates for
@@ -667,7 +675,11 @@ c     Make sure rcode_all is fine
            rst(ldim*(ip-1)+j)   = rst_all(ldim*(i-1)+j)
          enddo
          iList(1,ip) = jsend(i)
+         idxpt(jsend(i),1,1,1) = 0
 
+      else
+
+         idxpt(jsend(i),1,1,1) = 1
       endif  !  rcode_all
 
  200  continue
