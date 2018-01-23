@@ -38,6 +38,7 @@ C
       common /preschwarr/ dprmax
       integer isctyp !schwarz iteration type
       real dprmax !max pressure difference between pressure
+      logical ifvelsc
 
       REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
       REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
@@ -76,9 +77,10 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         ngeomp = 5
-         isctyp = 2
-         if (istep.lt.20) isctyp = 1 !alternating
+         ngeomp = 2 !niter for pressure
+         ngeomv = 2 !niter for velocity
+         isctyp = 1 !always alt schwarz
+         if (istep.lt.20) isctyp = 2 !alternating
          if (isctyp.eq.1) then
            call doaltschwarz(ngeomp)
          else
@@ -88,11 +90,40 @@ C        first, compute pressure
          tpres=tpres+(dnekclock()-etime1)
 
 C        Compute velocity
-         call cresvsp (res1,res2,res3,h1,h2)
-         call ophinv_pr(dv1,dv2,dv3,res1,res2,res3,h1,h2,tolhv,nmxh)
-         call opadd2  (vx,vy,vz,dv1,dv2,dv3)
+c
+c  
+         ifvelsc = .false.
+         if (ifvelsc) then
+         do i=1,ngeomv
+         do idx=0,1
+ccc          Transfer data
+           call neknek_xfer_fld(vx,1)
+           call neknek_xfer_fld(vy,2)
+           if (ldim.eq.3) call neknek_xfer_fld(vz,3)
+ccc          copy to ubc array
+           call neknek_bcopy(1)
+           call neknek_bcopy(2)
+           if (ldim.eq.3) call neknek_bcopy(3)
+ccc         solve in a session
+           if (idsess.eq.idx) then
+            call cresvsp (res1,res2,res3,h1,h2)
+            call ophinv_pr(dv1,dv2,dv3,res1,res2,res3,h1,h2,tolhv,nmxh)
+            call opadd2  (vx,vy,vz,dv1,dv2,dv3)
+ 
+            if (ifexplvis) call redo_split_vis
+           endif
+         enddo
+         enddo
+         else
 
-         if (ifexplvis) call redo_split_vis
+            call cresvsp (res1,res2,res3,h1,h2)
+            call ophinv_pr(dv1,dv2,dv3,res1,res2,res3,h1,h2,tolhv,nmxh)
+            call opadd2  (vx,vy,vz,dv1,dv2,dv3)
+
+            if (ifexplvis) call redo_split_vis
+
+         endif
+           
 
 c Below is just for diagnostics...
 
@@ -692,6 +723,7 @@ ccc      Solve for session 2
            call add2    (pr,dpr,ntot1)
            endif
            call neknekgsync()
+c         if (istep.eq.7) call outpost(vx,vy,vz,pr,t,'   ')
          enddo
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
@@ -700,6 +732,8 @@ ccc      Solve for session 2
      $      dprmax,' max-dp-nn'
          call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
+c         if (istep.eq.8) call exitt
+c         if (istep.eq.10) call exitt
 
 
       return
