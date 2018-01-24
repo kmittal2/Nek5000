@@ -77,14 +77,28 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         ngeomp = 2 !niter for pressure
+         ngeomp = 10  !niter for pressure
          ngeomv = 2 !niter for velocity
+         ifvelsc = .false.
          isctyp = 1 !always alt schwarz
-         if (istep.lt.20) isctyp = 2 !alternating
-         if (isctyp.eq.1) then
+         if (isctyp.eq.1) then !alt
            call doaltschwarz(ngeomp)
-         else
+         elseif (isctyp.eq.2) then !mult
            call multschwarz(ngeomp)
+         else
+          call modpresint('v  ','o  ')
+          call crespsp  (respr)
+          call invers2  (h1,vtrans,ntot1)
+          call rzero    (h2,ntot1)
+          call ctolspl  (tolspl,respr)
+          napproxp(1) = laxtp
+          call hsolve   ('PRES',dpr,respr,h1,h2 
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+          call add2    (pr,dpr,ntot1)
+          call ortho_univ2   (pr)
+          call modpresint('o  ','v  ')
          endif
 
          tpres=tpres+(dnekclock()-etime1)
@@ -92,7 +106,6 @@ C        first, compute pressure
 C        Compute velocity
 c
 c  
-         ifvelsc = .false.
          if (ifvelsc) then
          do i=1,ngeomv
          do idx=0,1
@@ -683,6 +696,15 @@ c-----------------------------------------------------------------------
       REAL           dprc   (LX2,LY2,LZ2,LELV)
 
       integer ngeomp,ntot
+      integer idx1,idx2
+
+      if (mod(istep,2).eq.0) then
+        idx1 = 0
+        idx2 = 1
+      else
+        idx1 = 1
+        idx2 = 0
+      endif
 
       ntot1 = lx1*ly1*lz1*nelv
 
@@ -693,7 +715,7 @@ c-----------------------------------------------------------------------
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
 
 ccc      Solve for session 1
-           if (idsess.eq.0) then
+           if (idsess.eq.idx1) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -710,7 +732,7 @@ ccc      Exchange data
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
 ccc      Solve for session 2
-           if (idsess.eq.1) then
+           if (idsess.eq.idx2) then
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -722,9 +744,10 @@ ccc      Solve for session 2
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
            endif
-           call neknekgsync()
-c         if (istep.eq.7) call outpost(vx,vy,vz,pr,t,'   ')
+           call ortho_univ2   (pr)
+c           call neknekgsync()
          enddo
+         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
          if (nid.eq.0)
@@ -732,7 +755,7 @@ c         if (istep.eq.7) call outpost(vx,vy,vz,pr,t,'   ')
      $      dprmax,' max-dp-nn'
          call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
-c         if (istep.eq.8) call exitt
+         if (istep.eq.8) call exitt
 c         if (istep.eq.10) call exitt
 
 
