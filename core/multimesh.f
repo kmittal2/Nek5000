@@ -814,3 +814,193 @@ c     nfld_neknek - fields to interpolate
       return
       end
 C--------------------------------------------------------------------------
+      subroutine neknek_bcopy(ifld)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n,ifld
+
+      n    = nx1*ny1*nz1*nelt
+c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+      do i=1,n
+         ubc(i,1,1,1,ifld) = valint(i,1,1,1,ifld)
+      enddo
+
+      return
+      end
+C--------------------------------------------------------------------------
+      function glsum_univ(a,n)
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsum_univ = glsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function iglsum_univ(a,n)
+      integer a(1),n
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      iglsum_univ = iglsum(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function glsc3_univ(a,b,c,n)
+      real a(1),b(1),c(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsc3_univ = glsc3(a,b,c,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function glsc2_univ(a,b,n)
+      real a(1),b(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glsc2_univ = glsc2(a,b,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      function glmax_univ(a,n)
+      real a(1)
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      glmax_univ=glmax(a,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine ugop( x, w, op, n)
+      real x(n), w(n)
+      character*3 op
+
+      call happy_check(1)
+      call setintercomm(nekcommtrue,nptrue)    ! nekcomm=iglobalcomml
+      call gop(x,w,op,n)
+      call unsetintercomm(nekcommtrue,nptrue)  ! nekcomm=nekcomm_original
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine neknek_xfer_fld(u,ifld)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+      character*3 which_field(nfld_neknek)
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real field(lx1*ly1*lz1*lelt)
+      real u(1)
+      integer nv,nt
+!!!!  Exchanges field u between the two neknek sessions and saves it 
+!!!!  it in ifld index of valint
+      nv = nx1*ny1*nz1*nelv
+      nt = nx1*ny1*nz1*nelt
+cccc
+c     Interpolate using findpts_eval
+      call copy(field,u,nv)
+      call field_eval(fieldout(1,ifld),1,field)
+      call neknekgsync()
+
+cccc
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        valint(idx,1,1,1,ifld)=fieldout(i,ifld)
+       enddo
+      call neknekgsync()
+
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine neknek_gen_copy(u,ifld,n)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n,ifld
+      real u(1)
+
+c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+      do i=1,n
+         u(i) = valint(i,1,1,1,ifld)
+      enddo
+      call neknekgsync()
+
+      return
+      end
+C---------------------------------------------------------------------
+      subroutine ortho_univ2(respr)
+
+C     Orthogonalize the residual in the pressure solver with respect 
+C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
+      real respr (lx2,ly2,lz2,lelv)
+      integer*8 ntotg,nxyz2
+      integer nelgv_univ
+
+      nxyz2 = nx2*ny2*nz2
+      ntot  = nxyz2*nelv
+      nelgv_univ = iglsum_univ(nelv,1)
+      ntotgl = nxyz2*nelgv
+      ntotg = nxyz2*nelgv_univ
+
+      rlam  = glsc2_univ(respr,wgt,ntot)/ntotg
+      call cadd (respr,-rlam,ntot)
+
+      return
+      end
+c------------------------------------------------------------------------
+      subroutine getmeanprint(tpval1,tpval2,tbval)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real tpval1,tpval2,tbval
+
+         tpval1 = 0.
+         tpval2 = 0.
+         tmval = 0.
+         do ie = 1,nelv
+         do ifac = 1,2*ldim
+           if (intflag(ifac,ie).eq.1) then
+            CALL FACIND (KX1,KX2,KY1,KY2,KZ1,KZ2,lx1,ly1,lz1,ifac)
+            DO IZ=KZ1,KZ2
+            DO IY=KY1,KY2
+            DO IX=KX1,KX2
+             tpval1 = tpval1+valint(ix,iy,iz,ie,ldim+1)*bm1(ix,iy,iz,ie)
+             tpval2 = tpval2+pr(ix,iy,iz,ie)*bm1(ix,iy,iz,ie)
+             tbval = tbval+bm1(ix,iy,iz,ie)
+            enddo
+            enddo
+            enddo
+           endif
+         enddo
+         enddo
+
+         call gop(tpval1,wrk1,'+  ',1)
+         call gop(tpval2,wrk1,'+  ',1)
+         call gop(tbval,wrk1,'+  ',1)
+
+      return
+      end
+c------------------------------------------------------------------------

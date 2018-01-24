@@ -17,6 +17,7 @@ c
       INCLUDE 'TSTEP'
       INCLUDE 'ORTHOP'
       INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
 C
       COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
      $ ,             RES2  (LX1,LY1,LZ1,LELV)
@@ -35,6 +36,7 @@ C
       REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
       REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
 c
+      real wrk1
       INTYPE = -1
       NTOT1  = lx1*ly1*lz1*NELV
 
@@ -80,6 +82,27 @@ C        first, compute pressure
      $                        ,approxp,napproxp,binvm1)
          call add2    (pr,dpr,ntot1)
          call ortho   (pr)
+
+c        Transfer pressure data
+         call neknek_xfer_fld(pr,ldim+1)
+
+c        Check the mean around 'int' boundary
+         call getmeanprint(tpval1,tpval2,tbval)
+         rmpval1 = tpval1/tbval 
+         rmpval2 = tpval2/tbval 
+         if (idsess.eq.0) then 
+           dr1 = rmpval2-rmpval1
+c           call cadd(pr,-dr1,lx1*ly1*lz1*nelt)
+         endif 
+c         call neknek_xfer_fld(pr,ldim+1)
+c         call getmeanprint(tpval1,tpval2,tbval)
+c         rmpval3 = tpval1/tbval 
+c         rmpval4 = tpval2/tbval 
+         if (nid.eq.0) write(6,*) idsess,rmpval1,rmpval2,
+c     $       rmpval3,rmpval4,
+     $       'k10info'
+         call ortho_univ2(pr)
+
 
          tpres=tpres+(dnekclock()-etime1)
 
