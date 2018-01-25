@@ -77,7 +77,7 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         ngeomp = 10  !niter for pressure
+         ngeomp = 5  !niter for pressure
          ngeomv = 2 !niter for velocity
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
@@ -269,10 +269,6 @@ c     add old pressure term because we solve for delta p
       call rzero   (ta2,ntot1)
 
       call bcdirpc (pr)
-c      call outpost(pr,pr,pr,pr,pr,'   ')
-c      call outpost(vx,vy,vz,pr,t,'   ')
-c     if (istep.eq.10) call exitt
-c     call exitti ('exit in cresps$',ifield)
 
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
       call chsign  (respr,ntot1)
@@ -708,7 +704,6 @@ c-----------------------------------------------------------------------
 
       ntot1 = lx1*ly1*lz1*nelv
 
-      call modpresint('v  ','o  ')
       do i=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
@@ -716,6 +711,7 @@ c-----------------------------------------------------------------------
 
 ccc      Solve for session 1
            if (idsess.eq.idx1) then
+      call modpresint('v  ','o  ')
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -726,6 +722,7 @@ ccc      Solve for session 1
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
+         call modpresint('o  ','v  ')
            endif
            call neknekgsync()
 ccc      Exchange data
@@ -733,6 +730,7 @@ ccc      Exchange data
            call neknek_bcopy(ldim+1)
 ccc      Solve for session 2
            if (idsess.eq.idx2) then
+      call modpresint('v  ','o  ')
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -743,6 +741,7 @@ ccc      Solve for session 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
+         call modpresint('o  ','v  ')
            endif
            call ortho_univ2   (pr)
 c           call neknekgsync()
