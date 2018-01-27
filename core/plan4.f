@@ -746,7 +746,7 @@ ccc      Solve for session 2
            call ortho_univ2   (pr)
 c           call neknekgsync()
          enddo
-         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
+c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
          if (nid.eq.0)
@@ -754,7 +754,7 @@ c           call neknekgsync()
      $      dprmax,' max-dp-nn'
          call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
-         if (istep.eq.8) call exitt
+c         if (istep.eq.8) call exitt
 c         if (istep.eq.10) call exitt
 
 
