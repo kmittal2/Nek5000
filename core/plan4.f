@@ -703,15 +703,28 @@ c-----------------------------------------------------------------------
       endif
 
       ntot1 = lx1*ly1*lz1*nelv
+      call modpresint('v  ','o  ')
 
-      do i=1,ngeomp
+ccc     solve with extrapolated bcs first
+c      igeomp = 1
+c      call crespsp  (respr)
+c      call invers2  (h1,vtrans,ntot1)
+c      call rzero    (h2,ntot1)
+c      call ctolspl  (tolspl,respr)
+c      napproxp(1) = laxtp
+c      call hsolve   ('PRES',dpr,respr,h1,h2
+c     $                        ,pmask,vmult
+c     $                        ,imesh,tolspl,nmxh,1
+c     $                        ,approxp,napproxp,binvm1)
+c      call add2    (pr,dpr,ntot1)
+
+      do igeomp=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
 
 ccc      Solve for session 1
            if (idsess.eq.idx1) then
-      call modpresint('v  ','o  ')
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -722,7 +735,6 @@ ccc      Solve for session 1
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-         call modpresint('o  ','v  ')
            endif
            call neknekgsync()
 ccc      Exchange data
@@ -730,7 +742,6 @@ ccc      Exchange data
            call neknek_bcopy(ldim+1)
 ccc      Solve for session 2
            if (idsess.eq.idx2) then
-      call modpresint('v  ','o  ')
            call crespsp  (respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
@@ -741,21 +752,17 @@ ccc      Solve for session 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-         call modpresint('o  ','v  ')
            endif
            call ortho_univ2   (pr)
-c           call neknekgsync()
          enddo
-c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
+         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
          if (nid.eq.0)
-     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,i,time,
+     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,igeomp,time,
      $      dprmax,' max-dp-nn'
-         call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
-c         if (istep.eq.8) call exitt
-c         if (istep.eq.10) call exitt
+         if (istep.eq.10) call exitt
 
 
       return
