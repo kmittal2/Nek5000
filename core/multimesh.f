@@ -639,6 +639,8 @@ c     Make sure rcode_all is fine
          enddo
          iList(1,ip) = jsend(i)
 
+      else
+        write(6,*) 'Warning: Points not found-multimesh'
       endif  !  rcode_all
 
  200  continue
