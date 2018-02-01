@@ -755,14 +755,14 @@ ccc      Solve for session 2
            endif
            call ortho_univ2   (pr)
          enddo
-         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
+c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
          if (nid.eq.0)
      $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,igeomp,time,
      $      dprmax,' max-dp-nn'
          call modpresint('o  ','v  ')
-         if (istep.eq.10) call exitt
+c         if (istep.eq.10) call exitt
 
 
       return
