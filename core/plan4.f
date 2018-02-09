@@ -77,7 +77,7 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         ngeomp = 5  !niter for pressure
+         ngeomp = 10  !niter for pressure
          ngeomv = 2 !niter for velocity
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
@@ -698,8 +698,8 @@ c-----------------------------------------------------------------------
         idx1 = 0
         idx2 = 1
       else
-        idx1 = 1
-        idx2 = 0
+        idx1 = 0
+        idx2 = 1
       endif
 
       ntot1 = lx1*ly1*lz1*nelv
