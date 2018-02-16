@@ -77,14 +77,14 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
-         ngeomp = 10  !niter for pressure
+         ngeomp = 5  !niter for pressure
          ngeomv = 2 !niter for velocity
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
          if (isctyp.eq.1) then !alt
-           call doaltschwarz(ngeomp)
+           call doaltschwarz(ngeomp,igeom)
          elseif (isctyp.eq.2) then !mult
-           call multschwarz(ngeomp)
+           call multschwarz(ngeomp,igeom)
          else
           call modpresint('v  ','o  ')
           call crespsp  (respr)
@@ -664,7 +664,7 @@ c
       return
       end
 c-----------------------------------------------------------------------
-      subroutine doaltschwarz(ngeomp)
+      subroutine doaltschwarz(ngeomp,igeom)
       INCLUDE 'SIZE'
       INCLUDE 'INPUT'
       INCLUDE 'GEOM'
@@ -706,19 +706,25 @@ c-----------------------------------------------------------------------
       call modpresint('v  ','o  ')
 
 ccc     solve with extrapolated bcs first
-c      igeomp = 1
-c      call crespsp  (respr)
-c      call invers2  (h1,vtrans,ntot1)
-c      call rzero    (h2,ntot1)
-c      call ctolspl  (tolspl,respr)
-c      napproxp(1) = laxtp
-c      call hsolve   ('PRES',dpr,respr,h1,h2
-c     $                        ,pmask,vmult
-c     $                        ,imesh,tolspl,nmxh,1
-c     $                        ,approxp,napproxp,binvm1)
-c      call add2    (pr,dpr,ntot1)
+ccc    only at igeom = 2
+      igeomps = 1
+      if (igeom.eq.-1) then
+      igeomp = 1
+      call crespsp  (respr)
+      call invers2  (h1,vtrans,ntot1)
+      call rzero    (h2,ntot1)
+      call ctolspl  (tolspl,respr)
+      napproxp(1) = laxtp
+      call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+      call add2    (pr,dpr,ntot1)
+      igeomps = 2
+      endif
 
-      do igeomp=1,ngeomp
+     
+      do igeomp=igeomps,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
@@ -759,7 +765,8 @@ c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
          dprmax = uglamax(dprc,ntot1)
          if (nid.eq.0)
-     $      write(6,'(i2,i8,i4,1p2e13.4,a11)') idsess,istep,igeomp,time,
+     $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
      $      dprmax,' max-dp-nn'
          call modpresint('o  ','v  ')
 c         if (istep.eq.10) call exitt
@@ -768,7 +775,7 @@ c         if (istep.eq.10) call exitt
       return
       end
 c-----------------------------------------------------------------------
-      subroutine multschwarz(ngeomp)
+      subroutine multschwarz(ngeomp,igeom)
       INCLUDE 'SIZE'
       INCLUDE 'INPUT'
       INCLUDE 'GEOM'

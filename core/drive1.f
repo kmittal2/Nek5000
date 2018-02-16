@@ -255,6 +255,9 @@ c-----------------------------------------------------------------------
 
       if (ifsplit) then   ! PN/PN formulation
 
+         if (istep.le.20) ngeom = 50
+         if (istep.gt.20) ngeom = 5
+
          do igeom=1,ngeom
 
          if (igeom.gt.2) call userchk_set_xfer
@@ -278,6 +281,7 @@ c-----------------------------------------------------------------------
          if (ifflow)          call fluid    (igeom)
          if (ifmvbd)          call meshv    (igeom)
          if (igeom.eq.ngeom.and.filterType.eq.1)
+c         if (igeom.gt.1.and.filterType.eq.1)
      $                        call q_filter(param(103))
 
          enddo
