@@ -82,7 +82,8 @@ C        first, compute pressure
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
          if (isctyp.eq.1) then !alt
-           call doaltschwarz(ngeomp,igeom)
+c           call doaltschwarz(ngeomp,igeom)
+           call multschwarz(ngeomp,igeom)
          elseif (isctyp.eq.2) then !mult
            call multschwarz(ngeomp,igeom)
          else
@@ -339,6 +340,7 @@ C     surface terms
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
               CALL CMULT(W1(1,IEL),dtbd,NXYZ1)
             endif
+
             CALL SUB2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
   300    CONTINUE
   100 CONTINUE
@@ -790,7 +792,6 @@ c-----------------------------------------------------------------------
       INCLUDE 'TSTEP'
       INCLUDE 'ORTHOP'
       INCLUDE 'CTIMER'
-      INCLUDE 'GLOBALCOM'
       COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
      $ ,             RES2  (LX1,LY1,LZ1,LELV)
      $ ,             RES3  (LX1,LY1,LZ1,LELV)
@@ -811,6 +812,12 @@ c-----------------------------------------------------------------------
 
       ntot1 = lx1*ly1*lz1*nelv
 
+c    
+      if (igeom.gt.2) then
+        call copy(vx_e,vx,ntot1)
+        call copy(vy_e,vy,ntot1)
+        call copy(vz_e,vz,ntot1)
+      endif
       call modpresint('v  ','o  ')
 ccc     solve with extrapolated bcs first
 ccc    only at igeom = 2
@@ -827,6 +834,7 @@ ccc    only at igeom = 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
       call add2    (pr,dpr,ntot1)
+      call ortho_univ2(pr)
       igeomps = 2
       endif
 
@@ -845,6 +853,7 @@ ccc    only at igeom = 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
+           call ortho_univ2   (pr)
            call neknekgsync()
          enddo
 
@@ -854,7 +863,6 @@ ccc    only at igeom = 2
      $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
      $      igeomp,time,
      $      dprmax,' max-dp-nn'
-         call ortho_univ2   (pr)
          call modpresint('o  ','v  ')
 
       return
