@@ -82,10 +82,11 @@ C        first, compute pressure
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
          if (isctyp.eq.1) then !alt
-c           call doaltschwarz(ngeomp,igeom)
-           call multschwarz(ngeomp,igeom)
+           call doaltschwarz(ngeomp,igeom)
+c           call multschwarz(ngeomp,igeom)
          elseif (isctyp.eq.2) then !mult
-           call multschwarz(ngeomp,igeom)
+           call doaltschwarz(ngeomp,igeom)
+c           call multschwarz(ngeomp,igeom)
          else
           call modpresint('v  ','o  ')
           call crespsp  (respr)
@@ -213,6 +214,12 @@ c
      $                     , vr(lr),vs(lr),vt(lr)
      $                     , wr(lr),ws(lr),wt(lr)
 
+      real temp1(lx1,ly1,lz1,lelv)
+      real temp2(lx1,ly1,lz1,lelv)
+      real temp3(lx1,ly1,lz1,lelv)
+      real temp4(lx1,ly1,lz1,lelv)
+      real temp5(lx1,ly1,lz1,lelv)
+
       CHARACTER CB*3
       
       NXYZ1  = lx1*ly1*lz1
@@ -271,7 +278,11 @@ c     add old pressure term because we solve for delta p
 
       call bcdirpc (pr)
 
+      call copy(temp1,pr,ntot1)
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
+      call copy(temp2,respr,ntot1)
+      call dssum(temp2)
+      call col2(temp2,binvm1,ntot1)
       call chsign  (respr,ntot1)
 
 c     add explicit (NONLINEAR) terms 
@@ -287,6 +298,8 @@ c     add explicit (NONLINEAR) terms
          ta2(i,1) = ta2(i,1)*binvm1(i,1,1,1)
          ta3(i,1) = ta3(i,1)*binvm1(i,1,1,1)
       enddo
+      call copy(temp3,ta1,ntot1)
+      call copy(temp4,ta2,ntot1)
       if (if3d) then
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
          call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
@@ -301,6 +314,12 @@ c     add explicit (NONLINEAR) terms
             respr(i,1) = respr(i,1)+wa1(i)+wa2(i)
          enddo
       endif
+c      write(6,*) istep,iostep,'k10check'
+      ifto = .true.
+      if (mod(istep,iostep).eq.0) 
+     $   call outpost(temp1,temp2,vz,temp3,temp4,'tmp')
+c         call outpost(temp1,temp2,vz,temp3,temp4,'tmp')
+
 
 C     add thermal divergence
       dtbd = BD(1)/DT
@@ -726,6 +745,8 @@ ccc    only at igeom = 2
       call add2    (pr,dpr,ntot1)
       igeomps = 2
       endif
+
+      if (nid.eq.0) write(6,*) 'alt schwarz'
 
      
       do igeomp=igeomps,ngeomp
