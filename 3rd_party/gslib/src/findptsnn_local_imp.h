@@ -354,11 +354,15 @@ void findptsnn_local(
 
         double maxobb = -DBL_MAX;
         for(d=0;d<D;++d) maxobb = ((fd->obb[el]).x[d]).max - ((fd->obb[el]).x[d]).min > maxobb ? ((fd->obb[el]).x[d]).max - ((fd->obb[el]).x[d]).min : maxobb;
-        *dist2 = sqrt(*dist2)/maxobb<1.e-6 ? 0.0 : *dist2;
+//        *dist2 = sqrt(*dist2)/maxobb<1.e-6 ? 0.0 : *dist2;
+          *code = sqrt(*dist2)/maxobb<1.e-8 ? CODE_BORDER : CODE_NOT_EXACT_BORDER;
 // maxobb tells extent of max length of bounding box
-// *dist2 is made 0 if it is less than the tolerance set by user in findpts_setup. This will now be used in findpts_imp to solve conflicts between different sessions on which element from which session will own which point 
+// *dist2 is made 0 if it is less than the tolerance set by user in
+// findpts_setup. This will now be used in findpts_imp to solve conflicts
+// between different sessions on which element from which session will own
+// which point 
 
-            for(d=0;d<D;++d) r[d]=fpt[i].r[d];
+	    for(d=0;d<D;++d) r[d]=fpt[i].r[d];
           }
           ++i;
         }

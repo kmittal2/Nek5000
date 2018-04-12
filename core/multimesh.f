@@ -143,7 +143,7 @@ C     Boundary conditions are changed back to 'v' or 't'.
 
 c     Get distance from int
       call cheap_dist(distfint,1,'int')
-      call outpost(distfint,vy,vz,pr,t,'   ')
+c      call outpost(distfint,vy,vz,pr,t,'   ')
 
 
       if (icalld.eq.0) then

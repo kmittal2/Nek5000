@@ -28,6 +28,7 @@
 #define CODE_INTERNAL 0
 #define CODE_BORDER 1
 #define CODE_NOT_FOUND 2
+#define CODE_NOT_EXACT_BORDER 3
 
 struct ulong_range { ulong min, max; };
 struct proc_index { uint proc, index; };

@@ -38,6 +38,7 @@ static uint hash_index_aux(double low, double fac, uint n, double x)
 #define CODE_INTERNAL 0
 #define CODE_BORDER 1
 #define CODE_NOT_FOUND 2
+#define CODE_NOT_EXACT_BORDER 3
 
 #define D 2
 #define WHEN_3D(a)

@@ -382,10 +382,13 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
       if (*code==CODE_INTERNAL && *elsid==opt->elsid) continue;
       if (*code==CODE_NOT_FOUND || 
          (*elsid == opt->elsid && (opt->code==CODE_INTERNAL || opt->dist2<=*dist2)) || 
-         (*elsid != opt->elsid && opt->dist2<=*dist2 && *dist2 > 0.       ) ||
-         (*elsid != opt->elsid && opt->dist2<=*dist2 && opt->disti<=*disti)
-              ) {
-
+         (*elsid != opt->elsid && *code==CODE_NOT_EXACT_BORDER && opt->dist2<=*dist2) ||
+//         (*elsid != opt->elsid && opt->dist2<=*dist2 && opt->disti>=*disti) ||
+         (*elsid != opt->elsid && (*code==CODE_BORDER || *code==CODE_INTERNAL) && 
+                (opt->code==CODE_BORDER || opt->code==CODE_INTERNAL) && opt->disti>=*disti) 
+              ) 
+ 
+        {
         double *r = AT(double,r,index);
         uint  *el = AT(uint,el,index), *proc = AT(uint,proc,index);
         unsigned d; for(d=0;d<D;++d) r[d]=opt->r[d];
