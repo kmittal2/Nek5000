@@ -137,24 +137,27 @@ C-----------------------------------------------------------------------
       data    icalld  /0/
 c   Do some sanity checks - just once at setup
       call neknekgsync()
-      call nekneksanchk(1)
+      if (icalld.eq.0) call nekneksanchk(1)
 C     Set interpolation flag: points with bc = 'int' get intflag=1. 
 C     Boundary conditions are changed back to 'v' or 't'.
 
 c     Get distance from int
-      call cheap_dist(distfint,1,'int')
+      if (icalld.eq.0) call cheap_dist(distfint,1,'int')
+      if (icalld.eq.0) call dsavg(distfint)
 c      call outpost(distfint,vy,vz,pr,t,'   ')
 
 
       if (icalld.eq.0) then
          call set_intflag
          call neknekmv()
-         icalld = icalld + 1
       endif 
       call neknekgsync()
 
 c   Figure out the displacement for the first mesh 
-      call setup_int_neknek  !sets up interpolation for 2 meshes
+      if (icalld.eq.0) then
+        call setup_int_neknek  !sets up interpolation for 2 meshes
+        icalld = icalld + 1
+      endif
 
 c    exchange_points2 finds the processor and element number at
 c    comm_world level and displaces the 1st mesh back
@@ -607,7 +610,7 @@ c     points in jsend
 c     also make a vector of idsess of the points that are being found
       do i=1,nbp
        rsid_nn(i) = idsess
-       disti_all(i) = 21312412412.  !initialize to large number and check in c
+       disti_all(i) = -1.e+10
       enddo
       call neknekgsync()
 
@@ -663,13 +666,13 @@ c     Make sure rcode_all is fine
 
       if (rcode_all(i).lt.2) then
 
-        if (rcode_all(i).eq.1.and.dist_all(i).gt.1e-02) then
-           if (ndim.eq.2) write(6,*)
-     &     'WARNING: point on boundary or outside the mesh xy[z]d^2: '
-           if (ndim.eq.3) write(6,*)
-     &     'WARNING: point on boundary or outside the mesh xy[z]d^2: '
-           goto 200
-         endif
+c        if (rcode_all(i).eq.1.and.dist_all(i).gt.1e-02) then
+c           if (ndim.eq.2) write(6,*)
+c     &     'WARNING: point on boundary or outside the mesh xy[z]d^2: '
+c           if (ndim.eq.3) write(6,*)
+c     &     'WARNING: point on boundary or outside the mesh xy[z]d^2: '
+c           goto 200
+c         endif
          ip=ip+1
          rcode(ip) = rcode_all(i)
          elid(ip)  = elid_all(i)
@@ -829,6 +832,28 @@ c     Some sanity checks for neknek
 c     idsess - session number
 c     nfld_neknek - fields to interpolate
       if (nid.eq.0) write(6,*) ngeom,ninter,'Neknek log ngeom ninter' 
+      return
+      end
+C--------------------------------------------------------------------------
+      subroutine modpresint(curbc,newbc)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      character*3 curbc,newbc
+c Modify 'int' boundary conditions to 'o' temporarily
+c curbc is current bc and newbc is the newbc
+       
+      nsurf = 0
+      do ie=1,nelv
+      do ief=1,2*ndim
+        if (cbc(ief,ie,1).eq.curbc.and.intflag(ief,ie).eq.1) then
+          nsurf = nsurf+1
+          cbc(ief,ie,1) = newbc
+        endif
+      enddo
+      enddo
+c      write(6,*) istep,idsess,nsurf,curbc,newbc,'k10nsurf'
+
       return
       end
 C--------------------------------------------------------------------------
