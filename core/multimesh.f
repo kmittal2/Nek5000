@@ -142,10 +142,11 @@ C     Set interpolation flag: points with bc = 'int' get intflag=1.
 C     Boundary conditions are changed back to 'v' or 't'.
 
 c     Get distance from int
-      if (icalld.eq.0) call cheap_dist(distfint,1,'int')
-      if (icalld.eq.0) call dsavg(distfint)
+      if (icalld.eq.0) then
+          call cheap_dist(distfint,1,'int')
+          call dsavg(distfint)
+      endif
 c      call outpost(distfint,vy,vz,pr,t,'   ')
-
 
       if (icalld.eq.0) then
          call set_intflag
@@ -347,7 +348,8 @@ c-----------------------------------------------------------------------
       include 'GLOBALCOM'
 
       call happy_check(1)
-      call mpi_barrier(intercomm,ierr)
+c      call mpi_barrier(intercomm,ierr)
+      call mpi_barrier(iglobalcomm,ierr)
       return
       end
 c------------------------------------------------------------------------
@@ -832,28 +834,6 @@ c     Some sanity checks for neknek
 c     idsess - session number
 c     nfld_neknek - fields to interpolate
       if (nid.eq.0) write(6,*) ngeom,ninter,'Neknek log ngeom ninter' 
-      return
-      end
-C--------------------------------------------------------------------------
-      subroutine modpresint(curbc,newbc)
-      include 'SIZE'
-      include 'TOTAL'
-      include 'NEKNEK'
-      character*3 curbc,newbc
-c Modify 'int' boundary conditions to 'o' temporarily
-c curbc is current bc and newbc is the newbc
-       
-      nsurf = 0
-      do ie=1,nelv
-      do ief=1,2*ndim
-        if (cbc(ief,ie,1).eq.curbc.and.intflag(ief,ie).eq.1) then
-          nsurf = nsurf+1
-          cbc(ief,ie,1) = newbc
-        endif
-      enddo
-      enddo
-c      write(6,*) istep,idsess,nsurf,curbc,newbc,'k10nsurf'
-
       return
       end
 C--------------------------------------------------------------------------

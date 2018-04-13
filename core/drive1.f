@@ -308,11 +308,15 @@ c-----------------------------------------------------------------------
             else  ! std. nek case
                if (ifheat)             call heat          (igeom)
                if (ifflow)             call fluid         (igeom)
-               if (ifmvbd)             call meshv         (igeom)
+              if (igeom.eq.2) then
+                   if (ifmvbd)             call meshv         (igeom)
+              endif
+            call neknekgsync()
             endif
 
             if (igeom.eq.ngeom.and.param(103).gt.0) 
      $          call q_filter(param(103))
+            call neknekgsync()
          enddo
       endif
 
