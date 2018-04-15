@@ -146,7 +146,7 @@ c     Get distance from int
           call cheap_dist(distfint,1,'int')
           call dsavg(distfint)
       endif
-c      call outpost(distfint,vy,vz,pr,t,'   ')
+      call outpost(distfint,vy,vz,pr,t,'   ')
 
       if (icalld.eq.0) then
          call set_intflag
@@ -475,58 +475,60 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'NEKUSE'
       include 'NEKNEK'
-      include 'mpif.h'
+      integer icalld
+      save    icalld
+      data    icalld /0/
+c      include 'mpif.h'
+      common /intp_h_nn/ ih_intp_nn
 
       integer i,j,k,n,ntot2,npall
-      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
+      common /snintp/   tol
 
      
 c     THIS ROUTINE DISPLACES THE FIRST MESH AND SETUPS THE FINDPTS
 c     THE MESH IS DISPLACED BACK TO ORIGINAL POSITION IN EXCH_POINTS2
 
 ccccc
-c     Get total number of processors and number of p
-      npall = 0
-      call neknekgsync()
-      do i=1,nsessions
-       npall = npall+npsess(i-1)
-      enddo
-ccccc
       ntot = lx1*ly1*lz1*nelt
 
       call neknekgsync()
-      write(6,*) nelt,idsess,'k10 idsess'
       do i=1,nelt
-        sid_nn(i) = idsess
+        ids_nn(i) = idsess
       enddo
 ccccc
 c     Setup findpts    
-      tol     = 1e-08
+      tol     = 1e-11
       npt_max = 256
       nxf     = 2*nx1 ! fine mesh for bb-test
       nyf     = 2*ny1
       nzf     = 2*nz1
       bb_t    = 0.1 ! relative size to expand bounding boxes by
 
+      if (icalld.eq.0) then
       if (idsess.eq.0) then
       if (nid.eq.0) then
          write(6,*) "About to setup findpts in multimesh"
       endif
       endif
-c      call findpts_setup(inth_multi2,mpi_comm_world,npall,ndim,
-c     &                   xm1,ym1,zm1,nx1,ny1,nz1,
-c     &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-c     &                   npt_max,tol)
+      endif
 
+c      write(6,*) icalld,np_global,'k10c'
+      if (icalld.eq.0) then
+         icalld = 1
+      else
+         call findptsnn_free(ih_intp_nn)
+      endif
   
-      call findptsnn_setup(inth_multi2,mpi_comm_world,npall,ndim,
+      call findptsnn_setup(ih_intp_nn,iglobalcomm,np_global,ndim,
      &                   xm1,ym1,zm1,nx1,ny1,nz1,
      &                   nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                   npt_max,tol,sid_nn,distfint)
+     &                   npt_max,tol,ids_nn,distfint)
 
+      if (icalld.eq.0) then
       if (idsess.eq.0) then
       if (nid.eq.0) then
          write(6,*) "Findpts setup complete"
+      endif
       endif
       endif
 
@@ -541,7 +543,7 @@ c-----------------------------------------------------------------------
       integer i,j,k,n
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
       integer jsend(nmaxl_nn)
-      common /exchr/ rsend(ldim*nmaxl_nn)
+      real    rsend(ldim*nmaxl_nn)
       integer rcode_all(nmaxl_nn),elid_all(nmaxl_nn)
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
@@ -553,6 +555,8 @@ c-----------------------------------------------------------------------
       data    icalld /0/
       integer rsid_nn(nmaxl_nn),elsid_nn(nmaxl_nn)
       real    disti_all(nmaxl_nn)
+      common /snintp/   tol
+      common /intp_h_nn/ ih_intp_nn
 
 cccc
 c     Look for boundary points with Diriclet b.c. (candidates for
@@ -580,17 +584,17 @@ c     points in jsend
             do iz=kz1,kz2
             do iy=ky1,ky2
             do ix=kx1,kx2
-               call nekasgn (ix,iy,iz,e)
+c               call nekasgn (ix,iy,iz,e)
                ip=ip+1
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
                if (if3d) then
-                 rsend(ldim*(ip-1)+1)=x
-                 rsend(ldim*(ip-1)+2)=y
-                 rsend(ldim*(ip-1)+3)=z
+                 rsend(ldim*(ip-1)+1)=xm1(ix,iy,iz,e)
+                 rsend(ldim*(ip-1)+2)=ym1(ix,iy,iz,e)
+                 rsend(ldim*(ip-1)+3)=zm1(ix,iy,iz,e)
                else
-                 rsend(ldim*(ip-1)+1)=x
-                 rsend(ldim*(ip-1)+2)=y
+                 rsend(ldim*(ip-1)+1)=xm1(ix,iy,iz,e)
+                 rsend(ldim*(ip-1)+2)=ym1(ix,iy,iz,e)
                endif
 
                if (ip.gt.nmaxl_nn) then
@@ -612,7 +616,9 @@ c     points in jsend
 c     also make a vector of idsess of the points that are being found
       do i=1,nbp
        rsid_nn(i) = idsess
+       elsid_nn(i) = 0
        disti_all(i) = -1.e+10
+       dist_all(i) = 100.
       enddo
       call neknekgsync()
 
@@ -625,14 +631,14 @@ cccc
 c     JL's routine to find which points these procs are on
 
       call neknekgsync()
-      call findptsnn(inth_multi2,rcode_all,1,
+      call findptsnn(ih_intp_nn,rcode_all,1,
      &             proc_all,1,
      &             elid_all,1,
      &             rst_all,ndim,
      &             dist_all,1,
      &             rsend(1),ndim,
      &             rsend(2),ndim,
-     &             rsend(3),ndim,
+     &             rsend(ldim),ndim,
      &             rsid_nn,1,
      $             disti_all,1
      $             ,elsid_nn,1
@@ -666,7 +672,7 @@ cccc
 c     Make sure rcode_all is fine
       do 200 i=1,nbp
 
-      if (rcode_all(i).lt.2) then
+      if (rcode_all(i).lt.3) then
 
 c        if (rcode_all(i).eq.1.and.dist_all(i).gt.1e-02) then
 c           if (ndim.eq.2) write(6,*)
@@ -683,6 +689,12 @@ c         endif
            rst(ndim*(ip-1)+j)   = rst_all(ndim*(i-1)+j)
          enddo
          iList(1,ip) = jsend(i)
+
+      else
+c        write(6,*) i,elsid_nn(i),idsess,rcode_all(i),disti_all(i),
+c     $      dist_all(i),rst_all(ndim*(i-1)+1),rst_all(ndim*(i-1)+2),
+c     $  'pnf'
+       ierror = 1
 
       endif  !  rcode_all
 
@@ -753,12 +765,13 @@ C--------------------------------------------------------------------------
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
+      common /intp_h_nn/ ih_intp_nn
       real fieldout(1)
       real fieldin(1)
       integer fieldstride
 cccc
 c     Used for findpts_eval of various fields
-      call findptsnn_eval(inth_multi2,fieldout,fieldstride,
+      call findptsnn_eval(ih_intp_nn,fieldout,fieldstride,
 c      call findpts_eval(inth_multi2,fieldout,fieldstride,
      &                     rcode,1,
      &                     proc,1,

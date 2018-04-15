@@ -291,8 +291,10 @@ c-----------------------------------------------------------------------
             if (igeom.gt.2) call userchk_set_xfer
 
             if (ifgeom) then
+            if (igeom.eq.2) then 
                call gengeom (igeom)
                call geneig  (igeom)
+            endif
             endif
 
             if (ifneknekm.and.igeom.eq.2) call multimesh_create
@@ -308,9 +310,10 @@ c-----------------------------------------------------------------------
             else  ! std. nek case
                if (ifheat)             call heat          (igeom)
                if (ifflow)             call fluid         (igeom)
-              if (igeom.eq.2) then
-                   if (ifmvbd)             call meshv         (igeom)
-              endif
+               call neknekgsync()
+               if (igeom.eq.2) then
+                  if (ifmvbd)             call meshv         (igeom)
+               endif
             call neknekgsync()
             endif
 
