@@ -1,4 +1,3 @@
-mv SESSION.NAME  SESSION.NAME.1 2>/dev/null
 echo   2      >>   SESSION.NAME 2>/dev/null                        
 echo  $1      >>   SESSION.NAME 2>/dev/null
 echo `pwd`'/' >>   SESSION.NAME 2>/dev/null 
