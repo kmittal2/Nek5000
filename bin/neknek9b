@@ -1,0 +1,54 @@
+echo   9      >>   SESSION.NAME                        
+echo  $1      >>   SESSION.NAME                     
+echo `pwd`'/' >>   SESSION.NAME                         
+echo  $10      >>   SESSION.NAME                      
+echo  $2      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $11      >>   SESSION.NAME                       
+echo  $3      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $12      >>   SESSION.NAME                       
+echo  $3      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $13      >>   SESSION.NAME                       
+echo  $4      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $14      >>   SESSION.NAME                       
+echo  $5      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $15      >>   SESSION.NAME                       
+echo  $6      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $16      >>   SESSION.NAME                       
+echo  $7      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $17      >>   SESSION.NAME                       
+echo  $8      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+echo  $18      >>   SESSION.NAME                       
+echo  $9      >>   SESSION.NAME                      
+echo `pwd`'/' >>   SESSION.NAME                        
+rm ioinfo
+mv $1.log $1.log1 2>/dev/null
+mv $1.his $1.his1 2>/dev/null
+mv $1.sch $1.sch1 2>/dev/null
+mv $2.log $2.log1 2>/dev/null
+mv $2.his $2.his1 2>/dev/null
+mv $3.log $3.log1 2>/dev/null
+mv $3.his $3.his1 2>/dev/null
+NP1=$10
+NP2=$11
+NP3=$12
+NP4=$13
+NP5=$14
+NP6=$15
+NP7=$16
+NP8=$17
+NP9=$18
+NP=$(($NP1+$NP2+$NP3+$NP4+$NP5+$NP6+$NP7+$NP8+$NP9))
+nohup mpiexec -np $NP ./nek5000 > $1.log &
+##nohup mpiexec -l -np $NP nek5000 > $1.log &
+sleep 1
+rm logfile
+ln $1.log logfile
+rm -f SESSION.NAME

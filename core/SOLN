@@ -36,6 +36,7 @@ c     Solution data
      $    ,vx_e   (lx1*ly1*lz1*lelv)
      $    ,vy_e   (lx1,ly1,lz1,lelv)
      $    ,vz_e   (lx1,ly1,lz1,lelv)
+     $    ,pr_e   (lx1,ly1,lz1,lelv)
      $    ,t      (lx1,ly1,lz1,lelt,ldimt)
      $    ,vtrans (lx1,ly1,lz1,lelt,ldimt1)
      $    ,vdiff  (lx1,ly1,lz1,lelt,ldimt1)

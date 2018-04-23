@@ -35,6 +35,9 @@ C
       REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
       REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
 c
+      common /nndpdn/ dpdxa
+      real dpdx(lx1,ly1,lz1,lelv),dpdy(lx1,ly1,lz1,lelv),
+     $     dpdz(lx1,ly1,lz1,lelv),dpdxa(lx1,ly1,lz1,lelv,ldim)
       INTYPE = -1
       NTOT1  = lx1*ly1*lz1*NELV
 
@@ -69,6 +72,22 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
+         if (ifneknek) then 
+c          calculate -grad(p)
+           call gradm1(dpdx,dpdy,dpdz,pr)
+           call opchsgn(dpdx,dpdy,dpdz)   
+
+c          exchange data between nek-nek sessions
+           call neknek_xfer_fld(dpdx,1)
+           call neknek_xfer_fld(dpdy,2)
+           if (ldim.eq.3) call neknek_xfer_fld(dpdz,3)
+ 
+c          store exchanged values in arrays of choice
+c          so that they can be used in crespsp
+           call neknek_gen_copy(dpdxa(1,1,1,1,1),1,ntot1)
+           call neknek_gen_copy(dpdxa(1,1,1,1,2),2,ntot1)
+           if (ldim.eq.3) call neknek_gen_copy(dpdxa(1,1,1,1,3),3,ntot1)
+         endif
          call crespsp  (respr)
          call invers2  (h1,vtrans,ntot1)
          call rzero    (h2,ntot1)
@@ -121,6 +140,14 @@ c
      $                     , wr(lr),ws(lr),wt(lr)
 
       CHARACTER CB*3
+      common /nndpdn/ dpdxa
+      real dpdx(lx1,ly1,lz1,lelv),dpdy(lx1,ly1,lz1,lelv),
+     $     dpdz(lx1,ly1,lz1,lelv),dpdxa(lx1,ly1,lz1,lelv,ldim)
+      integer intflag(2*ldim,lelt)
+      common /intflag/ intflag
+      real Wd1    (LX1*LY1*LZ1,LELV)
+     $ ,             Wd2    (LX1*LY1*LZ1,LELV)
+     $ ,             Wd3    (LX1*LY1*LZ1,LELV)
       
       NXYZ1  = lx1*ly1*lz1
       NTOT1  = NXYZ1*NELV
@@ -223,8 +250,28 @@ C     surface terms
             IF (ldim.EQ.3)
      $      CALL RZERO  (W3(1,IEL),NXYZ1)
             CB = CBC(IFC,IEL,IFIELD)
-            IF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
+ccc new stuff
+            IF (INTFLAG(IFC,IEL).eq.1) then
+               CALL FACCL3
+     $         (W1(1,IEL),dpdxa(1,1,1,IEL,1),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),dpdxa(1,1,1,IEL,2),UNY(1,1,IFC,IEL),IFC)
+               IF (ldim.EQ.3)
+     $          CALL FACCL3
+     $         (W3(1,IEL),dpdxa(1,1,1,IEL,3),UNZ(1,1,IFC,IEL),IFC)
+
+ccc      also add n.f terms
+               CALL FACCL3
+     $         (Wd1(1,IEL),TA1(1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (Wd2(1,IEL),TA2(1,IEL),UNY(1,1,IFC,IEL),IFC)
+               IF (ldim.EQ.3)
+     $          CALL FACCL3
+     $         (Wd3(1,IEL),TA3(1,IEL),UNZ(1,1,IFC,IEL),IFC)
+ccc new stuff
+            ELSEIF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
+              write(6,*) 'what this'
                CALL FACCL3
      $         (W1(1,IEL),VX(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
                CALL FACCL3
@@ -245,9 +292,17 @@ C     surface terms
             IF (ldim.EQ.3)
      $      CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
             CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
-            IF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
+ccc new stuff - add n.f terms at surface
+            IF (INTFLAG(IFC,IEL).eq.1) then
+             CALL ADD2   (Wd1(1,IEL),Wd2(1,IEL),NXYZ1)
+             IF (ldim.EQ.3)
+     $       CALL ADD2   (Wd1(1,IEL),Wd3(1,IEL),NXYZ1)
+             call FACCL2 (wd1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+             call ADD2   (W1(1,IEL),Wd1(1,IEL),NXYZ1)
+ccc new stuff
+            ELSEIF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
-              CALL CMULT(W1(1,IEL),dtbd,NXYZ1)
+                CALL CMULT(W1(1,IEL),dtbd,NXYZ1)
             endif
             CALL SUB2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
   300    CONTINUE
@@ -629,3 +684,27 @@ c
 
       return
       end
+C-----------------------------------------------------------------------
+      subroutine lagpres2
+C-----------------------------------------------------------------------
+C
+C     Keep old velocity field(s) 
+C
+C-----------------------------------------------------------------------
+      include 'SIZE'
+      include 'INPUT'
+      include 'SOLN'
+      include 'TSTEP'
+C
+      NTOT1 = lx1*ly1*lz1*NELV
+C
+c      DO 100 ILAG=NBDINP-1,2,-1
+      DO 100 ILAG=3-1,2,-1
+         CALL COPY (prLAG (1,1,1,1,ILAG),prLAG (1,1,1,1,ILAG-1),NTOT1)
+ 100  CONTINUE
+C
+      call copy(prlag,pr,ntot1)
+C
+      return
+      END
+C-----------------------------------------------------------------------
