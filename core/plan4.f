@@ -249,6 +249,10 @@ C     surface terms
             CALL RZERO  (W2(1,IEL),NXYZ1)
             IF (ldim.EQ.3)
      $      CALL RZERO  (W3(1,IEL),NXYZ1)
+            CALL RZERO  (Wd1(1,IEL),NXYZ1)
+            CALL RZERO  (Wd2(1,IEL),NXYZ1)
+            IF (ldim.EQ.3)
+     $      CALL RZERO  (Wd3(1,IEL),NXYZ1)
             CB = CBC(IFC,IEL,IFIELD)
 ccc new stuff
             IF (INTFLAG(IFC,IEL).eq.1) then
@@ -271,7 +275,6 @@ ccc      also add n.f terms
 ccc new stuff
             ELSEIF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
-              write(6,*) 'what this'
                CALL FACCL3
      $         (W1(1,IEL),VX(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
                CALL FACCL3
