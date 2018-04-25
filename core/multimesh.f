@@ -900,7 +900,6 @@ cccc
 c     Interpolate using findpts_eval
       call copy(field,u,nv)
       call field_eval(fieldout(1,ifld),1,field)
-      call neknekgsync()
 
 cccc
 c     Now we can transfer this information to valint array from which
@@ -925,7 +924,6 @@ c      call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
       do i=1,n
          u(i) = valint(i,1,1,1,ifld)
       enddo
-      call neknekgsync()
 
       return
       end
@@ -956,3 +954,29 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       return
       end
 c------------------------------------------------------------------------
+      subroutine neknek_xfer_fld_spec(u,uo)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      character*3 which_field(nfld_neknek)
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real u(1),uo(1)
+!!!!  Exchanges field u between the two neknek sessions and saves it 
+!!!!  it in uo
+
+cccc
+c     Interpolate using findpts_eval
+      call field_eval(fieldout(1,1),1,u)
+
+cccc
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        uo(idx)=fieldout(i,1)
+       enddo
+
+      return
+      end
+C--------------------------------------------------------------------------

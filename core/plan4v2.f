@@ -40,6 +40,10 @@ c
      $     dpdz(lx1,ly1,lz1,lelv),dpdxa(lx1,ly1,lz1,lelv,ldim)
       integer imask(lx1,ly1,lz1,lelt)
       common /intmask/ imask
+      common /rk10ex/ dpdxlag(lx1,ly1,lz1,lelt,lorder2),
+     $                dpdylag(lx1,ly1,lz1,lelt,lorder2),
+     $                dpdzlag(lx1,ly1,lz1,lelt,lorder2)
+  
       INTYPE = -1
       NTOT1  = lx1*ly1*lz1*NELV
 
@@ -77,12 +81,21 @@ C        first, compute pressure
          if (ifneknek) then 
 c          calculate -grad(p)
            call gradm1(dpdx,dpdy,dpdz,pr)
-           call opchsgn(dpdx,dpdy,dpdz)   
+           call extrapp(dpdx,dpdxlag)
+           call extrapp(dpdy,dpdylag)
+           call extrapp(dpdz,dpdzlag)
+c          call opchsgn(dpdx,dpdy,dpdz)   
 
            call neknek_xfer_fld_spec(dpdx,dpdxa(1,1,1,1,1))
            call neknek_xfer_fld_spec(dpdy,dpdxa(1,1,1,1,2))
           if (ldim.eq.3) 
      $     call neknek_xfer_fld_spec(dpdz,dpdxa(1,1,1,1,ldim))
+
+           call sub2(dpdxa(1,1,1,1,1),dpdx,ntot1)
+           call sub2(dpdxa(1,1,1,1,2),dpdy,ntot1)
+           if (ldim.eq.3) call sub2(dpdxa(1,1,1,1,ldim),dpdz,ntot1)
+c           call opchsgn(dpdxa(1,1,1,1,1),dpdxa(1,1,1,1,2),
+c     $          dpdxa(1,1,1,1,ldim))   
          endif
          call crespsp  (respr)
          call invers2  (h1,vtrans,ntot1)
@@ -137,13 +150,12 @@ c
 
       CHARACTER CB*3
       common /nndpdn/ dpdxa
-      real dpdx(lx1,ly1,lz1,lelv),dpdy(lx1,ly1,lz1,lelv),
-     $     dpdz(lx1,ly1,lz1,lelv),dpdxa(lx1,ly1,lz1,lelv,ldim)
+      real dpdxa(lx1,ly1,lz1,lelv,ldim)
       integer intflag(2*ldim,lelt)
       common /intflag/ intflag
-      real Wd1    (LX1*LY1*LZ1,LELV)
-     $ ,             Wd2    (LX1*LY1*LZ1,LELV)
-     $ ,             Wd3    (LX1*LY1*LZ1,LELV)
+      real WD1    (LX1*LY1*LZ1,LELV)
+     $ ,             WD2    (LX1*LY1*LZ1,LELV)
+     $ ,             WD3    (LX1*LY1*LZ1,LELV)
        common /cgeom/ igeom
       
       NXYZ1  = lx1*ly1*lz1
@@ -246,30 +258,28 @@ C     surface terms
             CALL RZERO  (W2(1,IEL),NXYZ1)
             IF (ldim.EQ.3) CALL RZERO  (W3(1,IEL),NXYZ1)
 
-            CALL RZERO  (Wd1(1,IEL),NXYZ1)
-            CALL RZERO  (Wd2(1,IEL),NXYZ1)
-            IF (ldim.EQ.3) CALL RZERO  (Wd3(1,IEL),NXYZ1)
+            CALL RZERO  (WD1(1,IEL),NXYZ1)
+            CALL RZERO  (WD2(1,IEL),NXYZ1)
+            IF (ldim.EQ.3) CALL RZERO  (WD3(1,IEL),NXYZ1)
 
             CB = CBC(IFC,IEL,IFIELD)
 ccc new stuff
             IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.2) then
                CALL FACCL3
-     $         (W1(1,IEL),dpdxa(1,1,1,IEL,1),UNX(1,1,IFC,IEL),IFC)
+     $         (WD1(1,IEL),dpdxa(1,1,1,IEL,1),UNX(1,1,IFC,IEL),IFC)
                CALL FACCL3
-     $         (W2(1,IEL),dpdxa(1,1,1,IEL,2),UNY(1,1,IFC,IEL),IFC)
+     $         (WD2(1,IEL),dpdxa(1,1,1,IEL,2),UNY(1,1,IFC,IEL),IFC)
                IF (ldim.EQ.3)
      $          CALL FACCL3
-     $         (W3(1,IEL),dpdxa(1,1,1,IEL,3),UNZ(1,1,IFC,IEL),IFC)
+     $         (WD3(1,IEL),dpdxa(1,1,1,IEL,3),UNZ(1,1,IFC,IEL),IFC)
 
-ccc      also add n.f terms
                CALL FACCL3
-     $         (Wd1(1,IEL),TA1(1,IEL),UNX(1,1,IFC,IEL),IFC)
+     $         (W1(1,IEL),VX(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
                CALL FACCL3
-     $         (Wd2(1,IEL),TA2(1,IEL),UNY(1,1,IFC,IEL),IFC)
+     $         (W2(1,IEL),VY(1,1,1,IEL),UNY(1,1,IFC,IEL),IFC)
                IF (ldim.EQ.3)
      $          CALL FACCL3
-     $         (Wd3(1,IEL),TA3(1,IEL),UNZ(1,1,IFC,IEL),IFC)
-ccc new stuff
+     $         (W3(1,IEL),VZ(1,1,1,IEL),UNZ(1,1,IFC,IEL),IFC)
             ELSEIF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
                CALL FACCL3
@@ -294,12 +304,14 @@ ccc new stuff
             CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
 ccc new stuff - add n.f terms at surface
             IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.2) then
-             CALL ADD2   (Wd1(1,IEL),Wd2(1,IEL),NXYZ1)
+             CALL ADD2   (WD1(1,IEL),WD2(1,IEL),NXYZ1)
              IF (ldim.EQ.3)
-     $       CALL ADD2   (Wd1(1,IEL),Wd3(1,IEL),NXYZ1)
-             call FACCL2 (wd1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+     $       CALL ADD2   (WD1(1,IEL),WD3(1,IEL),NXYZ1)
+             CALL FACCL2 (WD1(1,IEL),AREA(1,1,IFC,IEL),IFC)
 
-             call ADD2   (W1(1,IEL),Wd1(1,IEL),NXYZ1)
+             CALL CMULT(W1(1,IEL),dtbd,NXYZ1)
+
+             call ADD2   (W1(1,IEL),WD1(1,IEL),NXYZ1)
 ccc new stuff
             ELSEIF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
      $         cb.eq.'MV '.or.cb.eq.'mv ') then
