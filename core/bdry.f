@@ -43,7 +43,7 @@ C
 
 csk         call check_cyclic  ! fow now; set in .rea file 
 
-         call modpresint('v  ','o  ')
+         if (ifsplit) call modpresint('v  ','o  ')
          IFIELD = 1
          DO 100 IEL=1,NELV
          DO 100 IFC=1,NFACE
@@ -78,7 +78,7 @@ c                                              IFQINP(IFC,IEL) = .TRUE.
             ENDIF
   100    CONTINUE
       ENDIF
-      call modpresint('o  ','v  ')
+      if (ifsplit) call modpresint('o  ','v  ')
 C
       IF (IFHEAT) THEN
 C
@@ -340,6 +340,8 @@ C
       character*3 cb
       character*1 cb1(3)
       equivalence (cb1,cb)
+      common /k10pmask2/ pmask2
+      real pmask2(lx2,ly2,lz2,lelv)
 
       logical ifalgn,ifnorx,ifnory,ifnorz
       integer e,f
@@ -375,6 +377,7 @@ C        Pressure mask
 C 
          call modpresint('v  ','o  ')
          call rone(pmask,ntot)
+         call rone(pmask2,lx2*ly2*lz2*nelv)
          do 50 iel=1,nelt
          do 50 iface=1,nfaces
             cb=cbc(iface,iel,ifield)
@@ -388,6 +391,9 @@ c               call exitt
             if (cb.eq.'O  ' .or. cb.eq.'ON ' .or.
      $          cb.eq.'o  ' .or. cb.eq.'on ')
      $         call facev(pmask,iel,iface,0.0,lx1,ly1,lz1)
+            if (cb.eq.'O  ' .or. cb.eq.'ON ' .or.
+     $          cb.eq.'o  ' .or. cb.eq.'on ')
+     $         call facev(pmask2,iel,iface,0.0,lx2,ly2,lz2)
    50    continue
          if (nelt.gt.nelv) then
             nn=lx1*ly1*lz1*(nelt-nelv)
@@ -427,6 +433,7 @@ C
              CALL FACEV (V3MASK,IEL,IFACE,0.0,lx1,ly1,lz1)
              GOTO 100
          ENDIF
+         if (.not. ifsplit) call modpresint('v  ','o  ')
 C
 C        Mixed-Dirichlet-Neumann boundary conditions
 C

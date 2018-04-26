@@ -34,6 +34,7 @@ C
          CALL SETHLM  (H1,H2,INTYPE)
          CALL CRESVIF (RESV1,RESV2,RESV3,H1,H2)
 
+c       call modpresint('o  ','v  ')
          mstep = abs(param(94))
          if (param(94).ne.0. .and. istep.ge.mstep) then
           call ophinv_pr(dv1,dv2,dv3,resv1,resv2,resv3,h1,h2,tolhv,nmxh)
@@ -42,6 +43,7 @@ c         CALL OPHINV  (DV1,DV2,DV3,RESV1,RESV2,RESV3,H1,H2,TOLHV,NMXH)
            CALL OPHINV  (DV1,DV2,DV3,RESV1,RESV2,RESV3,H1,H2,TOLHV,NMXH)
          endif
          CALL OPADD2  (VX,VY,VZ,DV1,DV2,DV3)
+c       call modpresint('v  ','o  ')
 c
 c        Default Filtering
 c
@@ -93,16 +95,25 @@ C---------------------------------------------------------------------
       COMMON /SCRUZ/ W1    (LX1,LY1,LZ1,LELV)
      $ ,             W2    (LX1,LY1,LZ1,LELV)
      $ ,             W3    (LX1,LY1,LZ1,LELV)
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
 
       common /cgeom/ igeom
 
       NTOT1 = lx1*ly1*lz1*NELV
       NTOT2 = lx2*ly2*lz2*NELV
       if (igeom.eq.2) CALL LAGVEL 
+      call modpresint('o  ','v  ')
       CALL BCDIRVC (VX,VY,VZ,v1mask,v2mask,v3mask)
+      call modpresint('v  ','o  ')
       CALL BCNEUTR
 C
       call extrapp (pr,prlag)
+
+      call mappr(pm1,pr,wk1,wk2)
+      call bcdirpc(pm1)
+      call mapprback(pm1,pr,wk1,wk2)
+
       call opgradt (resv1,resv2,resv3,pr)
       CALL OPADD2  (RESV1,RESV2,RESV3,BFX,BFY,BFZ)
       CALL OPHX    (W1,W2,W3,VX,VY,VZ,H1,H2)

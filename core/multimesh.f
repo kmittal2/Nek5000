@@ -1049,9 +1049,16 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       include 'NEKNEK'
       real wgt(lx1*ly1*lz1*lelt)
       common /globwgt / wgt
-      real respr (lx2,ly2,lz2,lelv)
+      real respr (lx1,ly1,lz1,lelv)
       integer*8 ntotg,nxyz2
       integer nelgv_univ
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      if (icalld.eq.0) then
+        icalld = 1
+      endif
 
       nxyz2 = nx2*ny2*nz2
       ntot  = nxyz2*nelv
@@ -1087,3 +1094,32 @@ c------------------------------------------------------------------------
       return
       end
 c------------------------------------------------------------------------
+      subroutine mapprback(pm1,pm2,pa,pb)
+c
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+      real pm1(lx1,ly1,lz1,lelv),pm2(lx2,ly2,lz2,lelv)
+     $    ,pa (lx2,ly1,lz1)     ,pb (lx2,ly2,lz1)
+c
+C     Map the pressure onto the velocity mesh
+C
+      NGLOB2 = lx2*ly2*lz2*NELV
+      NYZ1   = ly1*lz1
+      NXY2   = lx2*ly2
+      NXYZ   = lx1*ly1*lz1
+C
+         DO 1000 IEL=1,NELV
+            CALL MXM (IXM12,lx2,PM1(1,1,1,IEL),lx1,pa (1,1,1),NYZ1)
+            DO 100 IZ=1,lz1
+               CALL MXM (PA(1,1,IZ),lx2,IYTM12,ly1,PB(1,1,IZ),ly2)
+ 100        CONTINUE
+            CALL MXM (PB(1,1,1),NXY2,IZTM12,lz1,PM2(1,1,1,IEL),lz2)
+ 1000    CONTINUE
+
+C     Average the pressure on elemental boundaries
+C
+C
+      return
+      end
+c
+c-----------------------------------------------------------------------

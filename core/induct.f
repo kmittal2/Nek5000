@@ -311,11 +311,16 @@ c
       common /scrvh/ h1    (lx1,ly1,lz1,lelv)
      $ ,             h2    (lx1,ly1,lz1,lelv)
       common /scrhi/ h2inv (lx1,ly1,lz1,lelv)
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+      real pm2(lt)
 
       parameter(nset = 1 + lbelv/lelv)
       common /orthov/ pset(lx2*ly2*lz2*lelv*mxprev,nset)
       common /orthbi/ nprv(2)
       logical ifprjp
+      common /k10pmask2/ pmask2
+      real pmask2(lx2,ly2,lz2,lelv)
 
       ifprjp=.false.    ! Project out previous pressure solutions?
       istart=param(95)  
@@ -329,7 +334,7 @@ c
       ntot1  = lx1*ly1*lz1*nelv
       ntot2  = lx2*ly2*lz2*nelv
       intype = 1
-
+c
       call rzero   (h1,ntot1)
       call copy    (h2,vtrans(1,1,1,1,ifield),ntot1)
       call invers2 (h2inv,h2,ntot1)
@@ -352,7 +357,14 @@ c
                     call cmult(dp,scaledi,ntot2)
       if (ifprjp)   call gensolnp (dp,h1,h2,h2inv,pset(1,i),nprv(i))
 
+c      call mappr(pm1,dp,wk1,wk2)
+c      call ortho_univ2(pm1)
+c      call mapprback(pm1,dp,wk1,wk2)
+
       call add2(up,dp,ntot2)
+      call mappr(pm1,up,wk1,wk2)
+      call ortho_univ2(pm1)
+      call mapprback(pm1,up,wk1,wk2)
 
       call opgradt  (w1 ,w2 ,w3 ,dp)
       call opbinv   (dv1,dv2,dv3,w1 ,w2 ,w3 ,h2inv)
