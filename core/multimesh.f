@@ -980,3 +980,17 @@ c     the information will go to the boundary points
       return
       end
 C--------------------------------------------------------------------------
+      subroutine copynnval(u1,u2)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real u1(1),u2(1)
+
+      do i=1,npoints_nn
+       idx = iList(1,i)
+       u1(idx)=u2(idx)
+      enddo
+
+      return
+      end
+C--------------------------------------------------------------------------

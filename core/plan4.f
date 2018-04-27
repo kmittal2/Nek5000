@@ -38,6 +38,7 @@ c
       common /nndpdn/ dpdxa
       real dpdx(lx1,ly1,lz1,lelv),dpdy(lx1,ly1,lz1,lelv),
      $     dpdz(lx1,ly1,lz1,lelv),dpdxa(lx1,ly1,lz1,lelv,ldim)
+      common /nndpdns/ dpdxas(lx1*ly1*lz1*lelt,ldim,0:2)
       integer imask(lx1,ly1,lz1,lelt)
       common /intmask/ imask
       INTYPE = -1
@@ -74,10 +75,49 @@ C        first, compute pressure
          npres=icalld
          etime1=dnekclock()
 
+         call copynnval(vx_e,vx)
+         call copynnval(vy_e,vy)
+         call copynnval(vz_e,vz)
+
+         ninterr = 2
          if (ifneknek) then 
 c          calculate -grad(p)
            call gradm1(dpdx,dpdy,dpdz,pr)
            call opchsgn(dpdx,dpdy,dpdz)   
+
+           if (igeom.eq.0) then
+!extrapolate pressure here
+            do k=1,ldim
+             call copy(dpdxas(1,k,2),dpdxas(1,k,1),ntot1)
+             call copy(dpdxas(1,k,1),dpdxas(1,k,0),ntot1)
+            enddo
+             call copy(dpdxas(1,1,0),dpdx,ntot1)
+             call copy(dpdxas(1,2,0),dpdy,ntot1)
+             if (ldim.eq.3) call copy(dpdxas(1,3,0),dpdz,ntot1)
+
+             if (NINTERr.eq.1.or.istep.eq.0) then
+                c0=1.
+                c1=0.
+                c2=0.
+                else if (NINTERr.eq.2.or.istep.eq.1) then
+                  c0=2.
+                  c1=-1.
+                  c2=0.
+                else
+                  c0=3.
+                  c1=-3.
+                  c2=1.
+              endif
+
+              do i=1,ntot1
+               dpdx(i,1,1,1) =
+     $            c0*dpdxas(i,1,0)+c1*dpdxas(i,1,1)+c2*dpdxas(i,1,2)
+               dpdy(i,1,1,1) =
+     $            c0*dpdxas(i,2,0)+c1*dpdxas(i,2,1)+c2*dpdxas(i,2,2)
+               dpdz(i,1,1,1) =
+     $            c0*dpdxas(i,3,0)+c1*dpdxas(i,3,1)+c2*dpdxas(i,3,2)
+              enddo
+           endif
 
            call neknek_xfer_fld_spec(dpdx,dpdxa(1,1,1,1,1))
            call neknek_xfer_fld_spec(dpdy,dpdxa(1,1,1,1,2))
@@ -252,7 +292,7 @@ C     surface terms
 
             CB = CBC(IFC,IEL,IFIELD)
 ccc new stuff
-            IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.2) then
+            IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.20) then
                CALL FACCL3
      $         (W1(1,IEL),dpdxa(1,1,1,IEL,1),UNX(1,1,IFC,IEL),IFC)
                CALL FACCL3
@@ -293,7 +333,7 @@ ccc new stuff
      $      CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
             CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
 ccc new stuff - add n.f terms at surface
-            IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.2) then
+            IF (INTFLAG(IFC,IEL).eq.1.and.igeom.ge.20) then
              CALL ADD2   (Wd1(1,IEL),Wd2(1,IEL),NXYZ1)
              IF (ldim.EQ.3)
      $       CALL ADD2   (Wd1(1,IEL),Wd3(1,IEL),NXYZ1)
