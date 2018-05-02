@@ -99,7 +99,7 @@ c           call multschwarz(ngeomp,igeom)
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
           call add2    (pr,dpr,ntot1)
-          call ortho_univ2   (pr)
+c          call ortho_univ2   (pr)
           call modpresint('o  ','v  ')
          endif
 
@@ -214,11 +214,6 @@ c
      $                     , vr(lr),vs(lr),vt(lr)
      $                     , wr(lr),ws(lr),wt(lr)
 
-      real temp1(lx1,ly1,lz1,lelv)
-      real temp2(lx1,ly1,lz1,lelv)
-      real temp3(lx1,ly1,lz1,lelv)
-      real temp4(lx1,ly1,lz1,lelv)
-      real temp5(lx1,ly1,lz1,lelv)
 
       CHARACTER CB*3
       
@@ -278,11 +273,7 @@ c     add old pressure term because we solve for delta p
 
       call bcdirpc (pr)
 
-      call copy(temp1,pr,ntot1)
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
-      call copy(temp2,respr,ntot1)
-      call dssum(temp2)
-      call col2(temp2,binvm1,ntot1)
       call chsign  (respr,ntot1)
 
 c     add explicit (NONLINEAR) terms 
@@ -298,8 +289,6 @@ c     add explicit (NONLINEAR) terms
          ta2(i,1) = ta2(i,1)*binvm1(i,1,1,1)
          ta3(i,1) = ta3(i,1)*binvm1(i,1,1,1)
       enddo
-      call copy(temp3,ta1,ntot1)
-      call copy(temp4,ta2,ntot1)
       if (if3d) then
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
          call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
@@ -314,11 +303,6 @@ c     add explicit (NONLINEAR) terms
             respr(i,1) = respr(i,1)+wa1(i)+wa2(i)
          enddo
       endif
-c      write(6,*) istep,iostep,'k10check'
-      ifto = .true.
-      if (mod(istep,iostep).eq.0) 
-     $   call outpost(temp1,temp2,vz,temp3,temp4,'tmp')
-c         call outpost(temp1,temp2,vz,temp3,temp4,'tmp')
 
 
 C     add thermal divergence
@@ -784,7 +768,7 @@ ccc      Solve for session 2
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
            endif
-           call ortho_univ2   (pr)
+c           call ortho_univ2   (pr)
          enddo
 c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
          call sub3(dprc,prcp,pr,ntot1)
