@@ -146,7 +146,6 @@ c     Get distance from int
           call cheap_dist(distfint,1,'int')
           call dsavg(distfint)
       endif
-      call outpost(distfint,vy,vz,pr,t,'   ')
 
       if (icalld.eq.0) then
          call set_intflag

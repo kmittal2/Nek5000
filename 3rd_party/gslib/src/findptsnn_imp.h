@@ -387,6 +387,7 @@ void findptsnn(      uint   *const  code_base   , const unsigned  code_stride   
 //         (*elsid != opt->elsid && opt->dist2<=*dist2 && opt->disti>=*disti) ||
          (*elsid != opt->elsid && (*code==CODE_EXACT_BORDER || *code==CODE_INTERNAL) && 
                 (opt->code==CODE_EXACT_BORDER || opt->code==CODE_INTERNAL) && opt->disti>=*disti) 
+//                (opt->code==CODE_EXACT_BORDER || opt->code==CODE_INTERNAL) && opt->disti<=*disti) 
               ) 
  
         {
