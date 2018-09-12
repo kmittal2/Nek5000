@@ -8,7 +8,7 @@ bin_nek_tools=`cd ../bin && pwd`
 
 # Fortran compiler
 FC="gfortran"
-#FFLAGS=""
+FFLAGS="-std=legacy"
 
 # C compiler
 CC="gcc"

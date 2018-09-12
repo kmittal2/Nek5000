@@ -81,12 +81,11 @@ C        first, compute pressure
          ngeomv = 2 !niter for velocity
          ifvelsc = .false.
          isctyp = 1 !always alt schwarz
+         if (istep.lt.30) ngeomp = 20
          if (isctyp.eq.1) then !alt
            call doaltschwarz(ngeomp,igeom)
-c           call multschwarz(ngeomp,igeom)
          elseif (isctyp.eq.2) then !mult
-           call doaltschwarz(ngeomp,igeom)
-c           call multschwarz(ngeomp,igeom)
+           call doaddschwarz(ngeomp,igeom)
          else
           call modpresint('v  ','o  ')
           call crespsp  (respr)
@@ -233,6 +232,11 @@ c     -mu*curl(curl(v))
          CALL COL2  (WA2, OMASK,NTOT1)
          CALL COL2  (WA3, OMASK,NTOT1)
       endif
+      
+c      if (istep.eq.50) ifxyo = .true.
+c      if (istep.eq.50) call outpost(vx,vy,vz,pr,t,'chk')
+c      if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
+
       call opcolv   (wa1,wa2,wa3,bm1)
 c
       call opgrad   (ta1,ta2,ta3,QTL)
@@ -242,6 +246,13 @@ c
       endif
       scale = -4./3. 
       call opadd2cm (wa1,wa2,wa3,ta1,ta2,ta3,scale)
+
+c      if (istep.eq.50) call opcolv(wa1,wa2,wa3,binvm1)
+c      if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
+c      if (istep.eq.50) call opcolv(wa1,wa2,wa3,bm1)
+
+
+
 
 c compute stress tensor for ifstrs formulation - variable viscosity Pn-Pn
       if (ifstrs) then
@@ -274,6 +285,11 @@ c     add old pressure term because we solve for delta p
       call bcdirpc (pr)
 
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
+
+c      if (istep.eq.50) call col2(respr,binvm1,ntot1)
+c      if (istep.eq.50) call outpost(respr,wa2,wa3,pr,t,'chk')
+c      if (istep.eq.50) call col2(respr,bm1,ntot1)
+
       call chsign  (respr,ntot1)
 
 c     add explicit (NONLINEAR) terms 
@@ -299,11 +315,17 @@ c     add explicit (NONLINEAR) terms
       else
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
          call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
+
+c        if (istep.eq.50) call opcolv(wa1,wa2,wa3,binvm1)
+c        if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
+c        if (istep.eq.50) call opcolv(wa1,wa2,wa3,bm1)
+
          do i=1,n
             respr(i,1) = respr(i,1)+wa1(i)+wa2(i)
          enddo
       endif
 
+c      if (istep.eq.50) call exitt
 
 C     add thermal divergence
       dtbd = BD(1)/DT
@@ -731,7 +753,6 @@ ccc    only at igeom = 2
       endif
 
       if (nid.eq.0) write(6,*) 'alt schwarz'
-
      
       do igeomp=igeomps,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
@@ -768,26 +789,20 @@ ccc      Solve for session 2
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
            endif
-c           call ortho_univ2   (pr)
-         enddo
-c         if (istep.ge.0) call outpost(vx,vy,vz,pr,t,'   ')
-         call sub3(dprc,prcp,pr,ntot1)
-         dprmax = uglamax(dprc,ntot1)
+           call ortho_univ2   (pr)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
          if (nid_global.eq.0)
      $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
      $      igeomp,time,
      $      dprmax,' max-dp-nn'
+         enddo
          call modpresint('o  ','v  ')
-
-c         call sub3(dprc,valint(1,1,1,1,ldim+1),pr,ntot1)
-c         if (igeom.eq.ngeom) call outpost(dprc,vy,vz,dpr,t,'   ')
-c         if (istep.eq.10) call exitt
-
 
       return
       end
 c-----------------------------------------------------------------------
-      subroutine multschwarz(ngeomp,igeom)
+      subroutine doaddschwarz(ngeomp,igeom)
       INCLUDE 'SIZE'
       INCLUDE 'INPUT'
       INCLUDE 'GEOM'
@@ -797,6 +812,7 @@ c-----------------------------------------------------------------------
       INCLUDE 'TSTEP'
       INCLUDE 'ORTHOP'
       INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
       COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
      $ ,             RES2  (LX1,LY1,LZ1,LELV)
      $ ,             RES3  (LX1,LY1,LZ1,LELV)
@@ -817,12 +833,6 @@ c-----------------------------------------------------------------------
 
       ntot1 = lx1*ly1*lz1*nelv
 
-c    
-      if (igeom.gt.2) then
-        call copy(vx_e,vx,ntot1)
-        call copy(vy_e,vy,ntot1)
-        call copy(vz_e,vz,ntot1)
-      endif
       call modpresint('v  ','o  ')
 ccc     solve with extrapolated bcs first
 ccc    only at igeom = 2
@@ -858,17 +868,14 @@ ccc    only at igeom = 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
-           call ortho_univ2   (pr)
-           call neknekgsync()
-         enddo
-
-         call sub3(dprc,prcp,pr,ntot1)
-         dprmax = uglamax(dprc,ntot1)
-         if (nid_global.eq.0)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+           if (nid_global.eq.0)
      $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
      $      igeomp,time,
      $      dprmax,' max-dp-nn'
-         call modpresint('o  ','v  ')
+           call ortho_univ2   (pr)
+         enddo
 
       return
       end
