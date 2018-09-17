@@ -701,6 +701,7 @@ c     the information will go to the boundary points
         enddo
        enddo
 
+      call fix_surface_flux
       call neknekgsync()
       return
       end
@@ -1062,6 +1063,7 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       ntotg = nxyz2*nelgv_univ
 
       rlam  = glsc2_univ(respr,wgt,ntot)/ntotg
+      if (nid.eq.0) write(6,*) istep,rlam, 'k10_nn doing ortho_univ'
       call cadd (respr,-rlam,ntot)
 
       return
@@ -1138,6 +1140,7 @@ c-----------------------------------------------------------------------
       integer icalld
       save    icalld
       data    icalld /0/
+      real dqg,aqg,gamma
 
       if (icalld.eq.0) then
        itchk = 0
@@ -1175,6 +1178,7 @@ c-----------------------------------------------------------------------
       gamma = 0
       if (aqg.gt.0) gamma = -dqg/aqg
 
+      if (nid.eq.0) write(6,*) istep,gamma,'k10_nn fsf'
 
       do e=1,nelv
       do f=1,2*ldim
