@@ -213,7 +213,6 @@ c
      $                     , vr(lr),vs(lr),vt(lr)
      $                     , wr(lr),ws(lr),wt(lr)
 
-
       CHARACTER CB*3
       
       NXYZ1  = lx1*ly1*lz1
@@ -285,6 +284,7 @@ c     add old pressure term because we solve for delta p
       call bcdirpc (pr)
 
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
+c
 
 c      if (istep.eq.50) call col2(respr,binvm1,ntot1)
 c      if (istep.eq.50) call outpost(respr,wa2,wa3,pr,t,'chk')
@@ -315,17 +315,10 @@ c     add explicit (NONLINEAR) terms
       else
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
          call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
-
-c        if (istep.eq.50) call opcolv(wa1,wa2,wa3,binvm1)
-c        if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
-c        if (istep.eq.50) call opcolv(wa1,wa2,wa3,bm1)
-
          do i=1,n
             respr(i,1) = respr(i,1)+wa1(i)+wa2(i)
          enddo
       endif
-
-c      if (istep.eq.50) call exitt
 
 C     add thermal divergence
       dtbd = BD(1)/DT
@@ -749,6 +742,7 @@ ccc    only at igeom = 2
      $                        ,imesh,tolspl,nmxh,1
      $                        ,approxp,napproxp,binvm1)
       call add2    (pr,dpr,ntot1)
+      call ortho_univ2(pr)
       igeomps = 2
       endif
 
@@ -880,3 +874,196 @@ ccc    only at igeom = 2
       return
       end
 c-----------------------------------------------------------------------
+      subroutine doaltschwarz_dummy(ngeomp,igeom)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+      integer idx1,idx2
+      real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
+      common /valmask/ valint
+      real exactpr(lx2,ly2,lz2,lelv)
+      real errpr(lx2,ly2,lz2,lelv)
+   
+      do i=1,lx1*ly1*lz1*nelv
+       xv = xm1(i,1,1,1)
+       exactpr(i,1,1,1) = sin(xv)/exp(xv)
+      enddo
+      call rzero(pr,lx1*ly1*lz1*nelv)
+
+      if (mod(istep,2).eq.0) then
+        idx1 = 0
+        idx2 = 1
+      else
+        idx1 = 0
+        idx2 = 1
+      endif
+
+      ntot1 = lx1*ly1*lz1*nelv
+      call modpresint('v  ','o  ')
+
+ccc     solve with extrapolated bcs first
+ccc    only at igeom = 2
+      igeomps = 1
+      if (igeom.eq.2) then
+      igeomp = 1
+      call crespsp_dummy(respr)
+      call invers2  (h1,vtrans,ntot1)
+      call rzero    (h2,ntot1)
+      call ctolspl  (tolspl,respr)
+      napproxp(1) = laxtp
+      call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+      call add2    (pr,dpr,ntot1)
+      igeomps = 2
+      endif
+
+      call sub3(errpr,pr,exactpr,ntot1)
+      call outpost(pr,errpr,vz,exactpr,pr,'   ')
+
+      if (nid.eq.0) write(6,*) 'alt schwarz'
+     
+      do igeomp=igeomps,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+ccc      Solve for session 1
+           if (idsess.eq.idx1) then
+           call crespsp_dummy(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+ccc      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+ccc      Solve for session 2
+           if (idsess.eq.idx2) then
+           call crespsp_dummy(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+c           call ortho_univ2   (pr)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+
+          call sub3(errpr,pr,exactpr,ntot1)
+          do i=1,ntot1
+           errpr(i,1,1,1) = abs(errpr(i,1,1,1))
+          enddo
+          call outpost(pr,errpr,vz,exactpr,pr,'   ')
+
+          err_max = uglamax(errpr,ntot1)
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p3e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
+     $      dprmax,err_max,' max-dp-nn'
+
+         enddo
+         call modpresint('o  ','v  ')
+
+      call exitt
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine crespsp_dummy (respr)
+
+C     Compute startresidual/right-hand-side in the pressure
+
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+
+      REAL           RESPR (LX1*LY1*LZ1,LELV)
+c
+      COMMON /SCRNS/ TA1   (LX1*LY1*LZ1,LELV)
+     $ ,             TA2   (LX1*LY1*LZ1,LELV)
+     $ ,             TA3   (LX1*LY1*LZ1,LELV)
+     $ ,             WA1   (LX1*LY1*LZ1*LELV)
+     $ ,             WA2   (LX1*LY1*LZ1*LELV)
+     $ ,             WA3   (LX1*LY1*LZ1*LELV)
+      COMMON /SCRMG/ W1    (LX1*LY1*LZ1,LELV)
+     $ ,             W2    (LX1*LY1*LZ1,LELV)
+     $ ,             W3    (LX1*LY1*LZ1,LELV)
+
+      common /scruz/         sij (lx1*ly1*lz1,6,lelv)
+      parameter (lr=lx1*ly1*lz1)
+      common /scrvz/         ur(lr),us(lr),ut(lr)
+     $                     , vr(lr),vs(lr),vt(lr)
+     $                     , wr(lr),ws(lr),wt(lr)
+
+
+      CHARACTER CB*3
+
+      NXYZ1  = lx1*ly1*lz1
+      NTOT1  = NXYZ1*NELV
+      NFACES = 2*ldim
+
+      call rzero(W1,ntot1)
+      do i=1,ntot1
+       xv = xm1(i,1,1,1)
+       w1(i,1) = bm1(i,1,1,1)*2.*cos(xv)/exp(xv)
+      enddo
+      call dssum(w1)
+
+c     add old pressure term because we solve for delta p 
+      call rone(ta1,ntot1)
+      call rzero   (ta2,ntot1)
+
+      call bcdirpc (pr)
+      call axhelm  (respr,pr,ta1,ta2,imesh,1)
+c      call dssum(respr)
+
+c      call col2(respr,binvm1,ntot1)
+      call col2(w1,binvm1,ntot1)
+      call outpost(respr,w1,vz,pr,t,'rhs')
+      call col2(w1,bm1,ntot1)
+c      call col2(respr,bm1,ntot1)
+
+      call chsign  (respr,ntot1)
+      call add2(respr,w1,ntot1)
+ 
+
+      return
+      END
+c----------------------------------------------------------------------

@@ -1062,9 +1062,11 @@ C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
       ntotgl = nxyz2*nelgv
       ntotg = nxyz2*nelgv_univ
 
-      rlam  = glsc2_univ(respr,wgt,ntot)/ntotg
-      if (nid.eq.0) write(6,*) istep,rlam, 'k10_nn doing ortho_univ'
+      rlam  = glsc2_univ(respr,wgt,ntot)/glsc2_univ(wgt,wgt,ntot)
       call cadd (respr,-rlam,ntot)
+      if (nid.eq.0) write(6,*) istep,rlam,
+     $       'k10_nn doing ortho_univ'
+      
 
       return
       end
