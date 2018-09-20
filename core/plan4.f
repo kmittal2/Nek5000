@@ -39,6 +39,10 @@ C
       integer isctyp !schwarz iteration type
       real dprmax !max pressure difference between pressure
       logical ifvelsc
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      common /dumbfxd/ bfxd
+      real bfxd(lx1*ly1*lz1*lelv,ldim)
 
       REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
       REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
@@ -67,6 +71,11 @@ c
 
          if (igeom.eq.2) call lagvel
 
+         CALL OPDIV   (DVC,VX,VY,VZ)
+         call dssum(dvc,lx1,ly1,lz1)
+         call col2(dvc,binvm1,ntot1)
+         rdivb = glsc2_univ(dvc,bmg,ntot1)/glsum_univ(bmg,ntot1)
+
          ! mask Dirichlet boundaries
          call bcdirvc  (vx,vy,vz,v1mask,v2mask,v3mask) 
 
@@ -78,8 +87,9 @@ C        first, compute pressure
          etime1=dnekclock()
 
          ngeomp = 5  !niter for pressure
-         ngeomv = 2 !niter for velocity
+         ngeomv = 20 !niter for velocity
          ifvelsc = .false.
+         ifvelsc = .true.
          isctyp = 1 !always alt schwarz
          if (istep.lt.30) ngeomp = 20
          if (isctyp.eq.1) then !alt
@@ -137,6 +147,15 @@ ccc         solve in a session
             if (ifexplvis) call redo_split_vis
 
          endif
+
+         CALL OPDIV   (DVC,VX,VY,VZ)
+         call dssum(dvc,lx1,ly1,lz1)
+         call col2(dvc,binvm1,ntot1)
+         rdiva = glsc2_univ(dvc,bmg,ntot1)/glsum_univ(bmg,ntot1)
+
+         ifto = .true.
+         call outpost(vx,vy,vz,pr,dvc,'   ')
+         write(6,*) rdiva,rdivb,'divergence after and before'
            
 
 c Below is just for diagnostics...
@@ -214,6 +233,12 @@ c
      $                     , wr(lr),ws(lr),wt(lr)
 
       CHARACTER CB*3
+      real dxy(lx1*ly1*lz1*lelv,3)
+      common /ctmp1/ work(lx1*ly1*lz1*lelt)
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      common /dumbfxd/ bfxd
+      real bfxd(lx1*ly1*lz1*lelv,ldim)
       
       NXYZ1  = lx1*ly1*lz1
       NTOT1  = NXYZ1*NELV
@@ -232,12 +257,8 @@ c     -mu*curl(curl(v))
          CALL COL2  (WA3, OMASK,NTOT1)
       endif
       
-c      if (istep.eq.50) ifxyo = .true.
-c      if (istep.eq.50) call outpost(vx,vy,vz,pr,t,'chk')
-c      if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
-
       call opcolv   (wa1,wa2,wa3,bm1)
-c
+
       call opgrad   (ta1,ta2,ta3,QTL)
       if(IFAXIS) then  
          CALL COL2  (ta2, OMASK,ntot1)
@@ -245,13 +266,6 @@ c
       endif
       scale = -4./3. 
       call opadd2cm (wa1,wa2,wa3,ta1,ta2,ta3,scale)
-
-c      if (istep.eq.50) call opcolv(wa1,wa2,wa3,binvm1)
-c      if (istep.eq.50) call outpost(wa1,wa2,wa3,pr,t,'chk')
-c      if (istep.eq.50) call opcolv(wa1,wa2,wa3,bm1)
-
-
-
 
 c compute stress tensor for ifstrs formulation - variable viscosity Pn-Pn
       if (ifstrs) then
@@ -284,12 +298,6 @@ c     add old pressure term because we solve for delta p
       call bcdirpc (pr)
 
       call axhelm  (respr,pr,ta1,ta2,imesh,1)
-c
-
-c      if (istep.eq.50) call col2(respr,binvm1,ntot1)
-c      if (istep.eq.50) call outpost(respr,wa2,wa3,pr,t,'chk')
-c      if (istep.eq.50) call col2(respr,bm1,ntot1)
-
       call chsign  (respr,ntot1)
 
 c     add explicit (NONLINEAR) terms 
@@ -305,12 +313,13 @@ c     add explicit (NONLINEAR) terms
          ta2(i,1) = ta2(i,1)*binvm1(i,1,1,1)
          ta3(i,1) = ta3(i,1)*binvm1(i,1,1,1)
       enddo
+
       if (if3d) then
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
          call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
          call cdtp    (wa3,ta3,rzm1,szm1,tzm1,1)
          do i=1,n
-            respr(i,1) = respr(i,1)+wa1(i)+wa2(i)+wa3(i)
+           respr(i,1) = respr(i,1)+wa1(i)+wa2(i)+wa3(i)
          enddo
       else
          call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
@@ -714,6 +723,7 @@ c-----------------------------------------------------------------------
       integer ngeomp,ntot
       integer idx1,idx2
       real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
+      real crescopy(lx1,ly1,lz1,lelv)
       common /valmask/ valint
 
       if (mod(istep,2).eq.0) then
@@ -733,6 +743,8 @@ ccc    only at igeom = 2
       if (igeom.eq.2) then
       igeomp = 1
       call crespsp  (respr)
+c     call copy(crescopy,respr,ntot1)
+c      call col2(crescopy,pmask,ntot1)
       call invers2  (h1,vtrans,ntot1)
       call rzero    (h2,ntot1)
       call ctolspl  (tolspl,respr)
@@ -745,6 +757,10 @@ ccc    only at igeom = 2
       call ortho_univ2(pr)
       igeomps = 2
       endif
+c      call dssum(crescopy)
+c      call col2(crescopy,binvm1,ntot1)
+c      call outpost(crescopy,vy,vz,pr,t,'   ')
+c      call exitt
 
       if (nid.eq.0) write(6,*) 'alt schwarz'
      
@@ -874,7 +890,7 @@ ccc    only at igeom = 2
       return
       end
 c-----------------------------------------------------------------------
-      subroutine doaltschwarz_dummy(ngeomp,igeom)
+      subroutine doaltschwarz_dummy2d(ngeomp,igeom)
       INCLUDE 'SIZE'
       INCLUDE 'INPUT'
       INCLUDE 'GEOM'
@@ -905,57 +921,55 @@ c-----------------------------------------------------------------------
       integer idx1,idx2
       real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
       common /valmask/ valint
+      common/ exprx/ exactdprx,exactdpry,exactpr
       real exactpr(lx2,ly2,lz2,lelv)
+      real exactdprx(lx2,ly2,lz2,lelv)
+      real exactdpry(lx2,ly2,lz2,lelv)
       real errpr(lx2,ly2,lz2,lelv)
+      parameter (nptfpt = 100)
+      real xlist(nptfpt),ylist(nptfpt),errint(nptfpt)
+      real rwk(nptfpt,ldim+1)
+      integer iwk(nptfpt,3)
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
+
    
-      do i=1,lx1*ly1*lz1*nelv
+      ntot1 = lx1*ly1*lz1*nelv
+      rafac = 2./1.55
+      do i=1,ntot1
        xv = xm1(i,1,1,1)
-       exactpr(i,1,1,1) = sin(xv)/exp(xv)
+       yv = ym1(i,1,1,1)
+       exactpr(i,1,1,1) = sin(xv)*cos(rafac*yv)
+       exactdprx(i,1,1,1) = cos(xv)*cos(rafac*yv)
+       exactdpry(i,1,1,1) = -rafac*sin(xv)*sin(rafac*yv)
       enddo
       call rzero(pr,lx1*ly1*lz1*nelv)
+      rmeanexp = glsc2_univ(exactpr,wgt,ntot1)
+     $          /glsc2_univ(wgt,wgt,ntot1)
 
-      if (mod(istep,2).eq.0) then
-        idx1 = 0
-        idx2 = 1
-      else
-        idx1 = 0
-        idx2 = 1
-      endif
-
-      ntot1 = lx1*ly1*lz1*nelv
-      call modpresint('v  ','o  ')
-
-ccc     solve with extrapolated bcs first
-ccc    only at igeom = 2
-      igeomps = 1
-      if (igeom.eq.2) then
-      igeomp = 1
-      call crespsp_dummy(respr)
-      call invers2  (h1,vtrans,ntot1)
-      call rzero    (h2,ntot1)
-      call ctolspl  (tolspl,respr)
-      napproxp(1) = laxtp
-      call hsolve   ('PRES',dpr,respr,h1,h2
-     $                        ,pmask,vmult
-     $                        ,imesh,tolspl,nmxh,1
-     $                        ,approxp,napproxp,binvm1)
-      call add2    (pr,dpr,ntot1)
-      igeomps = 2
-      endif
-
+c     Initial error
       call sub3(errpr,pr,exactpr,ntot1)
+      do i=1,ntot1
+        errpr(i,1,1,1) = abs(errpr(i,1,1,1))
+      enddo
       call outpost(pr,errpr,vz,exactpr,pr,'   ')
 
-      if (nid.eq.0) write(6,*) 'alt schwarz'
+      idx1 = 0
+      idx2 = 1
+
+      call modpresint('v  ','o  ')
+
+      igeomps = 1
+      if (nid.eq.0) write(6,*) idsess,ngeomp,' alt schwarz'
      
-      do igeomp=igeomps,ngeomp
+      do igeomp=1,ngeomp
            call neknek_xfer_fld(pr,ldim+1)
            call neknek_bcopy(ldim+1)
            call copy(prcp,pr,lx1*ly1*lz1*nelv)
 
 ccc      Solve for session 1
            if (idsess.eq.idx1) then
-           call crespsp_dummy(respr)
+           call crespsp_dummy2d(respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
            call ctolspl  (tolspl,respr)
@@ -972,7 +986,7 @@ ccc      Exchange data
            call neknek_bcopy(ldim+1)
 ccc      Solve for session 2
            if (idsess.eq.idx2) then
-           call crespsp_dummy(respr)
+           call crespsp_dummy2d(respr)
            call invers2  (h1,vtrans,ntot1)
            call rzero    (h2,ntot1)
            call ctolspl  (tolspl,respr)
@@ -983,21 +997,24 @@ ccc      Solve for session 2
      $                        ,approxp,napproxp,binvm1)
            call add2    (pr,dpr,ntot1)
            endif
-c           call ortho_univ2   (pr)
+c           call ortho_univ2_tar   (pr,rmeanexp)
            call sub3(dprc,prcp,pr,ntot1)
            dprmax = uglamax(dprc,ntot1)
 
           call sub3(errpr,pr,exactpr,ntot1)
-          do i=1,ntot1
-           errpr(i,1,1,1) = abs(errpr(i,1,1,1))
-          enddo
+      do i=1,ntot1
+        errpr(i,1,1,1) = abs(errpr(i,1,1,1))
+      enddo
           call outpost(pr,errpr,vz,exactpr,pr,'   ')
-
           err_max = uglamax(errpr,ntot1)
          if (nid_global.eq.0)
      $      write(6,'(i2,i8,2i4,1p3e13.4,a11)') idsess,istep,igeom,
      $      igeomp,time,
      $      dprmax,err_max,' max-dp-nn'
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p1e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,
+     $      err_max,' max-err-nn'
 
          enddo
          call modpresint('o  ','v  ')
@@ -1007,12 +1024,13 @@ c           call ortho_univ2   (pr)
       return
       end
 c-----------------------------------------------------------------------
-      subroutine crespsp_dummy (respr)
+      subroutine crespsp_dummy2d (respr)
 
 C     Compute startresidual/right-hand-side in the pressure
 
       INCLUDE 'SIZE'
       INCLUDE 'TOTAL'
+      INCLUDE 'GLOBALCOM'
 
       REAL           RESPR (LX1*LY1*LZ1,LELV)
 c
@@ -1031,6 +1049,10 @@ c
       common /scrvz/         ur(lr),us(lr),ut(lr)
      $                     , vr(lr),vs(lr),vt(lr)
      $                     , wr(lr),ws(lr),wt(lr)
+      common/ exprx/ exactdprx,exactdpry,exactpr
+      real exactpr(lx2,ly2,lz2,lelv)
+      real exactdprx(lx2,ly2,lz2,lelv)
+      real exactdpry(lx2,ly2,lz2,lelv)
 
 
       CHARACTER CB*3
@@ -1040,9 +1062,11 @@ c
       NFACES = 2*ldim
 
       call rzero(W1,ntot1)
+      rafac = 2./1.55
       do i=1,ntot1
        xv = xm1(i,1,1,1)
-       w1(i,1) = bm1(i,1,1,1)*2.*cos(xv)/exp(xv)
+       yv = ym1(i,1,1,1)
+       w1(i,1) = bm1(i,1,1,1)*sin(xv)*cos(rafac*yv)*(1.+rafac**2)
       enddo
       call dssum(w1)
 
@@ -1062,8 +1086,68 @@ c      call col2(respr,bm1,ntot1)
 
       call chsign  (respr,ntot1)
       call add2(respr,w1,ntot1)
+
+      DO IEL=1,NELV
+         DO IFC=1,2*ldim
+            CALL RZERO  (W1(1,IEL),NXYZ1)
+            CALL RZERO  (W2(1,IEL),NXYZ1)
+            CB = CBC(IFC,IEL,IFIELD)
+            IF (CB(1:1).EQ.'W'.OR.CB(1:1).EQ.'v') then
+               CALL FACCL3
+     $         (W1(1,IEL),exactdprx(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),exactdpry(1,1,1,IEL),UNY(1,1,IFC,IEL),IFC)
+
+               CALL ADD2   (W1(1,IEL),W2(1,IEL),NXYZ1)
+              IF (ldim.EQ.3)
+     $         CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
+
+               CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+            ENDIF
+            CALL ADD2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
+       enddo
+       enddo 
+
  
 
       return
       END
 c----------------------------------------------------------------------
+c-----------------------------------------------------------------------
+c      include 'altfiles.f'
+      subroutine makef_nobdf
+C---------------------------------------------------------------------
+C
+C     Compute and add: (1) user specified forcing function (FX,FY,FZ)
+C                      (2) driving force due to natural convection
+C                      (3) convection term
+C
+C     !! NOTE: Do not change the arrays BFX, BFY, BFZ until the
+C              current time step is completed.
+C
+C----------------------------------------------------------------------
+      include 'SIZE'
+      include 'SOLN'
+      include 'MASS'
+      include 'INPUT'
+      include 'TSTEP'
+
+      include 'MVGEOM'
+
+                                                call makeuf
+      if (filterType.eq.2)                      call make_hpf
+      if (ifnatc)                               call natconv
+      if (ifexplvis.and.ifsplit)                call makevis
+      if (ifnav .and..not.ifchar)               call advab
+      if (ifmvbd.and..not.ifchar)               call admeshv
+      if (iftran)                               call makeabf
+c      if ((iftran.and..not.ifchar).or.
+c     $    (iftran.and..not.ifnav.and.ifchar))   call makebdf
+      if (ifnav.and.ifchar)                     call advchar
+
+c     Adding this call allows prescribed pressure bc for PnPn-2
+c     if (.not.ifsplit.and..not.ifstrs)         call bcneutr
+
+      return
+      end
+
