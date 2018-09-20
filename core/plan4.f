@@ -91,7 +91,7 @@ C        first, compute pressure
          ifvelsc = .false.
          ifvelsc = .true.
          isctyp = 1 !always alt schwarz
-         if (istep.lt.30) ngeomp = 20
+         if (istep.lt.30) ngeomp = 5
          if (isctyp.eq.1) then !alt
            call doaltschwarz(ngeomp,igeom)
          elseif (isctyp.eq.2) then !mult
@@ -153,9 +153,9 @@ ccc         solve in a session
          call col2(dvc,binvm1,ntot1)
          rdiva = glsc2_univ(dvc,bmg,ntot1)/glsum_univ(bmg,ntot1)
 
-         ifto = .true.
-         call outpost(vx,vy,vz,pr,dvc,'   ')
-         write(6,*) rdiva,rdivb,'divergence after and before'
+c         ifto = .true.
+c         call outpost(vx,vy,vz,pr,dvc,'   ')
+c         write(6,*) rdiva,rdivb,'divergence after and before'
            
 
 c Below is just for diagnostics...
