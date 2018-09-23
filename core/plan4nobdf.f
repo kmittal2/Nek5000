@@ -1,0 +1,1430 @@
+c-----------------------------------------------------------------------
+      subroutine plan4 (igeom)
+
+C     Splitting scheme A.G. Tomboulides et al.
+c     Journal of Sci.Comp.,Vol. 12, No. 2, 1998
+c
+C     NOTE: QTL denotes the so called thermal
+c           divergence and has to be provided
+c           by userqtl.
+c
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+C
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+ 
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+      common /preschwari/ isctyp
+      common /preschwarr/ dprmax
+      integer isctyp !schwarz iteration type
+      real dprmax !max pressure difference between pressure
+      logical ifvelsc
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      common /dumbfxd/ bfxd
+      real bfxd(lx1*ly1*lz1*lelv,ldim)
+
+      REAL DVC (LX1,LY1,LZ1,LELV), DFC(LX1,LY1,LZ1,LELV)
+      REAL DIV1, DIV2, DIF1, DIF2, QTL1, QTL2
+c
+      INTYPE = -1
+      NTOT1  = lx1*ly1*lz1*NELV
+
+      if (igeom.eq.1) then
+
+         ! compute explicit contributions bfx,bfy,bfz 
+         call makef_nobdf 
+         call opcopy(bfxd(1,1),bfxd(1,2),bfxd(1,3),bfx,bfy,bfz)
+         call makef 
+
+         call sumab(vx_e,vx,vxlag,ntot1,ab,nab)
+         call sumab(vy_e,vy,vylag,ntot1,ab,nab)
+         if (if3d) call sumab(vz_e,vz,vzlag,ntot1,ab,nab)
+
+      else
+
+         if(iflomach) call opcolv(bfx,bfy,bfz,vtrans)
+
+         ! add user defined divergence to qtl 
+         call add2 (qtl,usrdiv,ntot1)
+
+         ! split viscosity into explicit/implicit part
+         if (ifexplvis) call split_vis
+
+         if (igeom.eq.2) call lagvel
+
+         CALL OPDIV   (DVC,VX,VY,VZ)
+         call dssum(dvc,lx1,ly1,lz1)
+         call col2(dvc,binvm1,ntot1)
+         rdivb = glsc2_univ(dvc,bmg,ntot1)/glsum_univ(bmg,ntot1)
+
+         ! mask Dirichlet boundaries
+         call bcdirvc  (vx,vy,vz,v1mask,v2mask,v3mask) 
+
+C        first, compute pressure
+
+         if (icalld.eq.0) tpres=0.0
+         icalld=icalld+1
+         npres=icalld
+         etime1=dnekclock()
+
+         ngeomp = 5  !niter for pressure
+         ngeomv = 20 !niter for velocity
+         ifvelsc = .false.
+         isctyp = 1 !always alt schwarz
+         if (istep.lt.30) ngeomp = 20
+         if (isctyp.eq.1) then !alt
+           call doaltschwarz_dummy(ngeomp,igeom)
+         elseif (isctyp.eq.2) then !mult
+           call doaddschwarz(ngeomp,igeom)
+         else
+          call modpresint('v  ','o  ')
+          call crespsp  (respr)
+          call invers2  (h1,vtrans,ntot1)
+          call rzero    (h2,ntot1)
+          call ctolspl  (tolspl,respr)
+          napproxp(1) = laxtp
+          call hsolve   ('PRES',dpr,respr,h1,h2 
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+          call add2    (pr,dpr,ntot1)
+c          call ortho_univ2   (pr)
+          call modpresint('o  ','v  ')
+         endif
+
+         tpres=tpres+(dnekclock()-etime1)
+
+C        Compute velocity
+c
+c  
+         if (ifvelsc) then
+         do i=1,ngeomv
+         do idx=0,1
+ccc          Transfer data
+           call neknek_xfer_fld(vx,1)
+           call neknek_xfer_fld(vy,2)
+           if (ldim.eq.3) call neknek_xfer_fld(vz,3)
+ccc          copy to ubc array
+           call neknek_bcopy(1)
+           call neknek_bcopy(2)
+           if (ldim.eq.3) call neknek_bcopy(3)
+ccc         solve in a session
+           if (idsess.eq.idx) then
+            call cresvsp (res1,res2,res3,h1,h2)
+            call ophinv_pr(dv1,dv2,dv3,res1,res2,res3,h1,h2,tolhv,nmxh)
+            call opadd2  (vx,vy,vz,dv1,dv2,dv3)
+ 
+            if (ifexplvis) call redo_split_vis
+           endif
+         enddo
+         enddo
+         else
+
+            call cresvsp (res1,res2,res3,h1,h2)
+            call ophinv_pr(dv1,dv2,dv3,res1,res2,res3,h1,h2,tolhv,nmxh)
+            call opadd2  (vx,vy,vz,dv1,dv2,dv3)
+
+            if (ifexplvis) call redo_split_vis
+
+         endif
+
+         CALL OPDIV   (DVC,VX,VY,VZ)
+         call dssum(dvc,lx1,ly1,lz1)
+         call col2(dvc,binvm1,ntot1)
+         rdiva = glsc2_univ(dvc,bmg,ntot1)/glsum_univ(bmg,ntot1)
+
+c         ifto = .true.
+c         call outpost(vx,vy,vz,pr,dvc,'   ')
+c         write(6,*) rdiva,rdivb,'divergence after and before'
+           
+
+c Below is just for diagnostics...
+
+c        Calculate Divergence norms of new VX,VY,VZ
+         CALL OPDIV   (DVC,VX,VY,VZ)
+         CALL DSSUM   (DVC,lx1,ly1,lz1)
+         CALL COL2    (DVC,BINVM1,NTOT1)
+
+         CALL COL3    (DV1,DVC,BM1,NTOT1)
+         DIV1 = GLSUM (DV1,NTOT1)/VOLVM1
+
+         CALL COL3    (DV2,DVC,DVC,NTOT1)
+         CALL COL2    (DV2,BM1   ,NTOT1)
+         DIV2 = GLSUM (DV2,NTOT1)/VOLVM1
+         DIV2 = SQRT  (DIV2)
+c        Calculate Divergence difference norms
+         CALL SUB3    (DFC,DVC,QTL,NTOT1)
+         CALL COL3    (DV1,DFC,BM1,NTOT1)
+         DIF1 = GLSUM (DV1,NTOT1)/VOLVM1
+  
+         CALL COL3    (DV2,DFC,DFC,NTOT1)
+         CALL COL2    (DV2,BM1   ,NTOT1)
+         DIF2 = GLSUM (DV2,NTOT1)/VOLVM1
+         DIF2 = SQRT  (DIF2)
+
+         CALL COL3    (DV1,QTL,BM1,NTOT1)
+         QTL1 = GLSUM (DV1,NTOT1)/VOLVM1
+  
+         CALL COL3    (DV2,QTL,QTL,NTOT1)
+         CALL COL2    (DV2,BM1   ,NTOT1)
+         QTL2 = GLSUM (DV2,NTOT1)/VOLVM1
+         QTL2 = SQRT  (QTL2)
+
+         IF (NIO.EQ.0) THEN
+            WRITE(6,'(13X,A,1p2e13.4)')
+     &         'L1/L2 DIV(V)        ',DIV1,DIV2
+            WRITE(6,'(13X,A,1p2e13.4)') 
+     &         'L1/L2 QTL           ',QTL1,QTL2
+            WRITE(6,'(13X,A,1p2e13.4)')
+     &         'L1/L2 DIV(V)-QTL    ',DIF1,DIF2
+            IF (DIF2.GT.0.1) WRITE(6,'(13X,A)') 
+     &         'WARNING: DIV(V)-QTL too large!'
+         ENDIF
+ 
+      endif
+ 
+      return
+      END
+
+c-----------------------------------------------------------------------
+      subroutine crespsp (respr)
+
+C     Compute startresidual/right-hand-side in the pressure
+
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+
+      REAL           RESPR (LX1*LY1*LZ1,LELV)
+c
+      COMMON /SCRNS/ TA1   (LX1*LY1*LZ1,LELV)
+     $ ,             TA2   (LX1*LY1*LZ1,LELV)
+     $ ,             TA3   (LX1*LY1*LZ1,LELV)
+     $ ,             WA1   (LX1*LY1*LZ1*LELV)
+     $ ,             WA2   (LX1*LY1*LZ1*LELV)
+     $ ,             WA3   (LX1*LY1*LZ1*LELV)
+      COMMON /SCRMG/ W1    (LX1*LY1*LZ1,LELV)
+     $ ,             W2    (LX1*LY1*LZ1,LELV)
+     $ ,             W3    (LX1*LY1*LZ1,LELV)
+
+      common /scruz/         sij (lx1*ly1*lz1,6,lelv)
+      parameter (lr=lx1*ly1*lz1)
+      common /scrvz/         ur(lr),us(lr),ut(lr)
+     $                     , vr(lr),vs(lr),vt(lr)
+     $                     , wr(lr),ws(lr),wt(lr)
+
+      CHARACTER CB*3
+      real dxy(lx1*ly1*lz1*lelv,3)
+      common /ctmp1/ work(lx1*ly1*lz1*lelt)
+      real bmg(lx1*ly1*lz1*lelt)
+      common /globbm / bmg
+      common /dumbfxd/ bfxd
+      real bfxd(lx1*ly1*lz1*lelv,ldim)
+      integer igeom
+      common /cgeom/ igeom
+      
+      NXYZ1  = lx1*ly1*lz1
+      NTOT1  = NXYZ1*NELV
+      NFACES = 2*ldim
+
+c     -mu*curl(curl(v))
+      call op_curl (ta1,ta2,ta3,vx_e,vy_e,vz_e,
+     &              .true.,w1,w2)
+      if(IFAXIS) then  
+         CALL COL2 (TA2, OMASK,NTOT1)
+         CALL COL2 (TA3, OMASK,NTOT1)
+      endif
+      call op_curl  (wa1,wa2,wa3,ta1,ta2,ta3,.true.,w1,w2)
+      if(IFAXIS) then  
+         CALL COL2  (WA2, OMASK,NTOT1)
+         CALL COL2  (WA3, OMASK,NTOT1)
+      endif
+      
+      call opcolv   (wa1,wa2,wa3,bm1)
+
+      call opgrad   (ta1,ta2,ta3,QTL)
+      if(IFAXIS) then  
+         CALL COL2  (ta2, OMASK,ntot1)
+         CALL COL2  (ta3, OMASK,ntot1)
+      endif
+      scale = -4./3. 
+      call opadd2cm (wa1,wa2,wa3,ta1,ta2,ta3,scale)
+
+c compute stress tensor for ifstrs formulation - variable viscosity Pn-Pn
+      if (ifstrs) then
+         call opgrad   (ta1,ta2,ta3,vdiff)
+         call invcol2  (ta1,vdiff,ntot1)
+         call invcol2  (ta2,vdiff,ntot1)
+         call invcol2  (ta3,vdiff,ntot1)
+
+         nij = 3
+         if (if3d.or.ifaxis) nij=6
+
+         call comp_sij   (sij,nij,vx_e,vy_e,vz_e,
+     &                    ur,us,ut,vr,vs,vt,wr,ws,wt)
+         call col_mu_sij (w1,w2,w3,ta1,ta2,ta3,sij,nij)
+
+         call opcolv   (ta1,ta2,ta3,QTL)
+         scale2 = -2./3. 
+         call opadd2cm (w1,w2,w3,ta1,ta2,ta3,scale2)
+         call opsub2   (wa1,wa2,wa3,w1,w2,w3)
+
+      endif
+
+      call invcol3  (w1,vdiff,vtrans,ntot1)
+      call opcolv   (wa1,wa2,wa3,w1)
+
+c     add old pressure term because we solve for delta p 
+      call invers2 (ta1,vtrans,ntot1)
+      call rzero   (ta2,ntot1)
+
+      call bcdirpc (pr)
+
+      call axhelm  (respr,pr,ta1,ta2,imesh,1)
+      call chsign  (respr,ntot1)
+
+c     add explicit (NONLINEAR) terms 
+      n = lx1*ly1*lz1*nelv
+      if (nid.eq.0) write(6,*) 'BDF TERMS ON RHS of PPE'
+c      if (nid.eq.0) write(6,*) 'NO BDF TERMS ON RHS of PPE'
+      do i=1,n
+c         ta1(i,1) = bfxd(i,1)/vtrans(i,1,1,1,1)-wa1(i)
+c         ta2(i,1) = bfxd(i,2)/vtrans(i,1,1,1,1)-wa2(i)
+c         ta3(i,1) = bfxd(i,3)/vtrans(i,1,1,1,1)-wa3(i)
+         ta1(i,1) = bfx(i,1,1,1)/vtrans(i,1,1,1,1)-wa1(i)
+         ta2(i,1) = bfy(i,1,1,1)/vtrans(i,1,1,1,1)-wa2(i)
+         ta3(i,1) = bfz(i,1,1,1)/vtrans(i,1,1,1,1)-wa3(i)
+      enddo
+      call opdssum (ta1,ta2,ta3)
+      do i=1,n
+         ta1(i,1) = ta1(i,1)*binvm1(i,1,1,1)
+         ta2(i,1) = ta2(i,1)*binvm1(i,1,1,1)
+         ta3(i,1) = ta3(i,1)*binvm1(i,1,1,1)
+      enddo
+
+      if (if3d) then
+         call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
+         call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
+         call cdtp    (wa3,ta3,rzm1,szm1,tzm1,1)
+         do i=1,n
+           respr(i,1) = respr(i,1)+wa1(i)+wa2(i)+wa3(i)
+         enddo
+      else
+         call cdtp    (wa1,ta1,rxm1,sxm1,txm1,1)
+         call cdtp    (wa2,ta2,rym1,sym1,tym1,1)
+         do i=1,n
+            respr(i,1) = respr(i,1)+wa1(i)+wa2(i)
+         enddo
+      endif
+
+c
+C     add thermal divergence
+      dtbd = BD(1)/DT
+      call admcol3(respr,QTL,bm1,dtbd,ntot1)
+ 
+C     surface terms
+      DO 100 IEL=1,NELV
+         DO 300 IFC=1,NFACES
+            CALL RZERO  (W1(1,IEL),NXYZ1)
+            CALL RZERO  (W2(1,IEL),NXYZ1)
+            IF (ldim.EQ.3)
+     $      CALL RZERO  (W3(1,IEL),NXYZ1)
+            CB = CBC(IFC,IEL,IFIELD)
+            IF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
+     $         cb.eq.'MV '.or.cb.eq.'mv ') then
+               CALL FACCL3
+     $         (W1(1,IEL),VX(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),VY(1,1,1,IEL),UNY(1,1,IFC,IEL),IFC)
+               IF (ldim.EQ.3)
+     $          CALL FACCL3
+     $         (W3(1,IEL),VZ(1,1,1,IEL),UNZ(1,1,IFC,IEL),IFC)
+            ELSE IF (CB(1:3).EQ.'SYM') THEN
+               CALL FACCL3
+     $         (W1(1,IEL),TA1(1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),TA2(1,IEL),UNY(1,1,IFC,IEL),IFC)
+               IF (ldim.EQ.3)
+     $          CALL FACCL3
+     $         (W3(1,IEL),TA3(1,IEL),UNZ(1,1,IFC,IEL),IFC)
+            ENDIF
+            CALL ADD2   (W1(1,IEL),W2(1,IEL),NXYZ1)
+            IF (ldim.EQ.3)
+     $      CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
+            CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+            IF (CB(1:1).EQ.'V'.OR.CB(1:1).EQ.'v'.or.
+     $         cb.eq.'MV '.or.cb.eq.'mv ') then
+              CALL CMULT(W1(1,IEL),dtbd,NXYZ1)
+            endif
+
+            CALL SUB2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
+  300    CONTINUE
+  100 CONTINUE
+
+C     Assure that the residual is orthogonal to (1,1,...,1)T 
+C     (only if all Dirichlet b.c.)
+c      CALL ORTHO (RESPR)
+c      CALL ORTHO_univ2 (RESPR)
+
+      return
+      END
+c----------------------------------------------------------------------
+      subroutine cresvsp (resv1,resv2,resv3,h1,h2)
+
+C     Compute the residual for the velocity
+
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+
+      real resv1(lx1,ly1,lz1,lelv)
+     $   , resv2(lx1,ly1,lz1,lelv)
+     $   , resv3(lx1,ly1,lz1,lelv)
+     $   , h1   (lx1,ly1,lz1,lelv)
+     $   , h2   (lx1,ly1,lz1,lelv)
+
+      COMMON /SCRUZ/ TA1   (LX1,LY1,LZ1,LELV)
+     $ ,             TA2   (LX1,LY1,LZ1,LELV)
+     $ ,             TA3   (LX1,LY1,LZ1,LELV)
+     $ ,             TA4   (LX1,LY1,LZ1,LELV)
+
+      NTOT = lx1*ly1*lz1*NELV
+      INTYPE = -1
+
+      CALL SETHLM  (H1,H2,INTYPE)
+
+      CALL OPHX    (RESV1,RESV2,RESV3,VX,VY,VZ,H1,H2)
+      CALL OPCHSGN (RESV1,RESV2,RESV3)
+
+      scale = -1./3.
+      if (ifstrs) scale =  2./3.
+
+      call col3    (ta4,vdiff,qtl,ntot)
+      call add2s1  (ta4,pr,scale,ntot)    
+      call opgrad  (ta1,ta2,ta3,TA4)
+      if(IFAXIS) then
+         CALL COL2 (TA2, OMASK,NTOT)
+         CALL COL2 (TA3, OMASK,NTOT)
+      endif
+c
+      call opsub2  (resv1,resv2,resv3,ta1,ta2,ta3)
+      call opadd2  (resv1,resv2,resv3,bfx,bfy,bfz)
+C
+      return
+      end
+
+c-----------------------------------------------------------------------
+      subroutine op_curl(w1,w2,w3,u1,u2,u3,ifavg,work1,work2)
+c
+      include 'SIZE'
+      include 'TOTAL'
+c
+      real duax(lx1), ta(lx1,ly1,lz1,lelv)
+
+      logical ifavg
+c
+      real w1(1),w2(1),w3(1),work1(1),work2(1),u1(1),u2(1),u3(1)
+c
+      ntot  = lx1*ly1*lz1*nelv
+      nxyz  = lx1*ly1*lz1
+c     work1=dw/dy ; work2=dv/dz
+        call dudxyz(work1,u3,rym1,sym1,tym1,jacm1,1,2)
+        if (if3d) then
+           call dudxyz(work2,u2,rzm1,szm1,tzm1,jacm1,1,3)
+           call sub3(w1,work1,work2,ntot)
+        else
+           call copy(w1,work1,ntot)
+
+           if(ifaxis) then
+              call copy (ta,u3,ntot)
+              do iel = 1,nelv
+                if(IFRZER(iel)) then
+                  call rzero (ta(1,1,1,iel),lx1)
+                  call MXM   (ta(1,1,1,iel),lx1,DATM1,ly1,duax,1)
+                  call copy  (ta(1,1,1,iel),duax,lx1)
+                endif
+                call col2    (ta(1,1,1,iel),yinvm1(1,1,1,iel),nxyz)
+              enddo
+              call add2      (w1,ta,ntot)
+           endif
+
+        endif
+c     work1=du/dz ; work2=dw/dx
+        if (if3d) then
+           call dudxyz(work1,u1,rzm1,szm1,tzm1,jacm1,1,3)
+           call dudxyz(work2,u3,rxm1,sxm1,txm1,jacm1,1,1)
+           call sub3(w2,work1,work2,ntot)
+        else
+           call rzero (work1,ntot)
+           call dudxyz(work2,u3,rxm1,sxm1,txm1,jacm1,1,1)
+           call sub3(w2,work1,work2,ntot)
+        endif
+c     work1=dv/dx ; work2=du/dy
+        call dudxyz(work1,u2,rxm1,sxm1,txm1,jacm1,1,1)
+        call dudxyz(work2,u1,rym1,sym1,tym1,jacm1,1,2)
+        call sub3(w3,work1,work2,ntot)
+c
+c    Avg at bndry
+c
+c     if (ifavg) then
+      if (ifavg .and. .not. ifcyclic) then
+
+         ifielt = ifield
+         ifield = 1
+       
+         call opcolv  (w1,w2,w3,bm1)
+         call opdssum (w1,w2,w3)
+         call opcolv  (w1,w2,w3,binvm1)
+
+         ifield = ifielt
+
+      endif
+c
+      return
+      end
+
+c-----------------------------------------------------------------------
+      subroutine opadd2cm (a1,a2,a3,b1,b2,b3,c)
+      INCLUDE 'SIZE'
+      REAL A1(1),A2(1),A3(1),B1(1),B2(1),B3(1),C
+      NTOT1=lx1*ly1*lz1*NELV
+      if (ldim.eq.3) then
+         do i=1,ntot1
+            a1(i) = a1(i) + b1(i)*c
+            a2(i) = a2(i) + b2(i)*c
+            a3(i) = a3(i) + b3(i)*c
+         enddo
+      else
+         do i=1,ntot1
+            a1(i) = a1(i) + b1(i)*c
+            a2(i) = a2(i) + b2(i)*c
+         enddo
+      endif
+      return
+      END
+
+c-----------------------------------------------------------------------
+      subroutine split_vis
+
+c     Split viscosity into a constant implicit (VDIFF) and variable 
+c     explicit (VDIFF_E) part.
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      n = lx1*ly1*lz1*nelv
+
+      dnu_star = -nu_star
+      call cadd2 (vdiff_e,vdiff,dnu_star,n)   ! set explicit part
+
+      call cfill (vdiff,nu_star,n)            ! set implicit part
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine redo_split_vis     !     Redo split viscosity
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      n = lx1*ly1*lz1*nelv
+      call add2(vdiff,vdiff_e,n) ! sum up explicit and implicit part
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine col_mu_sij(w1,w2,w3,ta1,ta2,ta3,sij,nij)
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      parameter (lr=lx1*ly1*lz1)
+      real w1 (lr,1),w2 (lr,1),w3 (lr,1)
+      real ta1(lr,1),ta2(lr,1),ta3(lr,1)
+      real sij(lr,nij,1)
+      integer e
+
+      nxyz1 = lx1*ly1*lz1
+
+      if (if3d.or.ifaxis) then
+        do e=1,nelv
+          call vdot3 (w1(1,e),ta1(1,e),ta2(1,e),ta3(1,e)
+     $               ,sij(1,1,e),sij(1,4,e),sij(1,6,e),nxyz1)
+          call vdot3 (w2(1,e),ta1(1,e),ta2(1,e),ta3(1,e)
+     $                  ,sij(1,4,e),sij(1,2,e),sij(1,5,e),nxyz1)
+          call vdot3 (w3(1,e),ta1(1,e),ta2(1,e),ta3(1,e)
+     $                  ,sij(1,6,e),sij(1,5,e),sij(1,3,e),nxyz1)
+        enddo
+
+      else
+
+        do e=1,nelv
+          call vdot2 (w1(1,e),ta1(1,e),ta2(1,e)
+     $               ,sij(1,1,e),sij(1,3,e),nxyz1)
+          call vdot2 (w2,ta1(1,e),ta2(1,e)
+     $               ,sij(1,3,e),sij(1,2,e),nxyz1)
+          call rzero (w3(1,e),nxyz1)
+        enddo
+
+      endif
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine sumab(v,vv,vvlag,ntot,ab_,nab_)
+c
+c     sum up AB/BDF contributions 
+c
+      include 'SIZE'
+
+      real vvlag(lx1*ly1*lz1*lelv,*)
+      real ab_(*)
+
+      ab0 = ab_(1)
+      ab1 = ab_(2)
+      ab2 = ab_(3)
+
+      call add3s2(v,vv,vvlag(1,1),ab0,ab1,ntot)
+      if(nab_.eq.3) call add2s2(v,vvlag(1,2),ab2,ntot)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userqtl_scig
+c
+c     Compute the thermal divergence QTL for an ideal single component gas 
+c     QTL := div(v) = -1/rho * Drho/Dt
+c
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CVODE'
+
+      common /scrns/ w1(lx1,ly1,lz1,lelt)
+     $              ,w2(lx1,ly1,lz1,lelt)
+     $              ,w3(lx1,ly1,lz1,lelt)
+     $              ,tx(lx1,ly1,lz1,lelt)
+     $              ,ty(lx1,ly1,lz1,lelt)
+     $              ,tz(lx1,ly1,lz1,lelt)
+
+      nxyz = lx1*ly1*lz1
+      ntot = nxyz*nelv
+
+      ifld_save = ifield
+
+c - - Assemble RHS of T-eqn
+      ifield=2
+
+      call makeuq
+      call copy(qtl,bq,ntot)
+
+      ifield=1     !set right gs handle (QTL is only defined on the velocity mesh)
+      call opgrad  (tx,ty,tz,t)
+      call opdssum (tx,ty,tz)
+      call opcolv  (tx,ty,tz,binvm1)
+      call opcolv  (tx,ty,tz,vdiff(1,1,1,1,2))
+      call opdiv   (w2,tx,ty,tz)
+
+      call add2    (qtl,w2,ntot)
+      call dssum   (qtl,lx1,ly1,lz1)
+      call col2    (qtl,binvm1,ntot)
+
+      ! QTL = T_RHS/(rho*cp**T)
+      call col3    (w2,vtrans(1,1,1,1,2),t,ntot)
+      call invcol2 (qtl,w2,ntot)
+
+      dp0thdt = 0.0
+      if (ifdp0dt) then
+         dd = (1.0 - gamma0)/gamma0
+         call rone(w1,ntot)
+         call cmult(w1,dd,ntot)
+
+         call invcol3(w2,vtrans(1,1,1,1,2),vtrans,ntot)
+         call invcol2(w1,w2,ntot)
+
+         call cadd(w1,1.0,ntot)
+         call copy(w2,w1,ntot)
+         call col2(w1,bm1,ntot)
+  
+         p0alph1 = p0th / glsum(w1,ntot)
+  
+         call copy   (w1,qtl,ntot)
+         call col2   (w1,bm1,ntot)
+
+         termQ = glsum(w1,ntot)
+         if (ifcvfun) then
+            termV = glcflux(vx,vy,vz)
+         else
+            termV = glcflux(vx_e,vy_e,vz_e)
+         endif
+         dp0thdt = p0alph1*(termQ - termV)
+
+         dd =-dp0thdt/p0th
+         call cmult(w2,dd,ntot)
+         call add2 (qtl,w2,ntot)
+      endif
+
+      ifield = ifld_save
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine qthermal
+c
+c     generic qtl wrapper
+c
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+
+      ntot = lx1*ly1*lz1*nelv
+
+      call rzero(qtl,ntot)
+      call userqtl()
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine doaltschwarz(ngeomp,igeom)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+      integer idx1,idx2
+      real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
+      real crescopy(lx1,ly1,lz1,lelv)
+      common /valmask/ valint
+
+      if (mod(istep,2).eq.0) then
+        idx1 = 0
+        idx2 = 1
+      else
+        idx1 = 0
+        idx2 = 1
+      endif
+
+      ntot1 = lx1*ly1*lz1*nelv
+      call modpresint('v  ','o  ')
+
+ccc     solve with extrapolated bcs first
+ccc    only at igeom = 2
+      igeomps = 1
+      if (igeom.eq.2) then
+      igeomp = 1
+      call crespsp  (respr)
+      call invers2  (h1,vtrans,ntot1)
+      call rzero    (h2,ntot1)
+      call ctolspl  (tolspl,respr)
+      napproxp(1) = laxtp
+      call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+      call add2    (pr,dpr,ntot1)
+      call ortho_univ2(pr)
+      igeomps = 2
+      endif
+
+      if (nid.eq.0) write(6,*) 'alt schwarz'
+     
+      do igeomp=igeomps,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+ccc      Solve for session 1
+           if (idsess.eq.idx1) then
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+ccc      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+ccc      Solve for session 2
+           if (idsess.eq.idx2) then
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call ortho_univ2   (pr)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
+     $      dprmax,' max-dp-nn'
+         enddo
+         call modpresint('o  ','v  ')
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine doaddschwarz(ngeomp,igeom)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+
+      ntot1 = lx1*ly1*lz1*nelv
+
+      call modpresint('v  ','o  ')
+ccc     solve with extrapolated bcs first
+ccc    only at igeom = 2
+      igeomps = 1
+      if (igeom.eq.2) then
+      igeomp = 1
+      call crespsp  (respr)
+      call invers2  (h1,vtrans,ntot1)
+      call rzero    (h2,ntot1)
+      call ctolspl  (tolspl,respr)
+      napproxp(1) = laxtp
+      call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+      call add2    (pr,dpr,ntot1)
+      call ortho_univ2(pr)
+      igeomps = 2
+      endif
+
+      do i=igeomps,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+           call crespsp  (respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+           if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p2e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
+     $      dprmax,' max-dp-nn'
+           call ortho_univ2   (pr)
+         enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine doaltschwarz_dummy2d(ngeomp,igeom)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+      integer idx1,idx2
+      real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
+      common /valmask/ valint
+      common/ exprx/ exactdprx,exactdpry,exactpr
+      real exactpr(lx2,ly2,lz2,lelv)
+      real exactdprx(lx2,ly2,lz2,lelv)
+      real exactdpry(lx2,ly2,lz2,lelv)
+      real errpr(lx2,ly2,lz2,lelv)
+      parameter (nptfpt = 100)
+      real xlist(nptfpt),ylist(nptfpt),errint(nptfpt)
+      real rwk(nptfpt,ldim+1)
+      integer iwk(nptfpt,3)
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
+
+   
+      ntot1 = lx1*ly1*lz1*nelv
+      rafac = 2./1.55
+      do i=1,ntot1
+       xv = xm1(i,1,1,1)
+       yv = ym1(i,1,1,1)
+       exactpr(i,1,1,1) = sin(xv)*cos(rafac*yv)
+       exactdprx(i,1,1,1) = cos(xv)*cos(rafac*yv)
+       exactdpry(i,1,1,1) = -rafac*sin(xv)*sin(rafac*yv)
+      enddo
+      call rzero(pr,lx1*ly1*lz1*nelv)
+      rmeanexp = glsc2_univ(exactpr,wgt,ntot1)
+     $          /glsc2_univ(wgt,wgt,ntot1)
+
+c     Initial error
+      call sub3(errpr,pr,exactpr,ntot1)
+      do i=1,ntot1
+        errpr(i,1,1,1) = abs(errpr(i,1,1,1))
+      enddo
+      call outpost(pr,errpr,vz,exactpr,pr,'   ')
+
+      idx1 = 0
+      idx2 = 1
+
+      call modpresint('v  ','o  ')
+
+      igeomps = 1
+      if (nid.eq.0) write(6,*) idsess,ngeomp,' alt schwarz'
+     
+      do igeomp=1,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+ccc      Solve for session 1
+           if (idsess.eq.idx1) then
+           call crespsp_dummy2d(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+ccc      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+ccc      Solve for session 2
+           if (idsess.eq.idx2) then
+           call crespsp_dummy2d(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+c           call ortho_univ2_tar   (pr,rmeanexp)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+
+          call sub3(errpr,pr,exactpr,ntot1)
+      do i=1,ntot1
+        errpr(i,1,1,1) = abs(errpr(i,1,1,1))
+      enddo
+          call outpost(pr,errpr,vz,exactpr,pr,'   ')
+          err_max = uglamax(errpr,ntot1)
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p3e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
+     $      dprmax,err_max,' max-dp-nn'
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p1e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,
+     $      err_max,' max-err-nn'
+
+         enddo
+         call modpresint('o  ','v  ')
+
+      call exitt
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine crespsp_dummy2d (respr)
+
+C     Compute startresidual/right-hand-side in the pressure
+
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+      INCLUDE 'GLOBALCOM'
+
+      REAL           RESPR (LX1*LY1*LZ1,LELV)
+c
+      COMMON /SCRNS/ TA1   (LX1*LY1*LZ1,LELV)
+     $ ,             TA2   (LX1*LY1*LZ1,LELV)
+     $ ,             TA3   (LX1*LY1*LZ1,LELV)
+     $ ,             WA1   (LX1*LY1*LZ1*LELV)
+     $ ,             WA2   (LX1*LY1*LZ1*LELV)
+     $ ,             WA3   (LX1*LY1*LZ1*LELV)
+      COMMON /SCRMG/ W1    (LX1*LY1*LZ1,LELV)
+     $ ,             W2    (LX1*LY1*LZ1,LELV)
+     $ ,             W3    (LX1*LY1*LZ1,LELV)
+
+      common /scruz/         sij (lx1*ly1*lz1,6,lelv)
+      parameter (lr=lx1*ly1*lz1)
+      common /scrvz/         ur(lr),us(lr),ut(lr)
+     $                     , vr(lr),vs(lr),vt(lr)
+     $                     , wr(lr),ws(lr),wt(lr)
+      common/ exprx/ exactdprx,exactdpry,exactpr
+      real exactpr(lx2,ly2,lz2,lelv)
+      real exactdprx(lx2,ly2,lz2,lelv)
+      real exactdpry(lx2,ly2,lz2,lelv)
+
+
+      CHARACTER CB*3
+
+      NXYZ1  = lx1*ly1*lz1
+      NTOT1  = NXYZ1*NELV
+      NFACES = 2*ldim
+
+      call rzero(W1,ntot1)
+      rafac = 2./1.55
+      do i=1,ntot1
+       xv = xm1(i,1,1,1)
+       yv = ym1(i,1,1,1)
+       w1(i,1) = bm1(i,1,1,1)*sin(xv)*cos(rafac*yv)*(1.+rafac**2)
+      enddo
+      call dssum(w1)
+
+c     add old pressure term because we solve for delta p 
+      call rone(ta1,ntot1)
+      call rzero   (ta2,ntot1)
+
+      call bcdirpc (pr)
+      call axhelm  (respr,pr,ta1,ta2,imesh,1)
+c      call dssum(respr)
+
+c      call col2(respr,binvm1,ntot1)
+      call col2(w1,binvm1,ntot1)
+      call outpost(respr,w1,vz,pr,t,'rhs')
+      call col2(w1,bm1,ntot1)
+c      call col2(respr,bm1,ntot1)
+
+      call chsign  (respr,ntot1)
+      call add2(respr,w1,ntot1)
+
+      DO IEL=1,NELV
+         DO IFC=1,2*ldim
+            CALL RZERO  (W1(1,IEL),NXYZ1)
+            CALL RZERO  (W2(1,IEL),NXYZ1)
+            CB = CBC(IFC,IEL,IFIELD)
+            IF (CB(1:1).EQ.'W'.OR.CB(1:1).EQ.'v') then
+               CALL FACCL3
+     $         (W1(1,IEL),exactdprx(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),exactdpry(1,1,1,IEL),UNY(1,1,IFC,IEL),IFC)
+
+               CALL ADD2   (W1(1,IEL),W2(1,IEL),NXYZ1)
+              IF (ldim.EQ.3)
+     $         CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
+
+               CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+            ENDIF
+            CALL ADD2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
+       enddo
+       enddo 
+
+ 
+
+      return
+      END
+c-----------------------------------------------------------------------
+      subroutine doaltschwarz_dummy(ngeomp,igeom)
+      INCLUDE 'SIZE'
+      INCLUDE 'INPUT'
+      INCLUDE 'GEOM'
+      INCLUDE 'MASS'
+      INCLUDE 'SOLN'
+      INCLUDE 'MVGEOM'
+      INCLUDE 'TSTEP'
+      INCLUDE 'ORTHOP'
+      INCLUDE 'CTIMER'
+      INCLUDE 'GLOBALCOM'
+      COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
+     $ ,             RES2  (LX1,LY1,LZ1,LELV)
+     $ ,             RES3  (LX1,LY1,LZ1,LELV)
+     $ ,             DV1   (LX1,LY1,LZ1,LELV)
+     $ ,             DV2   (LX1,LY1,LZ1,LELV)
+     $ ,             DV3   (LX1,LY1,LZ1,LELV)
+     $ ,             RESPR (LX2,LY2,LZ2,LELV)
+      common /scrvh/ h1    (lx1,ly1,lz1,lelv)
+     $ ,             h2    (lx1,ly1,lz1,lelv)
+
+      REAL           DPR   (LX2,LY2,LZ2,LELV)
+      EQUIVALENCE   (DPR,DV1)
+      LOGICAL        IFSTSP
+      REAL           prcp   (LX2,LY2,LZ2,LELV)
+      REAL           dprc   (LX2,LY2,LZ2,LELV)
+
+      integer ngeomp,ntot
+      integer idx1,idx2
+      real             valint(lx1,ly1,lz1,lelt,nfldmax_nn)
+      common /valmask/ valint
+      common/ expr/ exactdpr,exactpr
+      real exactpr(lx2,ly2,lz2,lelv)
+      real exactdpr(lx2,ly2,lz2,lelv)
+      real errpr(lx2,ly2,lz2,lelv)
+      parameter (nptfpt = 100)
+      real xlist(nptfpt),ylist(nptfpt),errint(nptfpt)
+      real rwk(nptfpt,ldim+1)
+      integer iwk(nptfpt,3)
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
+
+   
+      ntot1 = lx1*ly1*lz1*nelv
+      do i=1,ntot1
+       xv = xm1(i,1,1,1)
+       exactpr(i,1,1,1) = sin(xv)/exp(xv)
+       exactdpr(i,1,1,1) = (cos(xv)-sin(xv))/exp(1*xv)
+      enddo
+      call rzero(pr,lx1*ly1*lz1*nelv)
+      rmeanexp = glsc2_univ(exactpr,wgt,ntot1)
+     $          /glsc2_univ(wgt,wgt,ntot1)
+
+c     Initial error
+      call sub3(errpr,pr,exactpr,ntot1)
+      call outpost(pr,errpr,vz,exactpr,pr,'   ')
+c     setup findpts
+      call intp_setup(1.e-12)
+c     setup xyz array
+      call domain_size(xmn,xmx,ymn,ymx,zmn,zmx)
+      dxv = (xmx-xmn)/(nptfpt-1)
+      do i=1,nptfpt
+       xlist(i) = xmn+dxv*(i-1)
+       ylist(i) = 0.5*(ymn+ymx)
+      enddo
+  
+      call intp_do(errint,errpr,1,xlist,ylist,xlist,nptfpt,
+     $       iwk,rwk,nptfpt,.true.)
+
+      call writeouterr(errint,nptfpt,xlist,0)
+
+        idx1 = 0
+        idx2 = 1
+
+      call modpresint('v  ','o  ')
+
+      igeomps = 1
+      if (nid.eq.0) write(6,*) idsess,ngeomp,' alt schwarz'
+     
+      do igeomp=1,ngeomp
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+           call copy(prcp,pr,lx1*ly1*lz1*nelv)
+
+ccc      Solve for session 1
+           if (idsess.eq.idx1) then
+           call crespsp_dummy(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call neknekgsync()
+ccc      Exchange data
+           call neknek_xfer_fld(pr,ldim+1)
+           call neknek_bcopy(ldim+1)
+ccc      Solve for session 2
+           if (idsess.eq.idx2) then
+           call crespsp_dummy(respr)
+           call invers2  (h1,vtrans,ntot1)
+           call rzero    (h2,ntot1)
+           call ctolspl  (tolspl,respr)
+           napproxp(1) = laxtp
+           call hsolve   ('PRES',dpr,respr,h1,h2
+     $                        ,pmask,vmult
+     $                        ,imesh,tolspl,nmxh,1
+     $                        ,approxp,napproxp,binvm1)
+           call add2    (pr,dpr,ntot1)
+           endif
+           call ortho_univ2_tar   (pr,rmeanexp)
+           call sub3(dprc,prcp,pr,ntot1)
+           dprmax = uglamax(dprc,ntot1)
+
+          call sub3(errpr,pr,exactpr,ntot1)
+          call outpost(pr,errpr,vz,exactpr,pr,'   ')
+          call intp_do(errint,errpr,1,xlist,ylist,xlist,nptfpt,
+     $       iwk,rwk,nptfpt,.false.)
+           call writeouterr(errint,nptfpt,xlist,igeomp)
+
+          err_max = uglamax(errpr,ntot1)
+         if (nid_global.eq.0)
+     $      write(6,'(i2,i8,2i4,1p3e13.4,a11)') idsess,istep,igeom,
+     $      igeomp,time,
+     $      dprmax,err_max,' max-dp-nn'
+
+         enddo
+         call modpresint('o  ','v  ')
+
+      call exitt
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine crespsp_dummy (respr)
+
+C     Compute startresidual/right-hand-side in the pressure
+
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+      INCLUDE 'GLOBALCOM'
+
+      REAL           RESPR (LX1*LY1*LZ1,LELV)
+c
+      COMMON /SCRNS/ TA1   (LX1*LY1*LZ1,LELV)
+     $ ,             TA2   (LX1*LY1*LZ1,LELV)
+     $ ,             TA3   (LX1*LY1*LZ1,LELV)
+     $ ,             WA1   (LX1*LY1*LZ1*LELV)
+     $ ,             WA2   (LX1*LY1*LZ1*LELV)
+     $ ,             WA3   (LX1*LY1*LZ1*LELV)
+      COMMON /SCRMG/ W1    (LX1*LY1*LZ1,LELV)
+     $ ,             W2    (LX1*LY1*LZ1,LELV)
+     $ ,             W3    (LX1*LY1*LZ1,LELV)
+
+      common /scruz/         sij (lx1*ly1*lz1,6,lelv)
+      parameter (lr=lx1*ly1*lz1)
+      common /scrvz/         ur(lr),us(lr),ut(lr)
+     $                     , vr(lr),vs(lr),vt(lr)
+     $                     , wr(lr),ws(lr),wt(lr)
+      common/ expr/ exactdpr,exactpr
+      real exactpr(lx2,ly2,lz2,lelv)
+      real exactdpr(lx2,ly2,lz2,lelv)
+
+
+      CHARACTER CB*3
+
+      NXYZ1  = lx1*ly1*lz1
+      NTOT1  = NXYZ1*NELV
+      NFACES = 2*ldim
+
+      call rzero(W1,ntot1)
+      do i=1,ntot1
+       xv = xm1(i,1,1,1)
+       w1(i,1) = bm1(i,1,1,1)*2.*cos(xv)/exp(xv)
+      enddo
+      call dssum(w1)
+
+c     add old pressure term because we solve for delta p 
+      call rone(ta1,ntot1)
+      call rzero   (ta2,ntot1)
+
+      call bcdirpc (pr)
+      call axhelm  (respr,pr,ta1,ta2,imesh,1)
+c      call dssum(respr)
+
+c      call col2(respr,binvm1,ntot1)
+      call col2(w1,binvm1,ntot1)
+      call outpost(respr,w1,vz,pr,t,'rhs')
+      call col2(w1,bm1,ntot1)
+c      call col2(respr,bm1,ntot1)
+
+      call chsign  (respr,ntot1)
+      call add2(respr,w1,ntot1)
+
+      DO IEL=1,NELV
+         DO IFC=1,2*ldim
+            CALL RZERO  (W1(1,IEL),NXYZ1)
+            CALL RZERO  (W2(1,IEL),NXYZ1)
+            CB = CBC(IFC,IEL,IFIELD)
+            IF (CB(1:1).EQ.'W'.OR.CB(1:1).EQ.'v') then
+               CALL FACCL3
+     $         (W1(1,IEL),exactdpr(1,1,1,IEL),UNX(1,1,IFC,IEL),IFC)
+               CALL FACCL3
+     $         (W2(1,IEL),exactdpr(1,1,1,IEL),UNY(1,1,IFC,IEL),IFC)
+
+               CALL ADD2   (W1(1,IEL),W2(1,IEL),NXYZ1)
+              IF (ldim.EQ.3)
+     $         CALL ADD2   (W1(1,IEL),W3(1,IEL),NXYZ1)
+
+               CALL FACCL2 (W1(1,IEL),AREA(1,1,IFC,IEL),IFC)
+            ENDIF
+            CALL ADD2 (RESPR(1,IEL),W1(1,IEL),NXYZ1)
+       enddo
+       enddo 
+
+ 
+
+      return
+      END
+c----------------------------------------------------------------------
+      subroutine writeouterr(errint,nptfpt,xlist,idx)
+      INCLUDE 'SIZE'
+      INCLUDE 'TOTAL'
+      INCLUDE 'GLOBALCOM'
+      real errint(1),xlist(1)
+
+      do j=0,1
+      if (idsess.eq.j) then
+      do i=1,nptfpt
+         write(6,'(3i6,1p2e13.4,a11)') 
+     $       idsess,idx,i,xlist(i),errint(i),' k10_nn_altsc'
+
+      enddo
+      endif
+      call neknekgsync()
+      enddo
+
+      return
+      END
+c----------------------------------------------------------------------
+c-----------------------------------------------------------------------
+      subroutine makef_nobdf
+C---------------------------------------------------------------------
+C
+C     Compute and add: (1) user specified forcing function (FX,FY,FZ)
+C                      (2) driving force due to natural convection
+C                      (3) convection term
+C
+C     !! NOTE: Do not change the arrays BFX, BFY, BFZ until the
+C              current time step is completed.
+C
+C----------------------------------------------------------------------
+      include 'SIZE'
+      include 'SOLN'
+      include 'MASS'
+      include 'INPUT'
+      include 'TSTEP'
+
+      include 'MVGEOM'
+
+                                                call makeuf
+      if (filterType.eq.2)                      call make_hpf
+      if (ifnatc)                               call natconv
+      if (ifexplvis.and.ifsplit)                call makevis
+      if (ifnav .and..not.ifchar)               call advab
+      if (ifmvbd.and..not.ifchar)               call admeshv
+      if (iftran)                               call makeabf
+c      if ((iftran.and..not.ifchar).or.
+c     $    (iftran.and..not.ifnav.and.ifchar))   call makebdf
+      if (ifnav.and.ifchar)                     call advchar
+
+c     Adding this call allows prescribed pressure bc for PnPn-2
+c     if (.not.ifsplit.and..not.ifstrs)         call bcneutr
+
+      return
+      end
+C---------------------------------------------------------------------
+      subroutine ortho_univ2_tar(respr,tarval)
+
+C     Orthogonalize the residual in the pressure solver with respect 
+C     to (1,1,...,1)T  (only if all Dirichlet b.c.).
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      real wgt(lx1*ly1*lz1*lelt)
+      common /globwgt / wgt
+      real respr (lx2,ly2,lz2,lelv)
+      integer*8 ntotg,nxyz2
+      integer nelgv_univ
+
+      nxyz2 = nx2*ny2*nz2
+      ntot  = nxyz2*nelv
+      nelgv_univ = iglsum_univ(nelv,1)
+      ntotgl = nxyz2*nelgv
+      ntotg = nxyz2*nelgv_univ
+
+      rlam  = glsc2_univ(respr,wgt,ntot)/glsc2_univ(wgt,wgt,ntot)
+      rlam = rlam-tarval
+      call cadd (respr,-rlam,ntot)
+      if (nid.eq.0) write(6,*) istep,rlam,
+     $       'k10_nn doing ortho_univ'
+
+
+      return
+      end
+c------------------------------------------------------------------------
+
