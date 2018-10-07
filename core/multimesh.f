@@ -708,6 +708,24 @@ c     zero out valint
 
       call iglmax(ierror,1)
       if (ierror.eq.1) call exitt
+
+c
+c      do i=0,nsessions-1
+c        if (idsess.eq.i) then
+c          do j=1,nbp
+c           idx = iList(1,j)
+c        write(6,*) 
+c     $     idsess,xm1(idx,1,1,1),ym1(idx,1,1,1),elsid_nn(j),'k10donor'
+c          enddo
+c        endif
+c      call neknekgsync()
+c      enddo
+c      call outpost(vx,vy,vz,pr,t,'   ')
+c      call exitt
+
+
+
+c
  
       call neknekgsync()
 
