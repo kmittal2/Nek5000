@@ -260,6 +260,7 @@ c-----------------------------------------------------------------------
 
          do igeom=1,ngeom
 
+         if (igeom.gt.2) call userchk_set_xfer
 
          ! within cvode we use the lagged wx for 
          ! extrapolation, that's why we have to call it before gengeom 
