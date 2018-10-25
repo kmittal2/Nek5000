@@ -71,6 +71,7 @@ c     Boundary conditions are changed back to 'v' or 't'.
 
       ifield = 1
       if (ifheat) ifield = 2
+      if (npscal.gt.0) ifield = nfield
 
 
       nfaces = 2*ldim
@@ -85,7 +86,7 @@ c     Boundary conditions are changed back to 'v' or 't'.
          cb=cbc(f,e,j)
          if (cb2.eq.'in') then
             intflag(f,e)=1
-            if (j.eq.2) cbc(f,e,j)='t  '
+            if (j.ge.2) cbc(f,e,j)='t  '
             if (j.eq.1) cbc(f,e,j)='v  '
 c           if (cb.eq.'inp') cbc(f,e,ifield)='on ' ! Pressure
 c            if (cb.eq.'inp') cbc(f,e,ifield)='o  ' ! Pressure
