@@ -28,3 +28,9 @@ c
 
       integer inth_multi2
       common /intp_h_nn/ inth_multi2
+
+      integer ids_nn(lelt)
+      common /ifpt_ms/ ids_nn
+
+      real distfint(lx1,ly1,lz1,lelt)
+      common /rfpt_ms/ distfint

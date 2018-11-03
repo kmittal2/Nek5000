@@ -1,0 +1,6 @@
+SOURCE_ROOT=/Users/ketanmittal/Nek5000
+FC=mpif77
+FFLAGS= -std=legacy -fdefault-real-8 -fdefault-double-8 -cpp
+CC=mpicc -I /3rd_party/gslib/gslib-1.0.1/src/
+CFLAGS=
+PPLIST= MPI UNDERSCORE TIMER
