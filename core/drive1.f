@@ -301,6 +301,10 @@ c-----------------------------------------------------------------------
 
          do igeom=1,ngeom
 
+         if (ifneknekm.and.igeom.eq.2) then
+            call multimesh_create
+            call xfer_bcs_neknek
+         endif
          if (ifneknek .and. igeom.gt.2) call xfer_bcs_neknek
 
          ! call here before we overwrite wx 
@@ -311,7 +315,6 @@ c-----------------------------------------------------------------------
             call geneig  (igeom)
          endif
 
-         if (ifneknekm.and.igeom.eq.2) call multimesh_create
          if (ifheat) call heat (igeom)
 
          if (igeom.eq.2) then  
@@ -331,6 +334,10 @@ c-----------------------------------------------------------------------
          call setprop
          do igeom=1,ngeom
 
+            if (ifneknekm.and.igeom.eq.2) then
+              call multimesh_create
+              call xfer_bcs_neknek
+            endif
             if (ifneknek .and. igeom.gt.2) call xfer_bcs_neknek
 
             ! call here before we overwrite wx 
@@ -341,7 +348,7 @@ c-----------------------------------------------------------------------
                call geneig  (igeom)
             endif
 
-            if (ifneknekm.and.igeom.eq.2) call multimesh_create
+c            if (ifneknekm.and.igeom.eq.2) call multimesh_create
 
             if (ifmhd) then
                if (ifheat)      call heat     (igeom)
