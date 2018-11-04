@@ -295,7 +295,7 @@ c     Setup findpts
 
       if (istep.gt.1) call fgslib_findptsnn_free(inth_multi2)
 c     if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
-      write(6,*) 'about to do findptsnn'
+c      write(6,*) 'about to do findptsnn'
       call fgslib_findptsnn_setup(inth_multi2,mpi_comm_world,npall,ldim,
      &                          xm1,ym1,zm1,lx1,ly1,lz1,
      &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
