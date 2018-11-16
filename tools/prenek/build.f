@@ -2945,7 +2945,7 @@ c
 
       if (nfail.eq.0) return
       write(6,*) 'FAIL in find_ee: nfail=',nfail
-      call prexit(0)
+c     call prexit(0)
 
       end
 c-----------------------------------------------------------------------
