@@ -111,20 +111,21 @@ c     Assign key for splitting into multiple groups
 
       ! setup intercommunication 
       if (ifneknekc) then
-         if (nsessions.gt.2) call exitti(
-     &     'More than 2 coupled sessions are currently not supported!$',
-     $     nsessions)
+c        if (nsessions.gt.2) call exitti(
+c    &     'More than 2 coupled sessions are currently not supported!$',
+c    $     nsessions)
 
-         if (idsess.eq.0) idsess_neighbor=1
-         if (idsess.eq.1) idsess_neighbor=0
+c        if (idsess.eq.0) idsess_neighbor=1
+c        if (idsess.eq.1) idsess_neighbor=0
  
-         call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
-     &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
+c        call mpi_intercomm_create(intracomm,0,mpi_comm_world, 
+c    &     nid_global_root(idsess_neighbor), 10,intercomm,ierr)
 
-         np_neighbor=npsess(idsess_neighbor)
+c        np_neighbor=npsess(idsess_neighbor)
       
          ifhigh=.true.
-         call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+c        call mpi_intercomm_merge(intercomm, ifhigh, iglobalcomm, ierr)
+         iglobalcomm = mpi_comm_world
 
          ngeom = 2  ! Initialize NEKNEK interface subiterations to 2.
          ninter = 1 ! Initialize NEKNEK interface extrapolation order to 1.

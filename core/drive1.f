@@ -276,7 +276,11 @@ c-----------------------------------------------------------------------
 
          do igeom=1,ngeom
 
-         if (ifneknekc .and. igeom.gt.2) call neknek_exchange
+
+         if (ifneknek .and. igeom.gt.2) then
+            if (ifneknekm.and.igeom.eq.3) call multimesh_create
+            call  neknek_exchange
+         endif
 
          ! call here before we overwrite wx 
          if (ifheat .and. ifcvode) call heat_cvode (igeom)   
@@ -305,7 +309,10 @@ c-----------------------------------------------------------------------
          call setprop
          do igeom=1,ngeom
 
-            if (ifneknekc .and. igeom.gt.2) call neknek_exchange
+         if (ifneknek .and. igeom.gt.2) then
+            if (ifneknekm.and.igeom.eq.3) call multimesh_create
+            call  neknek_exchange
+         endif
 
             ! call here before we overwrite wx 
             if (ifheat .and. ifcvode) call heat_cvode (igeom)   
@@ -314,8 +321,6 @@ c-----------------------------------------------------------------------
                if (.not.ifrich) call gengeom (igeom)
                call geneig  (igeom)
             endif
-
-            if (ifneknekm.and.igeom.eq.2) call multimesh_create
 
             if (ifmhd) then
                if (ifheat)      call heat     (igeom)
@@ -368,6 +373,7 @@ c-----------------------------------------------------------------------
          call nek_advance
 
          if (ifneknekc) call neknek_exchange
+         if (ifneknekc) call bcopy
          if (ifneknekc) call chk_outflow
       enddo
 

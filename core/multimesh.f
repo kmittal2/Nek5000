@@ -82,6 +82,14 @@ c     Boundary conditions are changed back to 'v' or 't'.
       ifield = 1
       if (ifheat) ifield = 2
 
+c     zero out valint
+      do i=1,nfld_neknek
+       call rzero(valint(1,1,1,1,i),lx1*ly1*lz1*nelt)
+      enddo
+
+      call cheap_dist(distfint,1,'int')
+      call dsavg(distfint)
+
       nfaces = 2*ldim
       nel    = nelfld(ifield)
       
@@ -130,11 +138,11 @@ c     higher-order interface extrapolation schemes, you need to increase
 c     ngeom to ngeom=3-5 for scheme to be stable.
 
 
-      if (NINTER.eq.1.or.istep.eq.0) then
+      if (NINTER.eq.1.or.istep.eq.1) then
        c0=1.
        c1=0.
        c2=0.
-       else if (NINTER.eq.2.or.istep.eq.1) then
+       else if (NINTER.eq.2.or.istep.eq.2) then
          c0=2.
          c1=-1.
          c2=0.
@@ -238,7 +246,7 @@ c     Get diamter of the domain
       mn_glob = glmin_ms(xm1,lx1*ly1*lz1*nelt)
       dx1 = mx_glob-mn_glob
 
-      dxf = 10.+dx1
+      dxf = (10.+dx1)*0.
       dyf = 0.
       dzf = 0.
 
@@ -250,6 +258,12 @@ c     Displace MESH 1
 
       call neknekgsync()
 
+ccccc
+      ntot = lx1*ly1*lz1*nelt
+      do i=1,nelt
+        ids_nn(i) = idsess
+      enddo
+
 c     Setup findpts    
       tol     = 5e-13
       npt_max = 128
@@ -258,11 +272,11 @@ c     Setup findpts
       nzf     = 2*lz1
       bb_t    = 0.01 ! relative size to expand bounding boxes by
 
-      if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
-      call fgslib_findpts_setup(inth_multi2,mpi_comm_world,npall,ldim,
+      if (istep.gt.1) call fgslib_findptsnn_free(inth_multi2)
+      call fgslib_findptsnn_setup(inth_multi2,mpi_comm_world,npall,ldim,
      &                          xm1,ym1,zm1,lx1,ly1,lz1,
      &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                          npt_max,tol)
+     &                          npt_max,tol,ids_nn,distfint)
 
       return
       end
@@ -280,6 +294,8 @@ c-----------------------------------------------------------------------
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
       real    rst_all(nmaxl_nn*ldim)
+      integer rsid_nn(nmaxl_nn),elsid_nn(nmaxl_nn)
+      real    disti_all(nmaxl_nn)
       integer e,ip,iface,nel,nfaces,ix,iy,iz
       integer kx1,kx2,ky1,ky2,kz1,kz2,idx,nxyz,nxy
       integer icalld
@@ -317,6 +333,8 @@ c     points in jsend
                ip=ip+1
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
+               rsid_nn(ip) = idsess
+               disti_all(i) = -1.
                if (if3d) then
                  rsend(ldim*(ip-1)+1)=x-dxf
                  rsend(ldim*(ip-1)+2)=y
@@ -345,14 +363,25 @@ c     points in jsend
       call neknekgsync()
 
 c     JL's routine to find which points these procs are on
-      call fgslib_findpts(inth_multi2,rcode_all,1,
+c     call fgslib_findpts(inth_multi2,rcode_all,1,
+c    &                    proc_all,1,
+c    &                    elid_all,1,
+c    &                    rst_all,ldim,
+c    &                    dist_all,1,
+c    &                    rsend(1),ldim,
+c    &                    rsend(2),ldim,
+c    &                    rsend(3),ldim,nbp)
+      call fgslib_findptsnn(inth_multi2,rcode_all,1,
      &                    proc_all,1,
      &                    elid_all,1,
      &                    rst_all,ldim,
      &                    dist_all,1,
      &                    rsend(1),ldim,
      &                    rsend(2),ldim,
-     &                    rsend(3),ldim,nbp)
+     &                    rsend(3),ldim,
+     &                    rsid_nn,1,
+     &                    disti_all,1,
+     &                    elsid_nn,1,nbp)
 
       call neknekgsync()
 
@@ -462,7 +491,6 @@ c     the information will go to the boundary points
      $              etime, etime+tsync
  99   format(i11,a,1p2e13.4)
 
-      call bcopy
 
       return
       end
@@ -476,7 +504,7 @@ c--------------------------------------------------------------------------
       integer fieldstride
 
 c     Used for findpts_eval of various fields
-      call fgslib_findpts_eval(inth_multi2,fieldout,fieldstride,
+      call fgslib_findptsnn_eval(inth_multi2,fieldout,fieldstride,
      &                         rcode,1,
      &                         proc,1,
      &                         elid,1,
