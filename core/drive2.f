@@ -395,20 +395,6 @@ C
          CALL SETINVM
          CALL SETDEF
          CALL SFASTAX
-      ELSEIF (IGEOM.EQ.3) THEN
-c
-c        Take direct stiffness avg of mesh
-c
-         ifieldo = ifield
-         if (.not.ifneknekm) CALL GENCOOR (XM3,YM3,ZM3)
-         CALL GEOM1 (XM3,YM3,ZM3)
-         CALL GEOM2
-         CALL UPDMSYS (1)
-         CALL VOLUME
-         CALL SETINVM
-         CALL SETDEF
-         CALL SFASTAX
-         ifield = ifieldo
       ENDIF
 
       if (nio.eq.0.and.istep.le.1) then
