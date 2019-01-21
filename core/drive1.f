@@ -101,14 +101,13 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       if(nio.eq.0) write(6,'(A,/)') ' done :: usrdat2' 
       call fix_geom
       
-      if (ifneknekc) call neknek_setup
-
       call geom_reset(1)    ! recompute Jacobians, etc.
       call vrdsmsh          ! verify mesh topology
       call mesh_metrics     ! print some metrics
 
       call setlog  ! Initalize logical flags
 
+      if (ifneknekc) call neknek_setup
       call bcmask  ! Set BC masks for Dirichlet boundaries.
 
       if (fintim.ne.0.0 .or. nsteps.ne.0) 
