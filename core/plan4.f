@@ -17,6 +17,9 @@ c
       INCLUDE 'TSTEP'
       INCLUDE 'ORTHOP'
       INCLUDE 'CTIMER'
+
+      integer itstepratio,nss_ms,iss_ms
+      common /int_multi_dt/ itstepratio,nss_ms,iss_ms
 C
       COMMON /SCRNS/ RES1  (LX1,LY1,LZ1,LELV)
      $ ,             RES2  (LX1,LY1,LZ1,LELV)
@@ -46,6 +49,16 @@ c
          call sumab(vx_e,vx,vxlag,ntot1,ab,nab)
          call sumab(vy_e,vy,vylag,ntot1,ab,nab)
          if (if3d) call sumab(vz_e,vz,vzlag,ntot1,ab,nab)
+
+         call copy(bfxit(1,iss_ms),bfx,ntot1)
+         call copy(bfyit(1,iss_ms),bfy,ntot1)
+         call copy(bfzit(1,iss_ms),bfz,ntot1)
+
+         call copy(vxeit(1,iss_ms),vx_e,ntot1)
+         call copy(vyeit(1,iss_ms),vy_e,ntot1)
+         call copy(vzeit(1,iss_ms),vz_e,ntot1)
+
+         tsavms(iss_ms) = time
 
       else
 

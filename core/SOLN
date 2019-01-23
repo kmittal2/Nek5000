@@ -137,3 +137,17 @@ c
 
       integer jp
       common /ppointr/ jp
+
+      real bfxit(lx1*ly1*lz1*lelt,10)
+     $    ,bfyit(lx1*ly1*lz1*lelt,10)
+     $    ,bfzit(lx1*ly1*lz1*lelt,10)
+      real vxeit(lx1*ly1*lz1*lelt,10)
+     $    ,vyeit(lx1*ly1*lz1*lelt,10)
+     $    ,vzeit(lx1*ly1*lz1*lelt,10)
+      real vxsav(lx1*ly1*lz1*lelt)
+     $    ,vysav(lx1*ly1*lz1*lelt)
+     $    ,vzsav(lx1*ly1*lz1*lelt)
+     $    ,prsav(lx1*ly1*lz1*lelt)
+      real tsavms(0:10)
+      common /r_multi_dt/ bfxit,bfyit,bfzit,vxeit,vyeit,vzeit,vxsav
+     $                   ,vysav,vzsav,tsavms,prsav

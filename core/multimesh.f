@@ -1119,4 +1119,58 @@ ccccc
       return
       end
 c-----------------------------------------------------------------------
+      subroutine bcopy_only
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
 
+      if (.not.ifneknekc) return
+
+      n    = lx1*ly1*lz1*nelt
+
+      do k=1,nfld_neknek
+         call copy(bdrylg(1,k,2),bdrylg(1,k,1),n)
+         call copy(bdrylg(1,k,1),bdrylg(1,k,0),n)
+         call copy(bdrylg(1,k,0),valint(1,1,1,1,k),n)
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine bdr_data_extr(sf) !sf = substep fraction
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+
+      if (.not.ifneknekc) return
+
+      n    = lx1*ly1*lz1*nelt
+
+c      write(6,*) idsess,istep,igeom,nss_ms,sf,'k10000000000000000000000'
+      if (NINTER.eq.1.or.istep.le.nss_ms) then
+       c0= 1.
+       c1= 0.
+       c2= 0.
+       else if (NINTER.eq.2.or.istep.le.2*nss_ms) then
+         c0= sf+1 !2.
+         c1= -sf  !-1.
+         c2= 0.
+       else
+         c0= sf*sf*0.5 + 1.5*sf +1  !3.
+         c1= -sf*sf - 2.*sf         !-3.
+         c2= sf*sf*0.5 + 0.5*sf     !1.
+      endif
+
+c     write(6,*) idsess,c0,c1,c2,'k10'
+      do k=1,nfld_neknek
+      do i=1,n
+         valint(i,1,1,1,k) =
+     $      c0*bdrylg(i,k,0)+c1*bdrylg(i,k,1)+c2*bdrylg(i,k,2)
+      enddo
+      enddo
+
+      return
+      end
+c---------------------------------------------------------------------

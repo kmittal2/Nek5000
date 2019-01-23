@@ -28,3 +28,6 @@ c
 
       integer inth_multi2
       common /intp_h_nn/ inth_multi2
+
+      integer itstepratio,nss_ms,iss_ms
+      common /int_multi_dt/ itstepratio,nss_ms,iss_ms

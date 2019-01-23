@@ -307,7 +307,8 @@ C      endif
       COURNO = DT*UMAX
 
 ! synchronize time step for multiple sessions
-      if (ifneknek) dt = glmin_ms(dt,1)
+ck10      if (ifneknek) dt = glmin_ms(dt,1)
+      
 c
       if (iffxdt.and.abs(courno).gt.10.*abs(ctarg)) then
          if (nid.eq.0) write(6,*) 'CFL, Ctarg!',courno,ctarg

@@ -178,6 +178,7 @@ c-----------------------------------------------------------------------
       include 'TSTEP'
       include 'INPUT'
       include 'CTIMER'
+      include 'NEKNEK'
 
       call nekgsync()
 
@@ -204,8 +205,9 @@ c-----------------------------------------------------------------------
       istep  = 0
       msteps = 1
 
-      do kstep=1,nsteps,msteps
-         call nek__multi_advance(kstep,msteps)
+      do kstep=1,nsteps,nss_ms
+c        call nek__multi_advance(kstep,msteps)
+         call nek__multi_advance_dt(kstep,nss_ms)
          if(kstep.ge.nsteps) lastep = 1
          call check_ioinfo  
          call set_outfld
@@ -372,6 +374,202 @@ c-----------------------------------------------------------------------
             call chk_outflow
          endif
       enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine nek__multi_advance_dt(kstep,msteps)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      real vxdum(lx1*ly1*lz1*nelv,0:1),vydum(lx1*ly1*lz1*nelv,0:1)
+     $    ,vzdum(lx1*ly1*lz1*nelv,0:1)
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntott = lx1*ly1*lz1*nelt
+      call copy(vxsav,vx,ntotv)
+      call copy(vysav,vy,ntotv)
+      call copy(vzsav,vz,ntotv)
+      call copy(prsav,pr,ntotv)
+      tsavms(0) = time
+
+      if (istep.eq.0) then
+       if (ifneknekc) call neknek_exchange
+       if (ifneknekc) call bcopy_only
+      endif
+
+      iorigstep = istep
+
+      do i=1,msteps
+        iss_ms = i !multisession sub-step
+        istep = istep+1
+        igeomstart=1
+        igeomend=2
+c       calculate appropriate extrapolation coefficients
+        if (msteps.eq.1) then
+          call bdr_data_extr(itstepratio*1.)
+        else
+          call bdr_data_extr(i*1./msteps)
+        endif
+
+        call nek_advance_ms(igeomstart,igeomend)
+      enddo
+      call neknek_xfer_fld(vxsav,vxdum(1,0))
+      call neknek_xfer_fld(vysav,vydum(1,0))
+      call neknek_xfer_fld(vzsav,vzdum(1,0))
+
+      call neknek_xfer_fld(vx,vxdum(1,1))
+      call neknek_xfer_fld(vy,vydum(1,1))
+      call neknek_xfer_fld(vz,vzdum(1,1))
+
+cc    Schwarz iterations
+
+      do igeom=3,ngeom
+        call copy(vx,vxsav,ntotv)
+        call copy(vy,vysav,ntotv)
+        call copy(vz,vzsav,ntotv)
+        call copy(pr,prsav,ntotv)
+        istep = iorigstep
+        do i=1,msteps
+          istep = istep+1
+          c1 = i*1./(msteps*1.)
+          c0 = 1.-c1
+          call add3s2(valint(1,1,1,1,1),vxdum(1,0),vxdum(1,1),
+     $                c0,c1,ntotv)
+          call add3s2(valint(1,1,1,1,2),vydum(1,0),vydum(1,1),
+     $                c0,c1,ntotv)
+          call add3s2(valint(1,1,1,1,3),vzdum(1,0),vzdum(1,1),
+     $                c0,c1,ntotv)
+
+          call copy(bfx,bfxit(1,i),ntotv)
+          call copy(bfy,bfyit(1,i),ntotv)
+          call copy(bfz,bfzit(1,i),ntotv)
+
+          call copy(vx_e,vxeit(1,i),ntotv)
+          call copy(vy_e,vyeit(1,i),ntotv)
+          call copy(vz_e,vzeit(1,i),ntotv)
+
+          time = tsavms(i)
+          igeomstart = igeom
+          igeomend = igeom
+          
+          call nek_advance_ms(igeomstart,igeomend)
+        enddo
+        call neknek_xfer_fld(vx,vxdum(1,1))
+        call neknek_xfer_fld(vy,vydum(1,1))
+        call neknek_xfer_fld(vz,vzdum(1,1))
+      enddo
+
+      call neknek_exchange
+
+      if (msteps.gt.1) then
+       do i=msteps,msteps-2,-1
+          c1 = i*1./(msteps*1.)
+          c0 = 1.-c1
+          call add3s2(bdrylg(1,1,msteps-i),vxdum(1,0),valint(1,1,1,1,1),
+     $                c0,c1,ntotv)
+          call add3s2(bdrylg(1,2,msteps-i),vydum(1,0),valint(1,1,1,1,2),
+     $                c0,c1,ntotv)
+          call add3s2(bdrylg(1,3,msteps-i),vzdum(1,0),valint(1,1,1,1,3),
+     $                c0,c1,ntotv)
+       enddo
+      else
+       call bcopy_only
+      endif
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine nek_advance_ms(igeomstart,igeomend)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CTIMER'
+
+      common /cgeom/ igeom
+
+      ntot = lx1*ly1*lz1*nelv
+
+      call nekgsync
+
+      if (igeomstart.ne.1) goto 1002
+      call setup_convect(2) ! Save conv vel
+
+      if (iftran) call settime
+      if (ifmhd ) call cfl_check
+      call setsolv
+      call comment
+
+ 1002 continue
+
+      if (ifsplit) then   ! PN/PN formulation
+
+         do igeom=igeomstart,igeomend
+
+c         if (ifneknekc .and. igeom.gt.2) then
+c            if (ifneknekm.and.igeom.eq.3) call neknek_setup
+c            call neknek_exchange
+c         endif
+
+         ! call here before we overwrite wx 
+         if (ifheat .and. ifcvode) call heat_cvode (igeom)
+
+         if (ifgeom) then
+            call gengeom (igeom)
+            call geneig  (igeom)
+         endif
+
+         if (ifheat) call heat (igeom)
+
+         if (igeom.eq.2) then
+            call setprop
+            call rzero(qtl,ntot)
+            if (iflomach) call qthermal
+         endif
+
+         if (ifflow)          call fluid    (igeom)
+         if (ifmvbd)          call meshv    (igeom)
+         if (igeom.eq.ngeom.and.filterType.eq.1)
+     $                        call q_filter(param(103))
+
+         enddo
+
+      else                ! PN-2/PN-2 formulation
+         call exitti('Pn-Pn-2 currently disabled$',lelt)
+         call setprop
+         do igeom=1,ngeom
+
+            if (ifneknekc .and. igeom.gt.2) then
+              if (ifneknekm.and.igeom.eq.3) call neknek_setup
+              call neknek_exchange
+            endif
+
+            ! call here before we overwrite wx 
+            if (ifheat .and. ifcvode) call heat_cvode (igeom)
+
+            if (ifgeom) then
+               if (.not.ifrich) call gengeom (igeom)
+               call geneig  (igeom)
+            endif
+
+            if (ifmhd) then
+               if (ifheat)      call heat     (igeom)
+                                call induct   (igeom)
+            elseif (ifpert) then
+               if (ifbase.and.ifheat)  call heat          (igeom)
+               if (ifbase.and.ifflow)  call fluid         (igeom)
+               if (ifflow)             call fluidp        (igeom)
+               if (ifheat)             call heatp         (igeom)
+            else  ! std. nek case
+               if (ifheat)             call heat          (igeom)
+               if (ifflow)             call fluid         (igeom)
+               if (ifmvbd)             call meshv         (igeom)
+            endif
+            if (igeom.eq.ngeom.and.filterType.eq.1)
+     $         call q_filter(param(103))
+         enddo
+      endif
+      igeom = igeomend
 
       return
       end
