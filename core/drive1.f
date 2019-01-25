@@ -394,17 +394,17 @@ c-----------------------------------------------------------------------
       call copy(prsav,pr,ntotv)
  
       do j=1,2
-        call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntot1)
-        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
-        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+        call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv)
+        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv)
+        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv)
       enddo
 
-      call copy(abx1dt,abx1,ntot1)
-      call copy(aby1dt,aby1,ntot1)
-      call copy(abz1dt,abz1,ntot1)
-      call copy(abx2dt,abx2,ntot1)
-      call copy(aby2dt,aby2,ntot1)
-      call copy(abz2dt,abz2,ntot1)
+      call copy(abx1dt,abx1,ntotv)
+      call copy(aby1dt,aby1,ntotv)
+      call copy(abz1dt,abz1,ntotv)
+      call copy(abx2dt,abx2,ntotv)
+      call copy(aby2dt,aby2,ntotv)
+      call copy(abz2dt,abz2,ntotv)
 
       tsavms(0) = time
 
