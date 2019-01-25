@@ -50,13 +50,13 @@ c
          call sumab(vy_e,vy,vylag,ntot1,ab,nab)
          if (if3d) call sumab(vz_e,vz,vzlag,ntot1,ab,nab)
 
-         call copy(bfxit(1,iss_ms),bfx,ntot1)
-         call copy(bfyit(1,iss_ms),bfy,ntot1)
-         call copy(bfzit(1,iss_ms),bfz,ntot1)
+c        call copy(bfxit(1,iss_ms),bfx,ntot1)
+c        call copy(bfyit(1,iss_ms),bfy,ntot1)
+c        call copy(bfzit(1,iss_ms),bfz,ntot1)
 
-         call copy(vxeit(1,iss_ms),vx_e,ntot1)
-         call copy(vyeit(1,iss_ms),vy_e,ntot1)
-         call copy(vzeit(1,iss_ms),vz_e,ntot1)
+c        call copy(vxeit(1,iss_ms),vx_e,ntot1)
+c        call copy(vyeit(1,iss_ms),vy_e,ntot1)
+c        call copy(vzeit(1,iss_ms),vz_e,ntot1)
 
          tsavms(iss_ms) = time
 
@@ -67,7 +67,7 @@ c
          ! add user defined divergence to qtl 
          call add2 (qtl,usrdiv,ntot1)
 
-         if (igeom.eq.2) call lagvel
+         if (igeom.eq.2.or.if_ms_multdt) call lagvel
 
          ! mask Dirichlet boundaries
          call bcdirvc  (vx,vy,vz,v1mask,v2mask,v3mask) 

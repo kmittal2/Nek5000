@@ -1563,9 +1563,18 @@ C
      $ ,             TB2(LX1,LY1,LZ1,LELV)
      $ ,             TB3(LX1,LY1,LZ1,LELV)
      $ ,             H2 (LX1,LY1,LZ1,LELV)
+      common /int_multi_dt/ itstepratio,nss_ms,iss_ms
 C
       NTOT1 = lx1*ly1*lz1*NELV
       CONST = 1./DT
+
+      if (if_ms_multdt.and.iss_ms.eq.1) then
+         do j=1,2
+           call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntot1)
+           call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+           call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+         enddo
+      endif
 
       if(iflomach) then
         call cfill(h2,CONST,ntot1)
@@ -1608,9 +1617,20 @@ C
       COMMON /SCRUZ/ TA1 (LX1,LY1,LZ1,LELV)
      $ ,             TA2 (LX1,LY1,LZ1,LELV)
      $ ,             TA3 (LX1,LY1,LZ1,LELV)
+      common /int_multi_dt/ itstepratio,nss_ms,iss_ms
+
 C
       NTOT1 = lx1*ly1*lz1*NELV
 C
+      if (if_ms_multdt.and.iss_ms.eq.1) then
+        call copy(abx1dt,abx1,ntot1)
+        call copy(aby1dt,aby1,ntot1)
+        call copy(abz1dt,abz1,ntot1)
+        call copy(abx2dt,abx2,ntot1)
+        call copy(aby2dt,aby2,ntot1)
+        call copy(abz2dt,abz2,ntot1)
+      endif
+
       AB0 = AB(1)
       AB1 = AB(2)
       AB2 = AB(3)

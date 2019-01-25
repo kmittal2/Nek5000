@@ -1148,13 +1148,12 @@ c-----------------------------------------------------------------------
 
       n    = lx1*ly1*lz1*nelt
 
-c      write(6,*) idsess,istep,igeom,nss_ms,sf,'k10000000000000000000000'
       if (NINTER.eq.1.or.istep.le.nss_ms) then
        c0= 1.
        c1= 0.
        c2= 0.
        else if (NINTER.eq.2.or.istep.le.2*nss_ms) then
-         c0= sf+1 !2.
+         c0= sf+1. !2.
          c1= -sf  !-1.
          c2= 0.
        else
@@ -1163,7 +1162,6 @@ c      write(6,*) idsess,istep,igeom,nss_ms,sf,'k10000000000000000000000'
          c2= sf*sf*0.5 + 0.5*sf     !1.
       endif
 
-c     write(6,*) idsess,c0,c1,c2,'k10'
       do k=1,nfld_neknek
       do i=1,n
          valint(i,1,1,1,k) =

@@ -392,6 +392,20 @@ c-----------------------------------------------------------------------
       call copy(vysav,vy,ntotv)
       call copy(vzsav,vz,ntotv)
       call copy(prsav,pr,ntotv)
+ 
+      do j=1,2
+        call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntot1)
+        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+      enddo
+
+      call copy(abx1dt,abx1,ntot1)
+      call copy(aby1dt,aby1,ntot1)
+      call copy(abz1dt,abz1,ntot1)
+      call copy(abx2dt,abx2,ntot1)
+      call copy(aby2dt,aby2,ntot1)
+      call copy(abz2dt,abz2,ntot1)
+
       tsavms(0) = time
 
       if (istep.eq.0) then
@@ -406,6 +420,7 @@ c-----------------------------------------------------------------------
         istep = istep+1
         igeomstart=1
         igeomend=2
+        igeomskip=igeomend-igeomstart
 c       calculate appropriate extrapolation coefficients
         if (msteps.eq.1) then
           call bdr_data_extr(itstepratio*1.)
@@ -413,7 +428,7 @@ c       calculate appropriate extrapolation coefficients
           call bdr_data_extr(i*1./msteps)
         endif
 
-        call nek_advance_ms(igeomstart,igeomend)
+        call nek_advance_ms(igeomstart,igeomend,igeomskip)
       enddo
       call neknek_xfer_fld(vxsav,vxdum(1,0))
       call neknek_xfer_fld(vysav,vydum(1,0))
@@ -430,7 +445,22 @@ cc    Schwarz iterations
         call copy(vy,vysav,ntotv)
         call copy(vz,vzsav,ntotv)
         call copy(pr,prsav,ntotv)
+
+         do j=1,2
+          call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
+          call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
+          call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
+         enddo
+
+         call copy(abx1,abx1dt,ntotv)
+         call copy(aby1,aby1dt,ntotv)
+         call copy(abz1,abz1dt,ntotv)
+         call copy(abx2,abx2dt,ntotv)
+         call copy(aby2,aby2dt,ntotv)
+         call copy(abz2,abz2dt,ntotv)
+
         istep = iorigstep
+        time = tsavms(0)
         do i=1,msteps
           istep = istep+1
           c1 = i*1./(msteps*1.)
@@ -442,19 +472,23 @@ cc    Schwarz iterations
           call add3s2(valint(1,1,1,1,3),vzdum(1,0),vzdum(1,1),
      $                c0,c1,ntotv)
 
-          call copy(bfx,bfxit(1,i),ntotv)
-          call copy(bfy,bfyit(1,i),ntotv)
-          call copy(bfz,bfzit(1,i),ntotv)
+c          call copy(bfx,bfxit(1,i),ntotv)
+c          call copy(bfy,bfyit(1,i),ntotv)
+c          call copy(bfz,bfzit(1,i),ntotv)
 
-          call copy(vx_e,vxeit(1,i),ntotv)
-          call copy(vy_e,vyeit(1,i),ntotv)
-          call copy(vz_e,vzeit(1,i),ntotv)
+c          call copy(vx_e,vxeit(1,i),ntotv)
+c          call copy(vy_e,vyeit(1,i),ntotv)
+c          call copy(vz_e,vzeit(1,i),ntotv)
 
-          time = tsavms(i)
-          igeomstart = igeom
+c         time = tsavms(i)
+          igeomstart = 1
           igeomend = igeom
+          igeomskip = igeomend-igeomstart
+
+c         igeomstart = igeom
+c         igeomskip = 1
           
-          call nek_advance_ms(igeomstart,igeomend)
+          call nek_advance_ms(igeomstart,igeomend,igeomskip)
         enddo
         call neknek_xfer_fld(vx,vxdum(1,1))
         call neknek_xfer_fld(vy,vydum(1,1))
@@ -478,10 +512,11 @@ cc    Schwarz iterations
        call bcopy_only
       endif
 
+
       return
       end
 c-----------------------------------------------------------------------
-      subroutine nek_advance_ms(igeomstart,igeomend)
+      subroutine nek_advance_ms(igeomstart,igeomend,igeomskip)
       include 'SIZE'
       include 'TOTAL'
       include 'CTIMER'
@@ -504,7 +539,7 @@ c-----------------------------------------------------------------------
 
       if (ifsplit) then   ! PN/PN formulation
 
-         do igeom=igeomstart,igeomend
+         do igeom=igeomstart,igeomend,igeomskip
 
 c         if (ifneknekc .and. igeom.gt.2) then
 c            if (ifneknekm.and.igeom.eq.3) call neknek_setup

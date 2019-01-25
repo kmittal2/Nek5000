@@ -148,6 +148,22 @@ c
      $    ,vysav(lx1*ly1*lz1*lelt)
      $    ,vzsav(lx1*ly1*lz1*lelt)
      $    ,prsav(lx1*ly1*lz1*lelt)
+      real vxlagdt(lx1,ly1,lz1,lelv,2)
+     $    ,vylagdt(lx1,ly1,lz1,lelv,2)
+     $    ,vzlagdt(lx1,ly1,lz1,lelv,2)
+     $    ,tlagdt (lx1,ly1,lz1,lelt,lorder-1,ldimt)
+     $    ,abx1dt (lx1,ly1,lz1,lelv)
+     $    ,aby1dt (lx1,ly1,lz1,lelv)
+     $    ,abz1dt (lx1,ly1,lz1,lelv)
+     $    ,abx2dt (lx1,ly1,lz1,lelv)
+     $    ,aby2dt (lx1,ly1,lz1,lelv)
+     $    ,abz2dt (lx1,ly1,lz1,lelv)
       real tsavms(0:10)
       common /r_multi_dt/ bfxit,bfyit,bfzit,vxeit,vyeit,vzeit,vxsav
      $                   ,vysav,vzsav,tsavms,prsav
+     $                   ,vxlagdt,vylagdt,vzlagdt
+     $                   ,abx1dt,aby1dt,abz1dt,abx2dt,aby2dt,abz2dt
+
+      logical if_ms_multdt
+      common /int_logical_ms/ if_ms_multdt
+
