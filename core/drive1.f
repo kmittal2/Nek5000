@@ -384,29 +384,33 @@ c-----------------------------------------------------------------------
       include 'NEKNEK'
 
       real vxdum(lx1*ly1*lz1*nelv,0:1),vydum(lx1*ly1*lz1*nelv,0:1)
-     $    ,vzdum(lx1*ly1*lz1*nelv,0:1)
+     $    ,vzdum(lx1*ly1*lz1*nelv,0:1),prsav(lx2*ly2*lz2*nelv)
+      real vxyzd(lx1*ly1*lz1*nelv,ldim,0:1)
+      real vxyzsav(lx1*ly1*lz1*nelv,ldim,0:10)
+      real tsav
 
       ntotv = lx1*ly1*lz1*nelv
       ntott = lx1*ly1*lz1*nelt
-      call copy(vxsav,vx,ntotv)
-      call copy(vysav,vy,ntotv)
-      call copy(vzsav,vz,ntotv)
       call copy(prsav,pr,ntotv)
+      call copy(vxyzsav(1,1,0),vx,ntotv)
+      call copy(vxyzsav(1,2,0),vy,ntotv)
+      if (ldim.eq.3) call copy(vxyzsav(1,ldim,0),vz,ntotv)
  
       do j=1,2
         call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv)
         call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv)
-        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv)
+       if (ldim.eq.3) 
+     $  call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv)
       enddo
 
       call copy(abx1dt,abx1,ntotv)
       call copy(aby1dt,aby1,ntotv)
-      call copy(abz1dt,abz1,ntotv)
+      if (ldim.eq.3) call copy(abz1dt,abz1,ntotv)
       call copy(abx2dt,abx2,ntotv)
       call copy(aby2dt,aby2,ntotv)
-      call copy(abz2dt,abz2,ntotv)
+      if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
 
-      tsavms(0) = time
+      tsav = time
 
       if (istep.eq.0) then
        if (ifneknekc) call neknek_exchange
@@ -430,20 +434,21 @@ c       calculate appropriate extrapolation coefficients
 
         call nek_advance_ms(igeomstart,igeomend,igeomskip)
       enddo
-      call neknek_xfer_fld(vxsav,vxdum(1,0))
-      call neknek_xfer_fld(vysav,vydum(1,0))
-      call neknek_xfer_fld(vzsav,vzdum(1,0))
 
-      call neknek_xfer_fld(vx,vxdum(1,1))
-      call neknek_xfer_fld(vy,vydum(1,1))
-      call neknek_xfer_fld(vz,vzdum(1,1))
+      do j=1,ldim
+        call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
+      enddo
+
+      call neknek_xfer_fld(vx,vxyzd(1,1,1))
+      call neknek_xfer_fld(vy,vxyzd(1,2,1))
+      if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
 
 cc    Schwarz iterations
 
       do igeom=3,ngeom
-        call copy(vx,vxsav,ntotv)
-        call copy(vy,vysav,ntotv)
-        call copy(vz,vzsav,ntotv)
+        call copy(vx,vxyzsav(1,1,0),ntotv)
+        call copy(vy,vxyzsav(1,2,0),ntotv)
+        if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
         call copy(pr,prsav,ntotv)
 
          do j=1,2
@@ -454,64 +459,49 @@ cc    Schwarz iterations
 
          call copy(abx1,abx1dt,ntotv)
          call copy(aby1,aby1dt,ntotv)
-         call copy(abz1,abz1dt,ntotv)
+         if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
          call copy(abx2,abx2dt,ntotv)
          call copy(aby2,aby2dt,ntotv)
-         call copy(abz2,abz2dt,ntotv)
+         if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
 
         istep = iorigstep
-        time = tsavms(0)
+        time = tsav
         do i=1,msteps
           istep = istep+1
           c1 = i*1./(msteps*1.)
           c0 = 1.-c1
-          call add3s2(valint(1,1,1,1,1),vxdum(1,0),vxdum(1,1),
+          do j=1,ldim
+            call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
      $                c0,c1,ntotv)
-          call add3s2(valint(1,1,1,1,2),vydum(1,0),vydum(1,1),
-     $                c0,c1,ntotv)
-          call add3s2(valint(1,1,1,1,3),vzdum(1,0),vzdum(1,1),
-     $                c0,c1,ntotv)
-
-c          call copy(bfx,bfxit(1,i),ntotv)
-c          call copy(bfy,bfyit(1,i),ntotv)
-c          call copy(bfz,bfzit(1,i),ntotv)
-
-c          call copy(vx_e,vxeit(1,i),ntotv)
-c          call copy(vy_e,vyeit(1,i),ntotv)
-c          call copy(vz_e,vzeit(1,i),ntotv)
-
-c         time = tsavms(i)
+          enddo
           igeomstart = 1
           igeomend = igeom
           igeomskip = igeomend-igeomstart
-
-c         igeomstart = igeom
-c         igeomskip = 1
           
           call nek_advance_ms(igeomstart,igeomend,igeomskip)
+          if (igeom.eq.ngeom) then
+            call copy(vxyzsav(1,1,i),vx,ntotv)
+            call copy(vxyzsav(1,2,i),vy,ntotv)
+            if (ldim.eq.3) call copy(vxyzsav(1,ldim,i),vz,ntotv)
+          endif
         enddo
-        call neknek_xfer_fld(vx,vxdum(1,1))
-        call neknek_xfer_fld(vy,vydum(1,1))
-        call neknek_xfer_fld(vz,vzdum(1,1))
+ 
+        call neknek_xfer_fld(vx,vxyzd(1,1,1))
+        call neknek_xfer_fld(vy,vxyzd(1,2,1))
+        if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
       enddo
 
       call neknek_exchange
+      call bcopy_only
 
-      if (msteps.gt.1) then
-       do i=msteps,msteps-2,-1
-          c1 = i*1./(msteps*1.)
-          c0 = 1.-c1
-          call add3s2(bdrylg(1,1,msteps-i),vxdum(1,0),valint(1,1,1,1,1),
-     $                c0,c1,ntotv)
-          call add3s2(bdrylg(1,2,msteps-i),vydum(1,0),valint(1,1,1,1,2),
-     $                c0,c1,ntotv)
-          call add3s2(bdrylg(1,3,msteps-i),vzdum(1,0),valint(1,1,1,1,3),
-     $                c0,c1,ntotv)
+      n=0
+      do j=itstepratio-1,itstepratio-2,-1
+        n=n+1
+        do k=1,ldim
+          call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
+          if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
        enddo
-      else
-       call bcopy_only
-      endif
-
+      enddo
 
       return
       end
@@ -556,7 +546,7 @@ c         endif
 
          if (ifheat) call heat (igeom)
 
-         if (igeom.eq.2) then
+         if (igeom.ge.2) then
             call setprop
             call rzero(qtl,ntot)
             if (iflomach) call qthermal

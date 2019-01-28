@@ -144,10 +144,6 @@ c
       real vxeit(lx1*ly1*lz1*lelt,10)
      $    ,vyeit(lx1*ly1*lz1*lelt,10)
      $    ,vzeit(lx1*ly1*lz1*lelt,10)
-      real vxsav(lx1*ly1*lz1*lelt)
-     $    ,vysav(lx1*ly1*lz1*lelt)
-     $    ,vzsav(lx1*ly1*lz1*lelt)
-     $    ,prsav(lx1*ly1*lz1*lelt)
       real vxlagdt(lx1,ly1,lz1,lelv,2)
      $    ,vylagdt(lx1,ly1,lz1,lelv,2)
      $    ,vzlagdt(lx1,ly1,lz1,lelv,2)
@@ -158,9 +154,7 @@ c
      $    ,abx2dt (lx1,ly1,lz1,lelv)
      $    ,aby2dt (lx1,ly1,lz1,lelv)
      $    ,abz2dt (lx1,ly1,lz1,lelv)
-      real tsavms(0:10)
-      common /r_multi_dt/ bfxit,bfyit,bfzit,vxeit,vyeit,vzeit,vxsav
-     $                   ,vysav,vzsav,tsavms,prsav
+      common /r_multi_dt/ bfxit,bfyit,bfzit,vxeit,vyeit,vzeit
      $                   ,vxlagdt,vylagdt,vzlagdt
      $                   ,abx1dt,aby1dt,abz1dt,abx2dt,aby2dt,abz2dt
 
