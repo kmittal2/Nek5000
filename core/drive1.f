@@ -494,14 +494,16 @@ cc    Schwarz iterations
       call neknek_exchange
       call bcopy_only
 
-      n=0
-      do j=itstepratio-1,itstepratio-2,-1
-        n=n+1
-        do k=1,ldim
-          call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
-          if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
-       enddo
-      enddo
+      if (itstepratio.gt.1) then
+        n=0
+        do j=itstepratio-1,itstepratio-2,-1
+          n=n+1
+          do k=1,ldim
+           call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
+           if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
+         enddo
+        enddo
+      endif
 
       return
       end
