@@ -387,11 +387,13 @@ c-----------------------------------------------------------------------
      $    ,vzdum(lx1*ly1*lz1*nelv,0:1),prsav(lx2*ly2*lz2*nelv)
       real vxyzd(lx1*ly1*lz1*nelv,ldim,0:1)
       real vxyzsav(lx1*ly1*lz1*nelv,ldim,0:10)
+      real prlagdt(lx2*ly2*lz2*nelv)
       real tsav
 
       ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
-      call copy(prsav,pr,ntotv)
+      call copy(prsav,pr,ntotp)
       call copy(vxyzsav(1,1,0),vx,ntotv)
       call copy(vxyzsav(1,2,0),vy,ntotv)
       if (ldim.eq.3) call copy(vxyzsav(1,ldim,0),vz,ntotv)
@@ -402,6 +404,8 @@ c-----------------------------------------------------------------------
        if (ldim.eq.3) 
      $  call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv)
       enddo
+      call copy(prlagdt,prlag,ntotp)
+      
 
       call copy(abx1dt,abx1,ntotv)
       call copy(aby1dt,aby1,ntotv)
@@ -449,13 +453,14 @@ cc    Schwarz iterations
         call copy(vx,vxyzsav(1,1,0),ntotv)
         call copy(vy,vxyzsav(1,2,0),ntotv)
         if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
-        call copy(pr,prsav,ntotv)
+        call copy(pr,prsav,ntotp)
 
          do j=1,2
           call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
           call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
           call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
          enddo
+         call copy(prlag,prlagdt,ntotp)
 
          call copy(abx1,abx1dt,ntotv)
          call copy(aby1,aby1dt,ntotv)
@@ -562,14 +567,14 @@ c         endif
          enddo
 
       else                ! PN-2/PN-2 formulation
-         call exitti('Pn-Pn-2 currently disabled$',lelt)
+c        call exitti('Pn-Pn-2 currently disabled$',lelt)
          call setprop
-         do igeom=1,ngeom
+         do igeom=igeomstart,igeomend,igeomskip
 
-            if (ifneknekc .and. igeom.gt.2) then
-              if (ifneknekm.and.igeom.eq.3) call neknek_setup
-              call neknek_exchange
-            endif
+c           if (ifneknekc .and. igeom.gt.2) then
+c             if (ifneknekm.and.igeom.eq.3) call neknek_setup
+c             call neknek_exchange
+c           endif
 
             ! call here before we overwrite wx 
             if (ifheat .and. ifcvode) call heat_cvode (igeom)
