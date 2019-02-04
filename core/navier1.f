@@ -1572,7 +1572,7 @@ C
          do j=1,2
            call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntot1)
            call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
-           call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntot1)
+           call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntot1)
          enddo
       endif
 
