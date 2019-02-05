@@ -59,7 +59,6 @@ c        call copy(vyeit(1,iss_ms),vy_e,ntot1)
 c        call copy(vzeit(1,iss_ms),vz_e,ntot1)
 
       else
-
          if(iflomach) call opcolv(bfx,bfy,bfz,vtrans)
 
          ! add user defined divergence to qtl 

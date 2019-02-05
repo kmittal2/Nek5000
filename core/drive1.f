@@ -405,7 +405,6 @@ c-----------------------------------------------------------------------
      $  call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv)
       enddo
       call copy(prlagdt,prlag,ntotp)
-      
 
       call copy(abx1dt,abx1,ntotv)
       call copy(aby1dt,aby1,ntotv)
@@ -414,14 +413,13 @@ c-----------------------------------------------------------------------
       call copy(aby2dt,aby2,ntotv)
       if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
 
-      tsav = time
-
       if (istep.eq.0) then
        if (ifneknekc) call neknek_exchange
        if (ifneknekc) call bcopy_only
       endif
 
       iorigstep = istep
+      tsav = time
 
       do i=1,msteps
         iss_ms = i !multisession sub-step
@@ -430,11 +428,9 @@ c-----------------------------------------------------------------------
         igeomend=2
         igeomskip=igeomend-igeomstart
 c       calculate appropriate extrapolation coefficients
-        if (msteps.eq.1) then
-          call bdr_data_extr(itstepratio*1.)
-        else
-          call bdr_data_extr(i*1./msteps)
-        endif
+        rcoeff = i*1./msteps
+        if (msteps.eq.1) rcoeff = itstepratio*1.
+        call bdr_data_extr(rcoeff)
 
         call nek_advance_ms(igeomstart,igeomend,igeomskip)
       enddo
@@ -455,19 +451,19 @@ cc    Schwarz iterations
         if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
         call copy(pr,prsav,ntotp)
 
-         do j=1,2
+        do j=1,2
           call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
           call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
           call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
-         enddo
-         call copy(prlag,prlagdt,ntotp)
+        enddo
+        call copy(prlag,prlagdt,ntotp)
 
-         call copy(abx1,abx1dt,ntotv)
-         call copy(aby1,aby1dt,ntotv)
-         if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
-         call copy(abx2,abx2dt,ntotv)
-         call copy(aby2,aby2dt,ntotv)
-         if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
+        call copy(abx1,abx1dt,ntotv)
+        call copy(aby1,aby1dt,ntotv)
+        if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
+        call copy(abx2,abx2dt,ntotv)
+        call copy(aby2,aby2dt,ntotv)
+        if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
 
         istep = iorigstep
         time = tsav
@@ -504,9 +500,9 @@ cc    Schwarz iterations
         do j=itstepratio-1,itstepratio-2,-1
           n=n+1
           do k=1,ldim
-           call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
-           if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
-         enddo
+            call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
+            if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
+          enddo
         enddo
       endif
 
