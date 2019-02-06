@@ -383,11 +383,11 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'NEKNEK'
 
-      real vxdum(lx1*ly1*lz1*nelv,0:1),vydum(lx1*ly1*lz1*nelv,0:1)
-     $    ,vzdum(lx1*ly1*lz1*nelv,0:1),prsav(lx2*ly2*lz2*nelv)
-      real vxyzd(lx1*ly1*lz1*nelv,ldim,0:1)
-      real vxyzsav(lx1*ly1*lz1*nelv,ldim,0:10)
-      real prlagdt(lx2*ly2*lz2*nelv)
+      real vxdum(lx1*ly1*lz1*lelv,0:1),vydum(lx1*ly1*lz1*lelv,0:1)
+     $    ,vzdum(lx1*ly1*lz1*lelv,0:1),prsav(lx2*ly2*lz2*lelv)
+      real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
+      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:10)
+      real prlagdt(lx2*ly2*lz2*lelv)
       real tsav
 
       ntotv = lx1*ly1*lz1*nelv
@@ -413,30 +413,26 @@ c-----------------------------------------------------------------------
       call copy(aby2dt,aby2,ntotv)
       if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
 
-      if (istep.eq.0) then
-       if (ifneknekc) call neknek_exchange
-       if (ifneknekc) call bcopy_only
+      if (istep.eq.0.and.ifneknekc) then
+       call neknek_exchange
+       call bcopy_only
       endif
 
+      do j=1,ldim
+        call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
+      enddo
       iorigstep = istep
       tsav = time
 
       do i=1,msteps
         iss_ms = i !multisession sub-step
         istep = istep+1
-        igeomstart=1
-        igeomend=2
-        igeomskip=igeomend-igeomstart
 c       calculate appropriate extrapolation coefficients
         rcoeff = i*1./msteps
         if (msteps.eq.1) rcoeff = itstepratio*1.
         call bdr_data_extr(rcoeff)
-
-        call nek_advance_ms(igeomstart,igeomend,igeomskip)
-      enddo
-
-      do j=1,ldim
-        call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
+c       solve 
+        call nek_advance_ms(1,2,1)
       enddo
 
       call neknek_xfer_fld(vx,vxyzd(1,1,1))
@@ -444,7 +440,6 @@ c       calculate appropriate extrapolation coefficients
       if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
 
 cc    Schwarz iterations
-
       do igeom=3,ngeom
         call copy(vx,vxyzsav(1,1,0),ntotv)
         call copy(vy,vxyzsav(1,2,0),ntotv)
@@ -475,11 +470,10 @@ cc    Schwarz iterations
             call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
      $                c0,c1,ntotv)
           enddo
-          igeomstart = 1
-          igeomend = igeom
-          igeomskip = igeomend-igeomstart
-          
-          call nek_advance_ms(igeomstart,igeomend,igeomskip)
+
+          igeomo = igeom
+          call nek_advance_ms(1,igeomo,igeom-1)
+
           if (igeom.eq.ngeom) then
             call copy(vxyzsav(1,1,i),vx,ntotv)
             call copy(vxyzsav(1,2,i),vy,ntotv)
