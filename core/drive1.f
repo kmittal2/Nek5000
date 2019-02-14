@@ -179,6 +179,8 @@ c-----------------------------------------------------------------------
       include 'INPUT'
       include 'CTIMER'
       include 'NEKNEK'
+      logical if_ms_multdt
+      common /int_logical_ms/ if_ms_multdt
 
       call nekgsync()
 
@@ -206,8 +208,11 @@ c-----------------------------------------------------------------------
       msteps = 1
 
       do kstep=1,nsteps,nss_ms
-c        call nek__multi_advance(kstep,msteps)
-         call nek__multi_advance_dt(kstep,nss_ms)
+         if (if_ms_multdt) then 
+           call nek__multi_advance_dt(kstep,nss_ms)
+         else
+           call nek__multi_advance(kstep,msteps)
+         endif
          if(kstep.ge.nsteps) lastep = 1
          call check_ioinfo  
          call set_outfld
@@ -383,46 +388,69 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'NEKNEK'
 
-      real vxdum(lx1*ly1*lz1*lelv,0:1),vydum(lx1*ly1*lz1*lelv,0:1)
-     $    ,vzdum(lx1*ly1*lz1*lelv,0:1),prsav(lx2*ly2*lz2*lelv)
-      real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
-      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:10)
+      real prsav(lx2*ly2*lz2*lelv,0:10)
       real prlagdt(lx2*ly2*lz2*lelv)
-      real tsav
+
+      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:10)
+      real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
+
+      real tsav(lx1*ly1*lz1*lelt,ldimt,0:10)
+      real td(lx1*ly1*lz1*lelt,ldimt,0:1)
+
+      real timsav
 
       ntotv = lx1*ly1*lz1*nelv
       ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
-      call copy(prsav,pr,ntotp)
-      call copy(vxyzsav(1,1,0),vx,ntotv)
-      call copy(vxyzsav(1,2,0),vy,ntotv)
-      if (ldim.eq.3) call copy(vxyzsav(1,ldim,0),vz,ntotv)
- 
-      do j=1,2
-        call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv)
-        call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv)
-       if (ldim.eq.3) 
-     $  call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv)
-      enddo
-      call copy(prlagdt,prlag,ntotp)
+!     Copy u,v,w,pr,t at t^{n-1}
+!     Copy lagging arrays for BDF terms 
+      if (ifflow) then
+        call copy(prsav(1,0),pr,ntotp)        !p solution
+        call copy(vxyzsav(1,1,0),vx,ntotv)    !vx solution
+        call copy(vxyzsav(1,2,0),vy,ntotv)    !vy solution
+        if (ldim.eq.3) call copy(vxyzsav(1,ldim,0),vz,ntotv)
+        do j=1,2
+          call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv) !vxlag
+          call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv) !vylag
+         if (ldim.eq.3)
+     $    call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv) !vzlag
+        enddo
+        if (.not.ifsplit) call copy(prlagdt,prlag,ntotp)       !prlag
 
-      call copy(abx1dt,abx1,ntotv)
-      call copy(aby1dt,aby1,ntotv)
-      if (ldim.eq.3) call copy(abz1dt,abz1,ntotv)
-      call copy(abx2dt,abx2,ntotv)
-      call copy(aby2dt,aby2,ntotv)
-      if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
+        call copy(abx1dt,abx1,ntotv)                           !nl term
+        call copy(aby1dt,aby1,ntotv)
+        if (ldim.eq.3) call copy(abz1dt,abz1,ntotv)
+        call copy(abx2dt,abx2,ntotv)
+        call copy(aby2dt,aby2,ntotv)
+        if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
+      endif
+      if (ifheat) then
+        call copy(tsav(1,1,0),t(1,1,1,1,1),ntott) !t solution
+        do j=1,2
+          call copy(tlagdt(1,1,1,1,j,1),tlag(1,1,1,1,j,1),ntott) !t lag
+        enddo
+        call copy(vgradt1dt(1,1,1,1,1),vgradt1(1,1,1,1,1),ntott) !u.del t
+        call copy(vgradt2dt(1,1,1,1,1),vgradt2(1,1,1,1,1),ntott)
+      endif
 
       if (istep.eq.0.and.ifneknekc) then
        call neknek_exchange
        call bcopy_only
       endif
 
-      do j=1,ldim
-        call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
-      enddo
+      !exchange information at t^{n-1} and save it.. we need this for 
+      !boundary condition during corrector iterations
+      if (ifflow) then
+        do j=1,ldim
+          call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
+        enddo
+      endif
+      if (ifheat) then
+         call neknek_xfer_fld(tsav(1,1,0),td(1,1,0))
+      endif
+      
       iorigstep = istep
-      tsav = time
+      timsav = time
 
       do i=1,msteps
         iss_ms = i !multisession sub-step
@@ -431,60 +459,104 @@ c       calculate appropriate extrapolation coefficients
         rcoeff = i*1./msteps
         if (msteps.eq.1) rcoeff = itstepratio*1.
         call bdr_data_extr(rcoeff)
-c       solve 
+c       solve with ngeom=2 
         call nek_advance_ms(1,2,1)
+c       save u,v,w,p,t at each sub-step
+        if (ifflow) then
+         call copy(vxyzsav(1,1,i),vx,ntotv)
+         call copy(vxyzsav(1,2,i),vy,ntotv)
+         if (ldim.eq.3) call copy(vxyzsav(1,ldim,i),vz,ntotv)
+         call copy(prsav(1,i),pr,ntotp)
+        endif
+        if (ifheat) then
+         call copy(tsav(1,1,i),t(1,1,1,1,1),ntott)
+        endif
       enddo
 
-      call neknek_xfer_fld(vx,vxyzd(1,1,1))
-      call neknek_xfer_fld(vy,vxyzd(1,2,1))
-      if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
+      call neknekgsync()
+
+c     transfer latest solutions and save them. These will also 
+c     be used during corrector iterations (updated after each iteration)
+      if (ifflow) then
+        call neknek_xfer_fld(vx,vxyzd(1,1,1))
+        call neknek_xfer_fld(vy,vxyzd(1,2,1))
+        if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
+      endif
+      if (ifheat) then
+        call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
+      endif
 
 cc    Schwarz iterations
       do igeom=3,ngeom
-        call copy(vx,vxyzsav(1,1,0),ntotv)
-        call copy(vy,vxyzsav(1,2,0),ntotv)
-        if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
-        call copy(pr,prsav,ntotp)
-
-        do j=1,2
-          call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
-          call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
-          call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
-        enddo
-        call copy(prlag,prlagdt,ntotp)
-
-        call copy(abx1,abx1dt,ntotv)
-        call copy(aby1,aby1dt,ntotv)
-        if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
-        call copy(abx2,abx2dt,ntotv)
-        call copy(aby2,aby2dt,ntotv)
-        if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
+c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
+        if (ifflow) then
+          call copy(vx,vxyzsav(1,1,0),ntotv)
+          call copy(vy,vxyzsav(1,2,0),ntotv)
+          if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
+          call copy(pr,prsav(1,0),ntotp)
+          do j=1,2
+            call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
+            call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
+            call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
+          enddo
+          if (.not.ifsplit) call copy(prlag,prlagdt,ntotp)
+          call copy(abx1,abx1dt,ntotv)
+          call copy(aby1,aby1dt,ntotv)
+          if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
+          call copy(abx2,abx2dt,ntotv)
+          call copy(aby2,aby2dt,ntotv)
+          if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
+        endif !ifflow
+        if (ifheat) then
+          call copy(t(1,1,1,1,1),tsav(1,1,0),ntott)
+          call copy(vgradt1(1,1,1,1,1),vgradt1dt(1,1,1,1,1),ntott)
+          call copy(vgradt2(1,1,1,1,1),vgradt2dt(1,1,1,1,1),ntott)
+          do j=1,2
+            call copy(tlag(1,1,1,1,j,1),tlagdt(1,1,1,1,j,1),ntott)
+          enddo
+        endif !ifheat
 
         istep = iorigstep
-        time = tsav
+        time = timsav
         do i=1,msteps
           istep = istep+1
           c1 = i*1./(msteps*1.)
           c0 = 1.-c1
-          do j=1,ldim
-            call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
-     $                c0,c1,ntotv)
-          enddo
+          if (ifflow) then
+            do j=1,ldim
+              call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
+     $                  c0,c1,ntotv)
+            enddo
+          endif
+          if (ifheat) then
+             call add3s2(valint(1,1,1,1,ldim+2),td(1,1,0),td(1,1,1),
+     $                  c0,c1,ntott)
+          endif
 
           igeomo = igeom
           call nek_advance_ms(1,igeomo,igeom-1)
 
-          if (igeom.eq.ngeom) then
+          if (ifflow) then
             call copy(vxyzsav(1,1,i),vx,ntotv)
             call copy(vxyzsav(1,2,i),vy,ntotv)
             if (ldim.eq.3) call copy(vxyzsav(1,ldim,i),vz,ntotv)
-          endif
-        enddo
+            call copy(prsav(1,i),pr,ntotp)
+          endif !ifflow
+          if (ifheat) then
+            call copy(tsav(1,1,i),t(1,1,1,1,1),ntott)
+          endif !ifheat
+        enddo !msteps i.e. substeps
+        call neknekgsync()
  
-        call neknek_xfer_fld(vx,vxyzd(1,1,1))
-        call neknek_xfer_fld(vy,vxyzd(1,2,1))
-        if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
-      enddo
+        if (ifflow) then
+          call neknek_xfer_fld(vx,vxyzd(1,1,1))
+          call neknek_xfer_fld(vy,vxyzd(1,2,1))
+          if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
+        endif
+        if (ifheat) then
+           call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
+        endif
+      enddo !igeom loop
 
       call neknek_exchange
       call bcopy_only
@@ -492,13 +564,21 @@ cc    Schwarz iterations
       if (itstepratio.gt.1) then
         n=0
         do j=itstepratio-1,itstepratio-2,-1
-          n=n+1
-          do k=1,ldim
-            call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
-            if (msteps.eq.1) call copy(bdrylg(1,k,n),vxyzd(1,k,1),ntotv)
-          enddo
-        enddo
-      endif
+           n=n+1
+           if (ifflow) then
+              do k=1,ldim
+               call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
+               if (msteps.eq.1) call copy(bdrylg(1,k,n),
+     $                                   vxyzd(1,k,1),ntotv)
+              enddo 
+           endif !ifflow
+           if (ifheat) then
+                 call neknek_xfer_fld(tsav(1,1,j),td(1,1,1))
+                 if (msteps.eq.1) call copy(bdrylg(1,ldim+2,n),
+     $                                   td(1,1,1),ntott)
+           endif !ifheat
+        enddo !j=itstepratio-1,itstepratio-2,-1
+      endif !itstepratio.gt.1
 
       return
       end
