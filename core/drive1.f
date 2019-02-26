@@ -434,19 +434,19 @@ c-----------------------------------------------------------------------
       endif
 
       if (istep.eq.0.and.ifneknekc) then
-       call neknek_exchange
-       call bcopy_only
+        call neknek_exchange
+        call bcopy_only
       endif
 
       !exchange information at t^{n-1} and save it.. we need this for 
       !boundary condition during corrector iterations
       if (ifflow) then
         do j=1,ldim
-          call neknek_xfer_fld(vxyzsav(1,j,0),vxyzd(1,j,0))
+         call copy(vxyzd(1,j,0),valint(1,1,1,1,j),ntotv)
         enddo
       endif
       if (ifheat) then
-         call neknek_xfer_fld(tsav(1,1,0),td(1,1,0))
+        call copy(td(1,1,0),valint(1,1,1,1,ldim+2),ntott)
       endif
       
       iorigstep = istep
@@ -525,12 +525,12 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
           if (ifflow) then
             do j=1,ldim
               call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
-     $                  c0,c1,ntotv)
+     $                    c0,c1,ntotv)
             enddo
           endif
           if (ifheat) then
              call add3s2(valint(1,1,1,1,ldim+2),td(1,1,0),td(1,1,1),
-     $                  c0,c1,ntott)
+     $                   c0,c1,ntott)
           endif
 
           igeomo = igeom
@@ -554,7 +554,7 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
           if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
         endif
         if (ifheat) then
-           call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
+          call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
         endif
       enddo !igeom loop
 
