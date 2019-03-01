@@ -174,7 +174,7 @@ c
      $              ,pd(lx2,ly2,lz2,lelt)
 
       ifxyo = .true.
-      if (idsess.eq.1) then
+      if (IFMVBD) then
        ifusermv = .true.
        do i=1,nx1*ny1*nz1*nelv
         xv = xm1(i,1,1,1)
