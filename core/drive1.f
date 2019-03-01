@@ -68,15 +68,7 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       call initdat
       call files
 
-      etime = dnekclock()
       call readat          ! Read .rea +map file
-
-      etims0 = dnekclock_sync()
-      if (nio.eq.0) then
-         write(6,12) 'nelgt/nelgv/lelt:',nelgt,nelgv,lelt
-         write(6,12) 'lx1  /lx2  /lx3 :',lx1,lx2,lx3
- 12      format(1X,A,4I12,/,/)
-      endif 
 
       call setvar          ! Initialize most variables
 
@@ -99,15 +91,16 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       if(nio.eq.0) write(6,*) 'call usrdat2'
       call usrdat2
       if(nio.eq.0) write(6,'(A,/)') ' done :: usrdat2' 
-      call fix_geom
-      
-      if (ifneknekc) call neknek_setup
 
+      call fix_geom
       call geom_reset(1)    ! recompute Jacobians, etc.
+
       call vrdsmsh          ! verify mesh topology
       call mesh_metrics     ! print some metrics
 
       call setlog  ! Initalize logical flags
+
+      if (ifneknekc) call neknek_setup
 
       call bcmask  ! Set BC masks for Dirichlet boundaries.
 
