@@ -49,6 +49,7 @@ c-------------------------------------------------------------
       call setup_neknek_wts
 
       if (icalld.eq.0) then
+         iffptms = .false.
          nfld_neknek = ldim+nfield
          call nekneksanchk
          call set_intflag
@@ -260,7 +261,7 @@ c     Get diamter of the domain
       dxf = 10.+dx1
       dyf = 0.
       dzf = 0.
-      dxf = 0. !findptsnn
+      if (iffptms) dxf = 0. !findptsnn
 
 c     Displace MESH 1
       ntot = lx1*ly1*lz1*nelt
@@ -283,17 +284,19 @@ c     Setup findpts
       nzf     = 2*lz1
       bb_t    = 0.01 ! relative size to expand bounding boxes by
 
-      if (istep.gt.1) call fgslib_findptsms_free(inth_multi2)
-c     if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
-c      write(6,*) 'about to do findptsnn'
+      if (iffptms) then
+        if (istep.gt.1) call fgslib_findptsms_free(inth_multi2)
       call fgslib_findptsms_setup(inth_multi2,mpi_comm_world,npall,ldim,
      &                          xm1,ym1,zm1,lx1,ly1,lz1,
      &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                          npt_max,tol,ids_nn,distfint)
-c     call fgslib_findpts_setup(inth_multi2,mpi_comm_world,npall,ldim,
-c    &                          xm1,ym1,zm1,lx1,ly1,lz1,
-c    &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-c    &                          npt_max,tol)
+     &                          npt_max,tol,idsess,distfint)
+      else
+        if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
+        call fgslib_findpts_setup(inth_multi2,mpi_comm_world,npall,ldim,
+     &                          xm1,ym1,zm1,lx1,ly1,lz1,
+     &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
+     &                          npt_max,tol)
+      endif
 
       return
       end
@@ -380,14 +383,7 @@ c     points in jsend
       call neknekgsync()
 
 c     JLs routine to find which points these procs are on
-c     call fgslib_findpts(inth_multi2,rcode_all,1,
-c    &                    proc_all,1,
-c    &                    elid_all,1,
-c    &                    rst_all,ldim,
-c    &                    dist_all,1,
-c    &                    rsend(1),ldim,
-c    &                    rsend(2),ldim,
-c    &                    rsend(3),ldim,nbp)
+      if (iffptms) then
       call fgslib_findptsms(inth_multi2,rcode_all,1,
      &                    proc_all,1,
      &                    elid_all,1,
@@ -399,6 +395,16 @@ c    &                    rsend(3),ldim,nbp)
      &                    rsid_nn,1,
      &                    disti_all,1,
      &                    elsid_nn,1,nbp)
+      else
+      call fgslib_findpts(inth_multi2,rcode_all,1,
+     &                    proc_all,1,
+     &                    elid_all,1,
+     &                    rst_all,ldim,
+     &                    dist_all,1,
+     &                    rsend(1),ldim,
+     &                    rsend(2),ldim,
+     &                    rsend(3),ldim,nbp)
+      endif
 
       call neknekgsync()
 
@@ -513,13 +519,22 @@ c--------------------------------------------------------------------------
       integer fieldstride
 
 c     Used for findpts_eval of various fields
-c     call fgslib_findpts_eval(inth_multi2,fieldout,fieldstride,
+      if (iffptms) then
       call fgslib_findptsms_eval(inth_multi2,fieldout,fieldstride,
      &                         rcode,1,
      &                         proc,1,
      &                         elid,1,
      &                         rst,ldim,npoints_nn,
      &                         fieldin)
+      else
+        call fgslib_findpts_eval(inth_multi2,fieldout,fieldstride,
+     &                         rcode,1,
+     &                         proc,1,
+     &                         elid,1,
+     &                         rst,ldim,npoints_nn,
+     &                         fieldin)
+      endif
+
 
       return
       end

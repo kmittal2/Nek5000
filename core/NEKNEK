@@ -34,3 +34,6 @@ c
 
       real distfint(lx1,ly1,lz1,lelt)
       common /rfpt_ms/ distfint
+
+      common /ilogicnn/ iffptms
+      logical iffptms
