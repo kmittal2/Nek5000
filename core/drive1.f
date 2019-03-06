@@ -206,6 +206,7 @@ c-----------------------------------------------------------------------
 
       istep  = 0
       msteps = 1
+      if (.not.ifneknek.or..not.if_ms_multdt) nss_ms=1
 
       do kstep=1,nsteps,nss_ms
          if (if_ms_multdt) then 
@@ -533,8 +534,8 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
             enddo
           endif
           if (ifheat) then
-              call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
-     $        bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
+            call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
+     $      bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
           endif
 
           igeomo = igeom

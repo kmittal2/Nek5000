@@ -49,6 +49,7 @@ c-------------------------------------------------------------
       call setup_neknek_wts
 
       if (icalld.eq.0) then
+         if_ms_multdt = .false.
          nfld_neknek = ldim+nfield
          call nekneksanchk
          call set_intflag
@@ -1188,7 +1189,7 @@ c---------------------------------------------------------------------
       xvec(4) = 3.
 
 !     setup predictor weights
-      do j=1,2 !order of extrapolation (linear (LTE=O(dt^2) or quadratic (LTE=O(dt^3))
+      do j=1,2 !linear or quadratic extrapolation
       do i=1,nss_ms
        call rzero(dumwts,4)
        rc = (i*1.)/nss_ms
