@@ -31,3 +31,6 @@ c
 
       integer itstepratio,nss_ms,iss_ms
       common /int_multi_dt/ itstepratio,nss_ms,iss_ms
+
+      common /rmultdtwts/ rpwts,rcwts
+      real rpwts(3,lnntstepratio,2),rcwts(4,lnntstepratio,3) 

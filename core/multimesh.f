@@ -1138,11 +1138,12 @@ c-----------------------------------------------------------------------
       return
       end
 c-----------------------------------------------------------------------
-      subroutine bdr_data_extr(sf) !sf = substep fraction
+      subroutine bdr_data_extr(iss)
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
       integer k,i,n
+      !INPUT - iss is the sub-step number
 
       if (.not.ifneknekc) return
 
@@ -1153,19 +1154,64 @@ c-----------------------------------------------------------------------
        c1= 0.
        c2= 0.
        else if (NINTER.eq.2.or.istep.le.2*nss_ms) then
-         c0= sf+1. !2.
-         c1= -sf  !-1.
-         c2= 0.
+         c0= rpwts(1,iss,1)
+         c1= rpwts(2,iss,1)
+         c2= rpwts(3,iss,1)
        else
-         c0= sf*sf*0.5 + 1.5*sf +1.  !3.
-         c1= -sf*sf - 2.*sf         !-3.
-         c2= sf*sf*0.5 + 0.5*sf     !1.
+         c0= rpwts(1,iss,2) 
+         c1= rpwts(2,iss,2)
+         c2= rpwts(3,iss,2)
       endif
 
       do k=1,nfld_neknek
       do i=1,n
          valint(i,1,1,1,k) =
      $      c0*bdrylg(i,k,0)+c1*bdrylg(i,k,1)+c2*bdrylg(i,k,2)
+      enddo
+      enddo
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine set_tstep_wts !sets up weights for p&c steps
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+      real xvec(4),xv,dumwts(4)
+      if (.not.ifneknekc) return
+      n    = lx1*ly1*lz1*nelt
+
+      xvec(1) = 0.
+      xvec(2) = 1.
+      xvec(3) = 2.
+      xvec(4) = 3.
+
+!     setup predictor weights
+      do j=1,2 !order of extrapolation (linear (LTE=O(dt^2) or quadratic (LTE=O(dt^3))
+      do i=1,nss_ms
+       call rzero(dumwts,4)
+       rc = (i*1.)/nss_ms
+       xv=xvec(1)-rc
+       if (nss_ms.eq.1) xv=xvec(1)-itstepratio*1.
+       call fd_weights_full(xv,xvec,j,0,dumwts)
+       rpwts(1,i,j) = dumwts(1)
+       rpwts(2,i,j) = dumwts(2)
+       rpwts(3,i,j) = dumwts(3)
+      enddo
+      enddo
+
+!     setup corrector weights
+      do j=1,3 !linear,quadratic or cubic interpolation
+      do i=1,nss_ms
+       call rzero(dumwts,4)
+       rc = (i*1.)/nss_ms
+       xv=xvec(2)-rc
+       call fd_weights_full(xv,xvec,j,0,dumwts)
+       rcwts(1,i,j) = dumwts(1)
+       rcwts(2,i,j) = dumwts(2)
+       rcwts(3,i,j) = dumwts(3)
+       rcwts(4,i,j) = dumwts(4)
       enddo
       enddo
 

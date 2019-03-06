@@ -388,17 +388,18 @@ c-----------------------------------------------------------------------
       include 'TOTAL'
       include 'NEKNEK'
 
-      real prsav(lx2*ly2*lz2*lelv,0:10)
+      real prsav(lx2*ly2*lz2*lelv,0:lnntstepratio)
       real prlagdt(lx2*ly2*lz2*lelv)
 
-      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:10)
+      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:lnntstepratio)
       real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
 
-      real tsav(lx1*ly1*lz1*lelt,ldimt,0:10)
+      real tsav(lx1*ly1*lz1*lelt,ldimt,0:lnntstepratio)
       real td(lx1*ly1*lz1*lelt,ldimt,0:1)
 
       real timsav
 
+      call set_tstep_wts
       ntotv = lx1*ly1*lz1*nelv
       ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
@@ -458,7 +459,7 @@ c-----------------------------------------------------------------------
 c       calculate appropriate extrapolation coefficients
         rcoeff = i*1./msteps
         if (msteps.eq.1) rcoeff = itstepratio*1.
-        call bdr_data_extr(rcoeff)
+        call bdr_data_extr(iss_ms)
 c       solve with ngeom=2 
         call nek_advance_ms(1,2,1)
 c       save u,v,w,p,t at each sub-step
@@ -518,19 +519,22 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
 
         istep = iorigstep
         time = timsav
+        ifito = 1 !order of interpolation fit 1/2/3
         do i=1,msteps
           istep = istep+1
-          c1 = i*1./(msteps*1.)
-          c0 = 1.-c1
+          c0 = rcwts(1,i,ifito)
+          c1 = rcwts(2,i,ifito)
+          c2 = rcwts(3,i,ifito)
+          c3 = rcwts(4,i,ifito)
           if (ifflow) then
             do j=1,ldim
-              call add3s2(valint(1,1,1,1,j),vxyzd(1,j,0),vxyzd(1,j,1),
-     $                    c0,c1,ntotv)
+              call add5s4(valint(1,1,1,1,j),vxyzd(1,j,1),vxyzd(1,j,0),
+     $        bdrylg(1,j,1),bdrylg(1,j,2),c0,c1,c2,c3,ntotv) 
             enddo
           endif
           if (ifheat) then
-             call add3s2(valint(1,1,1,1,ldim+2),td(1,1,0),td(1,1,1),
-     $                   c0,c1,ntott)
+              call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
+     $        bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
           endif
 
           igeomo = igeom
@@ -675,4 +679,28 @@ c           endif
 
       return
       end
+c-----------------------------------------------------------------------
+      subroutine add4s3(a,b,c,d,c1,c2,c3,n)
+      real a(1),b(1),c(1),d(1)
+C
+      include 'OPCTR'
+C
+      DO 100 I=1,N
+        A(I)=C1*B(I)+C2*C(I)+C3*D(I)
+  100 CONTINUE
+      return
+      END
+C
+c-----------------------------------------------------------------------
+      subroutine add5s4(a,b,c,d,e,c1,c2,c3,c4,n)
+      real a(1),b(1),c(1),d(1),e(1)
+C
+      include 'OPCTR'
+C
+      DO 100 I=1,N
+        A(I)=C1*B(I)+C2*C(I)+C3*D(I)+C4*E(I)
+  100 CONTINUE
+      return
+      END
+C
 c-----------------------------------------------------------------------
