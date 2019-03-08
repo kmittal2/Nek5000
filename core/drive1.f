@@ -475,8 +475,6 @@ c       save u,v,w,p,t at each sub-step
         endif
       enddo
 
-      call neknekgsync()
-
 c     transfer latest solutions and save them. These will also 
 c     be used during corrector iterations (updated after each iteration)
       if (ifflow) then
@@ -520,13 +518,12 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
 
         istep = iorigstep
         time = timsav
-        ifito = 1 !order of interpolation fit 1/2/3
         do i=1,msteps
           istep = istep+1
-          c0 = rcwts(1,i,ifito)
-          c1 = rcwts(2,i,ifito)
-          c2 = rcwts(3,i,ifito)
-          c3 = rcwts(4,i,ifito)
+          c0 = rcwts(1,i,nninto)
+          c1 = rcwts(2,i,nninto)
+          c2 = rcwts(3,i,nninto)
+          c3 = rcwts(4,i,nninto)
           if (ifflow) then
             do j=1,ldim
               call add5s4(valint(1,1,1,1,j),vxyzd(1,j,1),vxyzd(1,j,0),

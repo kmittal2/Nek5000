@@ -29,8 +29,8 @@ c
       integer inth_multi2
       common /intp_h_nn/ inth_multi2
 
-      integer itstepratio,nss_ms,iss_ms
-      common /int_multi_dt/ itstepratio,nss_ms,iss_ms
+      integer itstepratio,nss_ms,iss_ms,nninto
+      common /int_multi_dt/ itstepratio,nss_ms,iss_ms,nninto
 
       common /rmultdtwts/ rpwts,rcwts
       real rpwts(3,lnntstepratio,2),rcwts(4,lnntstepratio,3) 
