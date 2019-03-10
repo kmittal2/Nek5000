@@ -49,7 +49,6 @@ c-------------------------------------------------------------
       call setup_neknek_wts
 
       if (icalld.eq.0) then
-         iffptms = .false.
          nfld_neknek = ldim+nfield
          call nekneksanchk
          call set_intflag

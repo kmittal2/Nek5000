@@ -43,6 +43,9 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       integer*8 glo_num, ngv
       integer vertex
 
+      common /ilogicnn/ iffptms
+      logical iffptms
+
       ! set word size for REAL
       wdsize = sizeof(rtest)
       ! set word size for INTEGER
@@ -81,6 +84,7 @@ c      COMMON /SCRCG/ DUMM10(LX1,LY1,LZ1,LELT,1)
       call genwz           ! Compute GLL points, weights, etc.
 
       if(nio.eq.0) write(6,*) 'call usrdat'
+      if (ifneknek) iffptms = .false.
       call usrdat
       if(nio.eq.0) write(6,'(A,/)') ' done :: usrdat' 
 
