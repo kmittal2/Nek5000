@@ -33,4 +33,4 @@ c
       common /int_multi_dt/ itstepratio,nss_ms,iss_ms,nninto
 
       common /rmultdtwts/ rpwts,rcwts
-      real rpwts(3,lnntstepratio,2),rcwts(4,lnntstepratio,3) 
+      real rpwts(3,lnntstepratio,2),rcwts(4,lnntstepratio,0:3)
