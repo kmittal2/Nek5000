@@ -1203,7 +1203,7 @@ c---------------------------------------------------------------------
       enddo
 
 !     setup corrector weights
-      do j=1,3 !linear,quadratic or cubic interpolation
+      do j=0,3 !linear,quadratic or cubic interpolation
       do i=1,nss_ms
        call rzero(dumwts,4)
        rc = (i*1.)/nss_ms

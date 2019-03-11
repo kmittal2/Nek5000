@@ -400,7 +400,14 @@ c-----------------------------------------------------------------------
 
       real timsav
 
-      call set_tstep_wts
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      if (icalld.eq.0) then
+       icalld = 1
+       call set_tstep_wts
+      endif 
       ntotv = lx1*ly1*lz1*nelv
       ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
@@ -461,6 +468,8 @@ c       calculate appropriate extrapolation coefficients
         rcoeff = i*1./msteps
         if (msteps.eq.1) rcoeff = itstepratio*1.
         call bdr_data_extr(iss_ms)
+c       if (istep.lt.5*nss_ms) 
+c    $     call get_exact_sol(valint(1,1,1,1,ldim+2),time+dt)
 c       solve with ngeom=2 
         call nek_advance_ms(1,2,1)
 c       save u,v,w,p,t at each sub-step
@@ -520,10 +529,18 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
         time = timsav
         do i=1,msteps
           istep = istep+1
-          c0 = rcwts(1,i,nninto)
-          c1 = rcwts(2,i,nninto)
-          c2 = rcwts(3,i,nninto)
-          c3 = rcwts(4,i,nninto)
+          if (istep.eq.1) then
+             into = 0
+          elseif (istep.eq.2.or.nninto.eq.1) then
+             into = nninto
+          else
+             into = nninto
+          endif
+          c0 = rcwts(1,i,into)
+          c1 = rcwts(2,i,into)
+          c2 = rcwts(3,i,into)
+          c3 = rcwts(4,i,into)
+          write(6,*) c0,c1,c2,c3,'k10'
           if (ifflow) then
             do j=1,ldim
               call add5s4(valint(1,1,1,1,j),vxyzd(1,j,1),vxyzd(1,j,0),
@@ -534,6 +551,8 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
             call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
      $      bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
           endif
+c         if (istep.lt.5*nss_ms) 
+c    $       call get_exact_sol(valint(1,1,1,1,ldim+2),time+dt)
 
           igeomo = igeom
           call nek_advance_ms(1,igeomo,igeom-1)
