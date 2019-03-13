@@ -208,6 +208,10 @@ c-----------------------------------------------------------------------
       msteps = 1
       if (.not.ifneknek.or..not.if_ms_multdt) nss_ms=1
 
+      if (ifneknekc) then
+        call neknek_exchange
+      endif
+
       do kstep=1,nsteps,nss_ms
          if (if_ms_multdt) then 
            call nek__multi_advance_dt(kstep,nss_ms)
@@ -468,8 +472,7 @@ c       calculate appropriate extrapolation coefficients
         rcoeff = i*1./msteps
         if (msteps.eq.1) rcoeff = itstepratio*1.
         call bdr_data_extr(iss_ms)
-c       if (istep.lt.5*nss_ms) 
-c    $     call get_exact_sol(valint(1,1,1,1,ldim+2),time+dt)
+        call userchk_dt
 c       solve with ngeom=2 
         call nek_advance_ms(1,2,1)
 c       save u,v,w,p,t at each sub-step
@@ -529,18 +532,19 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
         time = timsav
         do i=1,msteps
           istep = istep+1
-          if (istep.eq.1) then
+          if (istep.le.nss_ms) then
              into = 0
-          elseif (istep.eq.2.or.nninto.eq.1) then
-             into = nninto
+          elseif (istep.le.2*nss_ms.or.nninto.eq.1) then
+             into = 1
+          elseif (istep.le.3*nss_ms.or.nninto.eq.2) then
+             into = 2
           else
-             into = nninto
+             into = 3
           endif
           c0 = rcwts(1,i,into)
           c1 = rcwts(2,i,into)
           c2 = rcwts(3,i,into)
           c3 = rcwts(4,i,into)
-          write(6,*) c0,c1,c2,c3,'k10'
           if (ifflow) then
             do j=1,ldim
               call add5s4(valint(1,1,1,1,j),vxyzd(1,j,1),vxyzd(1,j,0),
@@ -551,8 +555,7 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
             call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
      $      bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
           endif
-c         if (istep.lt.5*nss_ms) 
-c    $       call get_exact_sol(valint(1,1,1,1,ldim+2),time+dt)
+          call userchk_dt
 
           igeomo = igeom
           call nek_advance_ms(1,igeomo,igeom-1)
