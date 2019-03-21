@@ -254,6 +254,8 @@ c-----------------------------------------------------------------------
     
       ngeom = 3
       ninter = 3
+      nfld_neknek = 3
+      iffptms = .false.
 
       return
       end

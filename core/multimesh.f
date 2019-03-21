@@ -392,8 +392,7 @@ c     JLs routine to find which points these procs are on
      &                    rsend(2),ldim,
      &                    rsend(3),ldim,
      &                    rsid_nn,1,
-     &                    disti_all,1,
-     &                    elsid_nn,1,nbp)
+     &                    nbp)
       else
       call fgslib_findpts(inth_multi2,rcode_all,1,
      &                    proc_all,1,
