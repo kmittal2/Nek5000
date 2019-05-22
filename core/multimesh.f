@@ -1118,4 +1118,45 @@ ccccc
       return
       end
 c-----------------------------------------------------------------------
+      subroutine bcopy_extrapolate
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+      real tvec(3),ccoeff(3)
 
+      if (.not.ifneknekc) return
+
+      rdt = glmax(param(12),1)
+      if (rdt.lt.0.or.istep.lt.3) return
+
+      n    = lx1*ly1*lz1*nelt
+      call rzero(ccoeff,3)
+
+      tv = time
+      tvec(1) = tv-dtlag(1)
+      tvec(2) = tvec(1)-dtlag(2)
+      tvec(3) = tvec(2)-dtlag(3)
+
+      if (NINTER.eq.2.or.istep.eq.3) then
+         call fd_weights_full(tv,tvec,1,0,ccoeff)
+         c0=ccoeff(1)
+         c1=ccoeff(2)
+         c2=ccoeff(3)
+      else
+         call fd_weights_full(tv,tvec,2,0,ccoeff)
+         c0=ccoeff(1)
+         c1=ccoeff(2)
+         c2=ccoeff(3)
+      endif
+
+      do k=1,nfld_neknek
+      do i=1,n
+         valint(i,1,1,1,k) =
+     $      c0*bdrylg(i,k,0)+c1*bdrylg(i,k,1)+c2*bdrylg(i,k,2)
+      enddo
+      enddo
+
+      return
+      end
+c---------------------------------------------------------------------

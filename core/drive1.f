@@ -259,6 +259,7 @@ c-----------------------------------------------------------------------
       return
 #endif
 
+      if (ifneknek) call bcopy_extrapolate
       if (ifsplit) then   ! PN/PN formulation
 
          do igeom=1,ngeom
