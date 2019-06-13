@@ -1118,4 +1118,33 @@ ccccc
       return
       end
 c-----------------------------------------------------------------------
+      subroutine bcopy_mod_stability(igmnn)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+      common /rnnbackup/ valintb(lx1,ly1,lz1,lelt,nfldmax_nn)
+      real valintb
 
+      n    = lx1*ly1*lz1*nelt
+      if (igmnn.lt.3) return
+      if (nid.eq.0) write(6,*) 'Modifying b.c. for improved stability'
+      
+      if (mod(igmnn,2).eq.1) then
+        do k=1,ldim
+           call copy(valintb(1,1,1,1,k),valint(1,1,1,1,k),n)
+        enddo
+        return
+      else
+        rgam = 0.5
+        do k=1,ldim
+           do i=1,n
+            valint(i,1,1,1,k) = rgam*valint (i,1,1,1,k)+
+     $                     (1.-rgam)*valintb(i,1,1,1,k)
+           enddo
+        enddo
+      endif
+
+      return
+      end
+c---------------------------------------------------------------------
