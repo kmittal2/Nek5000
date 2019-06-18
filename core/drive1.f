@@ -392,24 +392,25 @@ c-----------------------------------------------------------------------
       include 'SIZE'
       include 'TOTAL'
       include 'NEKNEK'
+      include 'CTIMER'
 
-      real prsav(lx2*ly2*lz2*lelv,0:lnntstepratio)
+      real prsav(lx2*ly2*lz2*lelv,0:3)
       real prlagdt(lx2*ly2*lz2*lelv)
 
-      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:lnntstepratio)
+      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:3)
       real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
 
-      real tsav(lx1*ly1*lz1*lelt,ldimt,0:lnntstepratio)
+      real tsav(lx1*ly1*lz1*lelt,ldimt,0:3)
       real td(lx1*ly1*lz1*lelt,ldimt,0:1)
 
       real timsav
 
-      integer icalld
-      save    icalld
-      data    icalld /0/
+      integer icalld2
+      save    icalld2
+      data    icalld2 /0/
 
-      if (icalld.eq.0) then
-       icalld = 1
+      if (icalld2.eq.0) then
+       icalld2 = 1
        call set_tstep_wts
       endif 
       ntotv = lx1*ly1*lz1*nelv
@@ -463,8 +464,11 @@ c-----------------------------------------------------------------------
       endif
       
       iorigstep = istep
-      timsav = time
-
+      timsav    = time
+      isav      = 0
+    
+      call nekgsync()
+      etime0 = dnekclock()
       do i=1,msteps
         iss_ms = i !multisession sub-step
         istep = istep+1
@@ -476,16 +480,22 @@ c       calculate appropriate extrapolation coefficients
 c       solve with ngeom=2 
         call nek_advance_ms(1,2,1)
 c       save u,v,w,p,t at each sub-step
-        if (ifflow) then
-         call copy(vxyzsav(1,1,i),vx,ntotv)
-         call copy(vxyzsav(1,2,i),vy,ntotv)
-         if (ldim.eq.3) call copy(vxyzsav(1,ldim,i),vz,ntotv)
-         call copy(prsav(1,i),pr,ntotp)
-        endif
-        if (ifheat) then
-         call copy(tsav(1,1,i),t(1,1,1,1,1),ntott)
-        endif
+        if (i.ge.msteps-2) then
+          isav = isav+1
+          if (ifflow) then
+           call copy(vxyzsav(1,1,isav),vx,ntotv)
+           call copy(vxyzsav(1,2,isav),vy,ntotv)
+           if (ldim.eq.3) call copy(vxyzsav(1,ldim,isav),vz,ntotv)
+           call copy(prsav(1,isav),pr,ntotp)
+          endif
+          if (ifheat) then
+           call copy(tsav(1,1,isav),t(1,1,1,1,1),ntott)
+          endif
+         endif
       enddo
+      call nekgsync()
+      etime1 = dnekclock()
+      etime  = etime1-etime0
 
 c     transfer latest solutions and save them. These will also 
 c     be used during corrector iterations (updated after each iteration)
@@ -528,8 +538,11 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
           enddo
         endif !ifheat
 
+        call nekgsync()
+        etime0 = dnekclock()
         istep = iorigstep
-        time = timsav
+        time  = timsav
+        isav  = 0
         do i=1,msteps
           istep = istep+1
           if (istep.le.nss_ms) then
@@ -560,17 +573,22 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
           igeomo = igeom
           call nek_advance_ms(1,igeomo,igeom-1)
 
-          if (ifflow) then
-            call copy(vxyzsav(1,1,i),vx,ntotv)
-            call copy(vxyzsav(1,2,i),vy,ntotv)
-            if (ldim.eq.3) call copy(vxyzsav(1,ldim,i),vz,ntotv)
-            call copy(prsav(1,i),pr,ntotp)
-          endif !ifflow
-          if (ifheat) then
-            call copy(tsav(1,1,i),t(1,1,1,1,1),ntott)
-          endif !ifheat
+          if (i.ge.msteps-2) then
+            isav = isav+1
+            if (ifflow) then
+              call copy(vxyzsav(1,1,isav),vx,ntotv)
+              call copy(vxyzsav(1,2,isav),vy,ntotv)
+              if (ldim.eq.3) call copy(vxyzsav(1,ldim,isav),vz,ntotv)
+              call copy(prsav(1,isav),pr,ntotp)
+            endif !ifflow
+            if (ifheat) then
+              call copy(tsav(1,1,isav),t(1,1,1,1,1),ntott)
+            endif !ifheat
+          endif
         enddo !msteps i.e. substeps
-        call neknekgsync()
+        call nekgsync()
+        etime1 = dnekclock()
+        etime  = etime + etime1-etime0
  
         if (ifflow) then
           call neknek_xfer_fld(vx,vxyzd(1,1,1))
@@ -582,12 +600,19 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
         endif
       enddo !igeom loop
 
+      if (nio.eq.0) write(6,99) istep,
+     $              '  NekNek_Multi_DT_timeperstep: ',
+     $              etime
+ 99   format(i11,a,1p1e13.4)
+
       call neknek_exchange
       call bcopy_only
 
       if (itstepratio.gt.1) then
         n=0
-        do j=itstepratio-1,itstepratio-2,-1
+        jstart = min(itstepratio-1,2)
+        jend   = jstart-1
+        do j=jstart,jend,-1
            n=n+1
            if (ifflow) then
               do k=1,ldim

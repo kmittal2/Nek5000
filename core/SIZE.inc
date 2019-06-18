@@ -109,4 +109,4 @@ c - - SIZE internals
       common/dimn/  nelv,nelt,nfield,npert,nid,idsess
      $ ,nx1,ny1,nz1,nx2,ny2,nz2,nx3,ny3,nz3,nxd,nyd,nzd,ndim,ldimr
 
-      parameter (lnntstepratio=10)
+      parameter (lnntstepratio=500)
