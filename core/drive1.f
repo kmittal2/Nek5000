@@ -266,7 +266,8 @@ c-----------------------------------------------------------------------
          if (ifneknekc .and. igeom.gt.2) then
             if (ifneknekm.and.igeom.eq.3) call neknek_setup
             call neknek_exchange
-            call bcopy_mod_stability(igeom)
+            if (mod(ngeom,2).eq.0.and.igeom.ge.ngeom-1) 
+     $               call bcopy_mod_stability(igeom)
          endif
 
          ! call here before we overwrite wx 
