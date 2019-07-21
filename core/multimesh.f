@@ -257,6 +257,7 @@ c     Get diamter of the domain
       mn_glob = glmin_ms(xm1,lx1*ly1*lz1*nelt)
       dx1 = mx_glob-mn_glob
 
+      iffptms = .true.
       dxf = 10.+dx1
       dyf = 0.
       dzf = 0.
@@ -314,7 +315,6 @@ c-----------------------------------------------------------------------
       real    dist_all(nmaxl_nn)
       real    rst_all(nmaxl_nn*ldim)
       integer rsid_nn(nmaxl_nn),elsid_nn(nmaxl_nn)
-      real    disti_all(nmaxl_nn)
       integer e,ip,iface,nel,nfaces,ix,iy,iz
       integer kx1,kx2,ky1,ky2,kz1,kz2,idx,nxyz,nxy
       integer icalld
@@ -353,7 +353,6 @@ c     points in jsend
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
                rsid_nn(ip) = idsess
-               disti_all(i) = -1.
                if (if3d) then
                  rsend(ldim*(ip-1)+1)=x-dxf
                  rsend(ldim*(ip-1)+2)=y
@@ -391,7 +390,7 @@ c     JLs routine to find which points these procs are on
      &                    rsend(1),ldim,
      &                    rsend(2),ldim,
      &                    rsend(3),ldim,
-     &                    rsid_nn,1,
+     &                    rsid_nn,1,0,
      &                    nbp)
       else
       call fgslib_findpts(inth_multi2,rcode_all,1,
@@ -442,7 +441,7 @@ c     Make sure rcode_all is fine
 
       ipg = iglsum(ip,1)
       nbpg = iglsum(nbp,1)
-      if (nid.eq.0) write(6,*) ipg,nbpg,'interface points' 
+      if (nid.eq.0) write(6,*) idsess,ipg,nbpg,'interface points' 
       npoints_nn = ip
 
       ierror = iglmax_ms(ierror,1)
