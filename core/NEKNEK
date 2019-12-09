@@ -34,3 +34,15 @@ c
 
       common /rmultdtwts/ rpwts,rcwts
       real rpwts(3,lnntstepratio,2),rcwts(4,lnntstepratio,0:3)
+
+      common /rmultadaptdtwts/ rpadwts,rcadwts
+      real rpadwts(nmaxl_nn,3),rcadwts(nmaxl_nn,3)
+      
+      common / rmultidttarr/ tdtvals
+      real tdtvals(lx1*ly1*lz1*lelt,0:3)
+
+      common /rmultisavarr/ vxyzexc,prexc,texc,vptbdr
+      real vxyzexc(lx1*ly1*lz1*lelv,ldim,0:4)
+      real prexc(lx2*ly2*lz2*lelv,0:4)
+      real texc(lx1*ly1*lz1*lelt,ldimt,0:4)
+      real vptbdr(lx1*ly1*lz1*lelt,nfldmax_nn,0:3)

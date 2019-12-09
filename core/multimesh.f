@@ -29,7 +29,9 @@ c-------------------------------------------------------------
 
       include 'SIZE'
       include 'TOTAL'
+      include 'mpif.h'
       real dxf,dyf,dzf
+      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
 
       integer icalld
       save    icalld
@@ -1219,3 +1221,327 @@ c---------------------------------------------------------------------
       return
       end
 c---------------------------------------------------------------------
+c     Adaptive routines
+c---------------------------------------------------------------------
+      subroutine set_extr_time
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+c     The purpose of this routine is to exchange the time and the previous
+c     DTs
+
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      real rfout(lt)
+      real rfin(lt)
+
+      nt = lx1*ly1*lz1*nelt
+      rtval = time
+      call cfill(tdtvals(1,1),rtval,nt)
+
+      do i=1,2
+        call cfill(rfin,dtlag(i),nt)
+        call neknek_xfer_fld(rfin,rfout)
+        call sub3(tdtvals(1,i+1),tdtvals(1,i),rfout,nt)
+        call neknekgsync()
+      enddo
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine set_extr_time_for_corr
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      nt = lx1*ly1*lz1*nelt
+      call cfill(tdtvals(1,0),time,nt)
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine bdr_data_predictor
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+      real xvec(3),xv,dumwts(3)
+      !INPUT - iss is the sub-step number
+
+      if (.not.ifneknekc) return
+      ninterdo = ninter
+      if (ninter.eq.1.or.istep.le.nss_ms) then
+         ninterdo = 1
+      elseif (ninter.eq.2.or.istep.le.2*nss_ms) then
+         ninterdo = 2
+      else
+         ninterdo = 3
+      endif
+
+c     first setup weights for each point
+      n    = lx1*ly1*lz1*nelt
+      do i=1,npoints_nn
+        idx = iList(1,i)
+        xv      = time 
+        xvec(1) = tdtvals(idx,1)
+        xvec(2) = tdtvals(idx,2)
+        xvec(3) = tdtvals(idx,3)
+        call fd_weights_full(xv,xvec,ninterdo-1,0,dumwts)
+        rpadwts(i,1) = dumwts(1)
+        rpadwts(i,2) = dumwts(2)
+        rpadwts(i,3) = dumwts(3)
+      enddo
+
+      do i=1,npoints_nn
+        c0 = rpadwts(i,1)
+        c1 = rpadwts(i,2)
+        c2 = rpadwts(i,3)
+        idx = iList(1,i)
+      do k=1,nfld_neknek
+        valint(idx,1,1,1,k) =
+     $      c0*vptbdr(idx,k,1)+c1*vptbdr(idx,k,2)+c2*vptbdr(idx,k,3)
+      enddo
+      enddo
+      
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine bdr_data_corrector
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      integer k,i,n
+      real xvec(3),xv,dumwts(3)
+      !INPUT - iss is the sub-step number
+
+      if (.not.ifneknekc) return
+      if (istep.le.3*nss_ms) return
+
+      ninterdo = nninto
+
+c     first setup weights for each point
+      n    = lx1*ly1*lz1*nelt
+      do i=1,npoints_nn
+        idx = iList(1,i)
+        xv      = time
+        xvec(1) = tdtvals(idx,0) !t^{n,[q-1]}
+        xvec(2) = tdtvals(idx,1) !t^{n-1,[Q]}
+        xvec(3) = tdtvals(idx,2) !t^{n-2,[Q]}
+        call fd_weights_full(xv,xvec,ninterdo,0,dumwts)
+        rcadwts(i,1) = dumwts(1)
+        rcadwts(i,2) = dumwts(2)
+        rcadwts(i,3) = dumwts(3)
+      enddo
+      write(6,*) xv,xvec,'k10inttime'
+      write(6,*) dumwts,'k10intwts'
+
+      do i=1,npoints_nn
+        c0 = rcadwts(i,1)
+        c1 = rcadwts(i,2)
+        c2 = rcadwts(i,3)
+        idx = iList(1,i)
+        do k=1,nfld_neknek
+          valint(idx,1,1,1,k) =
+     $      c0*vptbdr(idx,k,0)+c1*vptbdr(idx,k,1)+c2*vptbdr(idx,k,2)
+        enddo
+      enddo
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine multirate_setup_lag
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
+      ntott = lx1*ly1*lz1*nelt
+
+      if (ifflow) then
+        do j=1,2
+          call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv) !vxlag
+          call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv) !vylag
+         if (ldim.eq.3)
+     $    call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv) !vzlag
+        enddo
+        if (.not.ifsplit) call copy(prlagdt,prlag,ntotp)       !prlag
+
+        call copy(abx1dt,abx1,ntotv)                           !nl term
+        call copy(aby1dt,aby1,ntotv)
+        if (ldim.eq.3) call copy(abz1dt,abz1,ntotv)
+        call copy(abx2dt,abx2,ntotv)
+        call copy(aby2dt,aby2,ntotv)
+        if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
+      endif
+      if (ifheat) then
+        do j=1,2
+          call copy(tlagdt(1,1,1,1,j,1),tlag(1,1,1,1,j,1),ntott) !t lag
+        enddo
+        call copy(vgradt1dt(1,1,1,1,1),vgradt1(1,1,1,1,1),ntott) !u.del t
+        call copy(vgradt2dt(1,1,1,1,1),vgradt2(1,1,1,1,1),ntott)
+      endif
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine multirate_restore_lag
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
+      ntott = lx1*ly1*lz1*nelt
+
+      if (ifflow) then
+        do j=1,2
+          call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
+          call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
+          call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
+        enddo
+        if (.not.ifsplit) call copy(prlag,prlagdt,ntotp)
+        call copy(abx1,abx1dt,ntotv)
+        call copy(aby1,aby1dt,ntotv)
+        if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
+        call copy(abx2,abx2dt,ntotv)
+        call copy(aby2,aby2dt,ntotv)
+        if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
+      endif !ifflow
+      if (ifheat) then
+        call copy(vgradt1(1,1,1,1,1),vgradt1dt(1,1,1,1,1),ntott)
+        call copy(vgradt2(1,1,1,1,1),vgradt2dt(1,1,1,1,1),ntott)
+        do j=1,2
+          call copy(tlag(1,1,1,1,j,1),tlagdt(1,1,1,1,j,1),ntott)
+        enddo
+      endif !ifheat
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine multirate_setup_recsol
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+c     setsup 3,4,5
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
+      ntott = lx1*ly1*lz1*nelt
+
+      if (ifflow) then
+        call copy(prexc(1,3),pr,ntotp)
+        call copy(vxyzexc(1,1,3),vx,ntotv)    !vx solution
+        call copy(vxyzexc(1,2,3),vy,ntotv)    !vy solution
+        if (ldim.eq.3) call copy(vxyzexc(1,ldim,3),vz,ntotv)
+      endif
+      if (ifheat) then
+        call copy(texc(1,1,3),t(1,1,1,1,1),ntott) !t solution
+      endif
+
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine multirate_copy_recsol
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
+      ntott = lx1*ly1*lz1*nelt
+
+      i=0
+        if (ifflow) then
+          call copy(prexc(1,i),prexc(1,i+3),ntotp)
+          do j=1,ldim
+             call copy(vxyzexc(1,j,i),vxyzexc(1,j,i+3),ntotv)
+          enddo
+        endif
+        if (ifheat) then
+          call copy(texc(1,1,i),texc(1,1,i+3),ntott) !t solution
+        endif
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine multirate_shift_full(igv)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+c     updates 0,1,2
+
+      ntotv = lx1*ly1*lz1*nelv
+      ntotp = lx2*ly2*lz2*nelv
+      ntott = lx1*ly1*lz1*nelt
+ 
+      if (igv.eq.1) then
+      do i=2,1,-1
+        if (ifflow) then
+           call copy(prexc(1,i),prexc(1,i-1),ntotp)
+           do j=1,ldim
+              call copy(vxyzexc(1,j,i),vxyzexc(1,j,i-1),ntotv)
+           enddo
+         endif
+         if (ifheat) then
+           call copy(texc(1,1,i),texc(1,1,i-1),ntott) !t solution
+         endif
+      enddo
+      endif
+      if (ifflow) then
+        call copy(prexc(1,0),pr,ntotp)
+        call copy(vxyzexc(1,1,0),vx,ntotv)    !vx solution
+        call copy(vxyzexc(1,2,0),vy,ntotv)    !vy solution
+        if (ldim.eq.3) call copy(vxyzexc(1,ldim,0),vz,ntotv)
+      endif
+      if (ifheat) then
+        call copy(texc(1,1,0),t(1,1,1,1,1),ntott) !t solution
+      endif
+
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine neknek_multirate_exchange(idon,irec)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKNEK'
+      include 'CTIMER'
+
+      parameter (lt=lx1*ly1*lz1*lelt,lxyz=lx1*ly1*lz1)
+      common /scrcg/ pm1(lt),wk1(lxyz),wk2(lxyz)
+
+      real fieldout(nmaxl_nn,nfldmax_nn)
+      real field(lx1*ly1*lz1*lelt)
+      integer nv,nt,i,j,k,n,ie,ix,iy,iz,idx,ifld
+
+      call neknekgsync()
+
+      call mappr(pm1,prexc(1,idon),wk1,wk2)  ! Map pressure to pm1 
+      nv = lx1*ly1*lz1*nelv
+      nt = lx1*ly1*lz1*nelt
+
+c     Interpolate using findpts_eval
+      do i=1,ldim
+        call field_eval(fieldout(1,i),1,vxyzexc(1,i,idon))
+      enddo
+      call field_eval(fieldout(1,ldim+1),1,pm1)
+      if (nfld_neknek.gt.ldim+1) then 
+        do i=ldim+2,nfld_neknek
+          call field_eval(fieldout(1,i),1,texc(1,1,idon))
+        enddo
+      endif
+         
+c     Now we can transfer this information to valint array from which
+c     the information will go to the boundary points
+       do i=1,npoints_nn
+        idx = iList(1,i)
+        do ifld=1,nfld_neknek
+          vptbdr(idx,ifld,irec) = fieldout(i,ifld)
+        enddo
+       enddo
+
+      call nekgsync()
+
+      return
+      end
+c--------------------------------------------------------------------------

@@ -147,6 +147,7 @@ c
       real vxlagdt(lx1,ly1,lz1,lelv,2)
      $    ,vylagdt(lx1,ly1,lz1,lelv,2)
      $    ,vzlagdt(lx1,ly1,lz1,lelv,2)
+     $    ,prlagdt(lx2,ly2,lz2,lelv)
      $    ,tlagdt (lx1,ly1,lz1,lelt,lorder-1,ldimt)
      $    ,abx1dt (lx1,ly1,lz1,lelv)
      $    ,aby1dt (lx1,ly1,lz1,lelv)
@@ -157,7 +158,7 @@ c
      $    ,vgradt1dt(lx1,ly1,lz1,lelt,ldimt)
      $    ,vgradt2dt(lx1,ly1,lz1,lelt,ldimt)
       common /r_multi_dt/ bfxit,bfyit,bfzit,vxeit,vyeit,vzeit
-     $                   ,vxlagdt,vylagdt,vzlagdt
+     $                   ,vxlagdt,vylagdt,vzlagdt,prlagdt
      $                   ,abx1dt,aby1dt,abz1dt,abx2dt,aby2dt,abz2dt
      $                   ,tlagdt,vgradt1dt,vgradt2dt
 

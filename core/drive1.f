@@ -394,75 +394,24 @@ c-----------------------------------------------------------------------
       include 'NEKNEK'
       include 'CTIMER'
 
-      real prsav(lx2*ly2*lz2*lelv,0:3)
-      real prlagdt(lx2*ly2*lz2*lelv)
-
-      real vxyzsav(lx1*ly1*lz1*lelv,ldim,0:3)
-      real vxyzd(lx1*ly1*lz1*lelv,ldim,0:1)
-
-      real tsav(lx1*ly1*lz1*lelt,ldimt,0:3)
-      real td(lx1*ly1*lz1*lelt,ldimt,0:1)
-
       real timsav
 
-      integer icalld2
-      save    icalld2
-      data    icalld2 /0/
-
-      if (icalld2.eq.0) then
-       icalld2 = 1
-       call set_tstep_wts
-      endif 
+      call set_extr_time
       ntotv = lx1*ly1*lz1*nelv
       ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
-!     Copy u,v,w,pr,t at t^{n-1}
-!     Copy lagging arrays for BDF terms 
-      if (ifflow) then
-        call copy(prsav(1,0),pr,ntotp)        !p solution
-        call copy(vxyzsav(1,1,0),vx,ntotv)    !vx solution
-        call copy(vxyzsav(1,2,0),vy,ntotv)    !vy solution
-        if (ldim.eq.3) call copy(vxyzsav(1,ldim,0),vz,ntotv)
-        do j=1,2
-          call copy(vxlagdt(1,1,1,1,j),vxlag(1,1,1,1,j),ntotv) !vxlag
-          call copy(vylagdt(1,1,1,1,j),vylag(1,1,1,1,j),ntotv) !vylag
-         if (ldim.eq.3)
-     $    call copy(vzlagdt(1,1,1,1,j),vzlag(1,1,1,1,j),ntotv) !vzlag
-        enddo
-        if (.not.ifsplit) call copy(prlagdt,prlag,ntotp)       !prlag
-
-        call copy(abx1dt,abx1,ntotv)                           !nl term
-        call copy(aby1dt,aby1,ntotv)
-        if (ldim.eq.3) call copy(abz1dt,abz1,ntotv)
-        call copy(abx2dt,abx2,ntotv)
-        call copy(aby2dt,aby2,ntotv)
-        if (ldim.eq.3) call copy(abz2dt,abz2,ntotv)
-      endif
-      if (ifheat) then
-        call copy(tsav(1,1,0),t(1,1,1,1,1),ntott) !t solution
-        do j=1,2
-          call copy(tlagdt(1,1,1,1,j,1),tlag(1,1,1,1,j,1),ntott) !t lag
-        enddo
-        call copy(vgradt1dt(1,1,1,1,1),vgradt1(1,1,1,1,1),ntott) !u.del t
-        call copy(vgradt2dt(1,1,1,1,1),vgradt2(1,1,1,1,1),ntott)
-      endif
+      
+      call multirate_setup_recsol !setsup 3,4,5 where 3 is most recent
+      call multirate_copy_recsol  !copies 3,4,5 to 0,1,2
+      call multirate_setup_lag    !copies vxlag etc.
 
       if (istep.eq.0.and.ifneknekc) then
         call neknek_exchange
-        call bcopy_only
-      endif
-
-      !exchange information at t^{n-1} and save it.. we need this for 
-      !boundary condition during corrector iterations
-      if (ifflow) then
-        do j=1,ldim
-         call copy(vxyzd(1,j,0),valint(1,1,1,1,j),ntotv)
+        do k=1,nfld_neknek
+         call copy(vptbdr(1,k,1),valint(1,1,1,1,k),ntott)
         enddo
       endif
-      if (ifheat) then
-        call copy(td(1,1,0),valint(1,1,1,1,ldim+2),ntott)
-      endif
-      
+
       iorigstep = istep
       timsav    = time
       isav      = 0
@@ -470,73 +419,31 @@ c-----------------------------------------------------------------------
       call nekgsync()
       etime0 = dnekclock()
       do i=1,msteps
-        iss_ms = i !multisession sub-step
         istep = istep+1
-c       calculate appropriate extrapolation coefficients
-        rcoeff = i*1./msteps
-        if (msteps.eq.1) rcoeff = itstepratio*1.
-        call bdr_data_extr(iss_ms)
         call userchk_dt
-c       solve with ngeom=2 
-        call nek_advance_ms(1,2,1)
-c       save u,v,w,p,t at each sub-step
-        if (i.ge.msteps-2) then
-          isav = isav+1
-          if (ifflow) then
-           call copy(vxyzsav(1,1,isav),vx,ntotv)
-           call copy(vxyzsav(1,2,isav),vy,ntotv)
-           if (ldim.eq.3) call copy(vxyzsav(1,ldim,isav),vz,ntotv)
-           call copy(prsav(1,isav),pr,ntotp)
-          endif
-          if (ifheat) then
-           call copy(tsav(1,1,isav),t(1,1,1,1,1),ntott)
-          endif
-         endif
+        call nek_advance_ms(1,2,1)  !solve ngeom=2
+        call multirate_shift_full(0) !update 0,1,2
       enddo
+
       call nekgsync()
       etime1 = dnekclock()
       etime  = etime1-etime0
 
-c     transfer latest solutions and save them. These will also 
-c     be used during corrector iterations (updated after each iteration)
-      if (ifflow) then
-        call neknek_xfer_fld(vx,vxyzd(1,1,1))
-        call neknek_xfer_fld(vy,vxyzd(1,2,1))
-        if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
-      endif
-      if (ifheat) then
-        call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
-      endif
+      call neknek_multirate_exchange(0,0) !0 has the most recent guess
+      call set_extr_time_for_corr
 
 cc    Schwarz iterations
       do igeom=3,ngeom
 c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
-        if (ifflow) then
-          call copy(vx,vxyzsav(1,1,0),ntotv)
-          call copy(vy,vxyzsav(1,2,0),ntotv)
-          if (ldim.eq.3) call copy(vz,vxyzsav(1,ldim,0),ntotv)
-          call copy(pr,prsav(1,0),ntotp)
-          do j=1,2
-            call copy(vxlag(1,1,1,1,j),vxlagdt(1,1,1,1,j),ntotv)
-            call copy(vylag(1,1,1,1,j),vylagdt(1,1,1,1,j),ntotv)
-            call copy(vzlag(1,1,1,1,j),vzlagdt(1,1,1,1,j),ntotv)
-          enddo
-          if (.not.ifsplit) call copy(prlag,prlagdt,ntotp)
-          call copy(abx1,abx1dt,ntotv)
-          call copy(aby1,aby1dt,ntotv)
-          if (ldim.eq.3) call copy(abz1,abz1dt,ntotv)
-          call copy(abx2,abx2dt,ntotv)
-          call copy(aby2,aby2dt,ntotv)
-          if (ldim.eq.3) call copy(abz2,abz2dt,ntotv)
-        endif !ifflow
-        if (ifheat) then
-          call copy(t(1,1,1,1,1),tsav(1,1,0),ntott)
-          call copy(vgradt1(1,1,1,1,1),vgradt1dt(1,1,1,1,1),ntott)
-          call copy(vgradt2(1,1,1,1,1),vgradt2dt(1,1,1,1,1),ntott)
-          do j=1,2
-            call copy(tlag(1,1,1,1,j,1),tlagdt(1,1,1,1,j,1),ntott)
-          enddo
-        endif !ifheat
+
+        call copy(vx,vxyzexc(1,1,3),ntotv)
+        call copy(vy,vxyzexc(1,2,3),ntotv)
+        if (ldim.eq.3) call copy(vz,vxyzexc(1,ldim,3),ntotv)
+        call copy(pr,prexc(1,3),ntotp)
+        call copy(t(1,1,1,1,1),texc(1,1,3),ntott)
+ 
+        call multirate_copy_recsol !copy 3,4,5 to 0,1,2
+        call multirate_restore_lag
 
         call nekgsync()
         etime0 = dnekclock()
@@ -545,59 +452,18 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
         isav  = 0
         do i=1,msteps
           istep = istep+1
-          if (istep.le.nss_ms) then
-             into = 0
-          elseif (istep.le.2*nss_ms.or.nninto.eq.1) then
-             into = 1
-          elseif (istep.le.3*nss_ms.or.nninto.eq.2) then
-             into = 2
-          else
-             into = 3
-          endif
-          c0 = rcwts(1,i,into)
-          c1 = rcwts(2,i,into)
-          c2 = rcwts(3,i,into)
-          c3 = rcwts(4,i,into)
-          if (ifflow) then
-            do j=1,ldim
-              call add5s4(valint(1,1,1,1,j),vxyzd(1,j,1),vxyzd(1,j,0),
-     $        bdrylg(1,j,1),bdrylg(1,j,2),c0,c1,c2,c3,ntotv) 
-            enddo
-          endif
-          if (ifheat) then
-            call add5s4(valint(1,1,1,1,ldim+2),td(1,1,1),td(1,1,0),
-     $      bdrylg(1,ldim+2,1),bdrylg(1,ldim+2,2),c0,c1,c2,c3,ntott) 
-          endif
           call userchk_dt
-
           igeomo = igeom
           call nek_advance_ms(1,igeomo,igeom-1)
-
-          if (i.ge.msteps-2) then
-            isav = isav+1
-            if (ifflow) then
-              call copy(vxyzsav(1,1,isav),vx,ntotv)
-              call copy(vxyzsav(1,2,isav),vy,ntotv)
-              if (ldim.eq.3) call copy(vxyzsav(1,ldim,isav),vz,ntotv)
-              call copy(prsav(1,isav),pr,ntotp)
-            endif !ifflow
-            if (ifheat) then
-              call copy(tsav(1,1,isav),t(1,1,1,1,1),ntott)
-            endif !ifheat
-          endif
+          if (igeom.eq.ngeom) call multirate_shift_full(1) !update 0,1,2
+          if (igeom.ne.ngeom) call multirate_shift_full(0) !update 0,1,2
         enddo !msteps i.e. substeps
+
         call nekgsync()
         etime1 = dnekclock()
         etime  = etime + etime1-etime0
  
-        if (ifflow) then
-          call neknek_xfer_fld(vx,vxyzd(1,1,1))
-          call neknek_xfer_fld(vy,vxyzd(1,2,1))
-          if (ldim.eq.3) call neknek_xfer_fld(vz,vxyzd(1,ldim,1))
-        endif
-        if (ifheat) then
-          call neknek_xfer_fld(t(1,1,1,1,1),td(1,1,1))
-        endif
+        call neknek_multirate_exchange(0,0) !0 has the most recent guess
       enddo !igeom loop
 
       if (nio.eq.0) write(6,99) istep,
@@ -605,29 +471,9 @@ c       Restor u,v,w,pr,t at t^{n-1} along with lagging arrays
      $              etime
  99   format(i11,a,1p1e13.4)
 
-      call neknek_exchange
-      call bcopy_only
-
-      if (itstepratio.gt.1) then
-        n=0
-        jstart = min(itstepratio-1,2)
-        jend   = jstart-1
-        do j=jstart,jend,-1
-           n=n+1
-           if (ifflow) then
-              do k=1,ldim
-               call neknek_xfer_fld(vxyzsav(1,k,j),vxyzd(1,k,1))
-               if (msteps.eq.1) call copy(bdrylg(1,k,n),
-     $                                   vxyzd(1,k,1),ntotv)
-              enddo 
-           endif !ifflow
-           if (ifheat) then
-                 call neknek_xfer_fld(tsav(1,1,j),td(1,1,1))
-                 if (msteps.eq.1) call copy(bdrylg(1,ldim+2,n),
-     $                                   td(1,1,1),ntott)
-           endif !ifheat
-        enddo !j=itstepratio-1,itstepratio-2,-1
-      endif !itstepratio.gt.1
+      call neknek_multirate_exchange(0,1)
+      call neknek_multirate_exchange(1,2)
+      call neknek_multirate_exchange(2,3)
 
       return
       end
@@ -652,6 +498,12 @@ c-----------------------------------------------------------------------
       call comment
 
  1002 continue
+
+      if (igeomend.eq.2) then
+         call bdr_data_predictor
+      else
+         call bdr_data_corrector
+      endif
 
       if (ifsplit) then   ! PN/PN formulation
 
@@ -744,6 +596,18 @@ C
 C
       DO 100 I=1,N
         A(I)=C1*B(I)+C2*C(I)+C3*D(I)+C4*E(I)
+  100 CONTINUE
+      return
+      END
+C
+c-----------------------------------------------------------------------
+      subroutine add5col4(a,b,c,d,e,c1,c2,c3,c4,n)
+      real a(1),b(1),c(1),d(1),e(1),c1(1),c2(1),c3(1),c4(1)
+C
+      include 'OPCTR'
+C
+      DO 100 I=1,N
+        A(I)=C1(1)*B(I)+C2(1)*C(I)+C3(1)*D(I)+C4(1)*E(I)
   100 CONTINUE
       return
       END
