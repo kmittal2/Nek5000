@@ -46,3 +46,6 @@ c
       real prexc(lx2*ly2*lz2*lelv,0:4)
       real texc(lx1*ly1*lz1*lelt,ldimt,0:4)
       real vptbdr(lx1*ly1*lz1*lelt,nfldmax_nn,0:3)
+
+      real distfint(lx1,ly1,lz1,lelt)
+      common /rfpt_ms/ distfint

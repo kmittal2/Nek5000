@@ -16,9 +16,13 @@ c-----------------------------------------------------------------------
 
       include 'SIZE'
       include 'TOTAL'
+      include 'NEKNEK'
 
       ntot1 = lx1*ly1*lz1*nelt
 c     Initialize unity partition function to 1
+      call cheap_dist(distfint,1,'int')
+      call dsavg(distfint)
+
       call rone(upf,ntot1)
       call col3(bm1ms,bm1,upf,ntot1)
 
@@ -59,6 +63,7 @@ c-------------------------------------------------------------
          if (nid.eq.0) write(6,*) 'session id:', idsess
          if (nid.eq.0) write(6,*) 'extrapolation order:', ninter
          if (nid.eq.0) write(6,*) 'nfld_neknek:', nfld_neknek
+         if (nid.eq.0) write(6,*) 'Multirate nss_ms:',nss_ms
       endif
 
       nfld_min = iglmin_ms(nfld_neknek,1)
@@ -258,6 +263,8 @@ c     Get diamter of the domain
       dx1 = mx_glob-mn_glob
 
       dxf = 10.+dx1
+      dxf = 0.
+      write(6,*) 'ketan forcing dxf=0'
       dyf = 0.
       dzf = 0.
 
@@ -275,11 +282,16 @@ c     Setup findpts
       nzf     = 2*lz1
       bb_t    = 0.01 ! relative size to expand bounding boxes by
 
-      if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
-      call fgslib_findpts_setup(inth_multi2,mpi_comm_world,npall,ldim,
+c     if (istep.gt.1) call fgslib_findpts_free(inth_multi2)
+c     call fgslib_findpts_setup(inth_multi2,mpi_comm_world,npall,ldim,
+c    &                          xm1,ym1,zm1,lx1,ly1,lz1,
+c    &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
+c    &                          npt_max,tol)
+      if (istep.ge.1) call fgslib_findptsms_free(inth_multi2)
+      call fgslib_findptsms_setup(inth_multi2,mpi_comm_world,npall,ldim,
      &                          xm1,ym1,zm1,lx1,ly1,lz1,
      &                          nelt,nxf,nyf,nzf,bb_t,ntot,ntot,
-     &                          npt_max,tol)
+     &                          npt_max,tol,idsess,distfint)
 
       return
       end
@@ -297,6 +309,7 @@ c-----------------------------------------------------------------------
       integer proc_all(nmaxl_nn)
       real    dist_all(nmaxl_nn)
       real    rst_all(nmaxl_nn*ldim)
+      integer isid_nn(nmaxl_nn)
       integer e,ip,iface,nel,nfaces,ix,iy,iz
       integer kx1,kx2,ky1,ky2,kz1,kz2,idx,nxyz,nxy
       integer icalld
@@ -334,6 +347,7 @@ c     points in jsend
                ip=ip+1
                idx = (e-1)*nxyz+(iz-1)*nxy+(iy-1)*lx1+ix
                jsend(ip) = idx 
+               isid_nn(ip) = idsess
                if (if3d) then
                  rsend(ldim*(ip-1)+1)=x-dxf
                  rsend(ldim*(ip-1)+2)=y
@@ -362,14 +376,26 @@ c     points in jsend
       call neknekgsync()
 
 c     JL's routine to find which points these procs are on
-      call fgslib_findpts(inth_multi2,rcode_all,1,
+c     call fgslib_findpts(inth_multi2,rcode_all,1,
+c    &                    proc_all,1,
+c    &                    elid_all,1,
+c    &                    rst_all,ldim,
+c    &                    dist_all,1,
+c    &                    rsend(1),ldim,
+c    &                    rsend(2),ldim,
+c    &                    rsend(3),ldim,nbp)
+      call fgslib_findptsms(inth_multi2,rcode_all,1,
      &                    proc_all,1,
      &                    elid_all,1,
      &                    rst_all,ldim,
      &                    dist_all,1,
      &                    rsend(1),ldim,
      &                    rsend(2),ldim,
-     &                    rsend(3),ldim,nbp)
+     &                    rsend(3),ldim,
+     &                    isid_nn,1,0,
+     &                    nbp)
+      call neknekgsync()
+
 
       call neknekgsync()
 
@@ -484,7 +510,8 @@ c--------------------------------------------------------------------------
       integer fieldstride
 
 c     Used for findpts_eval of various fields
-      call fgslib_findpts_eval(inth_multi2,fieldout,fieldstride,
+c     call fgslib_findpts_eval(inth_multi2,fieldout,fieldstride,
+      call fgslib_findptsms_eval(inth_multi2,fieldout,fieldstride,
      &                         rcode,1,
      &                         proc,1,
      &                         elid,1,
@@ -1331,8 +1358,6 @@ c     first setup weights for each point
         rcadwts(i,2) = dumwts(2)
         rcadwts(i,3) = dumwts(3)
       enddo
-      write(6,*) xv,xvec,'k10inttime'
-      write(6,*) dumwts,'k10intwts'
 
       do i=1,npoints_nn
         c0 = rcadwts(i,1)

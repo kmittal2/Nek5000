@@ -401,8 +401,8 @@ c-----------------------------------------------------------------------
       ntotp = lx2*ly2*lz2*nelv
       ntott = lx1*ly1*lz1*nelt
       
-      call multirate_setup_recsol !setsup 3,4,5 where 3 is most recent
-      call multirate_copy_recsol  !copies 3,4,5 to 0,1,2
+      call multirate_setup_recsol !saves most recent solution
+      call multirate_copy_recsol  !copies 3 to 0
       call multirate_setup_lag    !copies vxlag etc.
 
       if (istep.eq.0.and.ifneknekc) then
